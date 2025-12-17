@@ -45,7 +45,13 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('❌ Failed to initialize Firebase:', error);
+  throw error;
+}
 
 // Initialize Firebase services
 export const auth = getAuth(app);
