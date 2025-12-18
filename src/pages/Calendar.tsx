@@ -7,7 +7,7 @@ import { auth } from '../firebase/firebaseConfig';
 import { useFoodItems } from '../hooks/useFoodItems';
 import { getFoodItemStatus, getStatusColor } from '../utils/statusUtils';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { addDays, startOfDay, endOfDay, format, parse, startOfWeek, getDay } from 'date-fns';
+import { addDays, startOfDay, format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 
 const locales = {
@@ -62,13 +62,27 @@ const Calendar: React.FC = () => {
       const expirationDate = new Date(item.expirationDate);
       const status = getFoodItemStatus(expirationDate, 7); // Using default 7 days for expiring soon
 
+      // Helper function to set time to midnight (00:00:00) for top positioning
+      const setToMidnight = (date: Date): Date => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+      
+      // Helper function to set time to end of day (23:59:59) for proper day spanning
+      const setToEndOfDay = (date: Date): Date => {
+        const d = new Date(date);
+        d.setHours(23, 59, 59, 999);
+        return d;
+      };
+
       if (status === 'expired') {
         // Red: Show on expiration date and continue showing as red for expired items
         // For day view, show on the expiration date (react-big-calendar will filter by date)
         allEvents.push({
           title: item.name,
-          start: startOfDay(expirationDate),
-          end: endOfDay(expirationDate),
+          start: setToMidnight(expirationDate),
+          end: setToEndOfDay(expirationDate),
           resource: {
             itemId: item.id,
             status: 'expired',
@@ -82,8 +96,8 @@ const Calendar: React.FC = () => {
           const threeDaysBefore = addDays(expirationDate, -3);
           allEvents.push({
             title: item.name,
-            start: startOfDay(threeDaysBefore),
-            end: endOfDay(addDays(expirationDate, -1)), // End the day before expiration
+            start: setToMidnight(threeDaysBefore),
+            end: setToEndOfDay(addDays(expirationDate, -1)), // End the day before expiration
             resource: {
               itemId: item.id,
               status: 'expiring_soon',
@@ -94,8 +108,8 @@ const Calendar: React.FC = () => {
           // Red: Show on the expiration date itself
           allEvents.push({
             title: item.name,
-            start: startOfDay(expirationDate),
-            end: endOfDay(expirationDate),
+            start: setToMidnight(expirationDate),
+            end: setToEndOfDay(expirationDate),
             resource: {
               itemId: item.id,
               status: 'expired', // Use expired status for red color on expiration day
@@ -108,8 +122,8 @@ const Calendar: React.FC = () => {
             const dayBefore = addDays(expirationDate, -i);
             allEvents.push({
               title: item.name,
-              start: startOfDay(dayBefore),
-              end: endOfDay(dayBefore),
+              start: setToMidnight(dayBefore),
+              end: setToEndOfDay(dayBefore),
               resource: {
                 itemId: item.id,
                 status: 'expiring_soon',
@@ -121,8 +135,8 @@ const Calendar: React.FC = () => {
           // Red: Show on the expiration date itself
           allEvents.push({
             title: item.name,
-            start: startOfDay(expirationDate),
-            end: endOfDay(expirationDate),
+            start: setToMidnight(expirationDate),
+            end: setToEndOfDay(expirationDate),
             resource: {
               itemId: item.id,
               status: 'expired', // Use expired status for red color on expiration day
@@ -135,8 +149,8 @@ const Calendar: React.FC = () => {
         // Green (fresh): Single day on expiration date
         allEvents.push({
           title: item.name,
-          start: startOfDay(expirationDate),
-          end: endOfDay(expirationDate),
+          start: setToMidnight(expirationDate),
+          end: setToEndOfDay(expirationDate),
           resource: {
             itemId: item.id,
             status: 'fresh',
@@ -148,7 +162,7 @@ const Calendar: React.FC = () => {
     });
 
     return allEvents;
-  }, [foodItems]);
+  }, [foodItems, currentView]);
 
   // Custom event style function
   const eventStyleGetter = (event: CalendarEvent) => {
@@ -169,13 +183,17 @@ const Calendar: React.FC = () => {
     };
 
     // Position events vertically by row index in day/week views
-    // Start from top (0px) and stack downward
+    // Start from top (0px) and stack downward based on expiration proximity
+    // Items closest to expiring (rowIndex 0) appear at the top
     if (currentView === 'day' || currentView === 'week') {
       const rowIndex = event.resource.rowIndex ?? 0;
       const rowHeight = 44; // Height per row in pixels
-      baseStyle.top = `${rowIndex * rowHeight}px`;
-      baseStyle.position = 'absolute';
+      const topPosition = rowIndex * rowHeight;
+      baseStyle.top = `${topPosition}px`;
+      baseStyle.position = 'absolute' as React.CSSProperties['position'];
       baseStyle.bottom = 'auto';
+      // Set CSS variable for additional CSS override support
+      (baseStyle as any)['--rbc-event-top'] = `${topPosition}px`;
     }
 
     return {
@@ -368,6 +386,8 @@ const Calendar: React.FC = () => {
         height: 40px !important;
         margin: 0 !important;
         transform: none !important;
+        /* Force events to use inline style top positioning from eventStyleGetter */
+        top: var(--rbc-event-top, 0) !important;
       }
       /* Override react-big-calendar's default time-based positioning */
       .rbc-time-view .rbc-event-label {
@@ -383,6 +403,11 @@ const Calendar: React.FC = () => {
       }
       .rbc-time-view .rbc-time-gutter {
         display: none !important;
+      }
+      /* Override any time-based positioning from react-big-calendar */
+      .rbc-time-view .rbc-day-slot .rbc-events-container .rbc-event {
+        /* Remove any default top positioning that react-big-calendar might add */
+        top: var(--rbc-event-top, 0) !important;
       }
     `;
     document.head.appendChild(style);
