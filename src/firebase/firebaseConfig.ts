@@ -79,9 +79,20 @@ if (requiredEnvVars.apiKey && !requiredEnvVars.apiKey.startsWith('AIzaSy')) {
 // We intercept console.error to filter out this specific harmless warning
 const originalError = console.error;
 console.error = (...args: unknown[]) => {
-  const errorMessage = String(args.join(' '));
+  // Convert all arguments to string and check for MutationObserver error
+  const errorMessage = args
+    .map(arg => {
+      if (arg instanceof Error) {
+        return arg.message + ' ' + arg.stack;
+      }
+      return String(arg);
+    })
+    .join(' ');
+  
   // Ignore MutationObserver errors from Firebase Auth (harmless internal warning)
-  if (errorMessage.includes("Failed to execute 'observe' on 'MutationObserver'")) {
+  if (errorMessage.includes("MutationObserver") && 
+      (errorMessage.includes("parameter 1 is not of type 'Node'") ||
+       errorMessage.includes("Failed to execute 'observe'"))) {
     // Silently ignore - this is a harmless Firebase Auth internal warning
     return;
   }
