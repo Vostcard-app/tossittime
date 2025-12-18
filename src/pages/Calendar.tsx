@@ -40,38 +40,60 @@ const Calendar: React.FC = () => {
   const events = useMemo<CalendarEvent[]>(() => {
     if (!foodItems.length) return [];
 
-    return foodItems.map((item) => {
+    const allEvents: CalendarEvent[] = [];
+
+    foodItems.forEach((item) => {
       const expirationDate = new Date(item.expirationDate);
       const status = getFoodItemStatus(expirationDate, 7); // Using default 7 days for expiring soon
 
-      let startDate: Date;
-      let endDate: Date;
-
-      // Calculate start and end dates based on status
       if (status === 'expired') {
-        // Red: Span from expiration date onwards (to current date or far future)
-        startDate = startOfDay(expirationDate);
-        endDate = endOfDay(new Date()); // Current date
+        // Red: Show only on the expiration date itself
+        allEvents.push({
+          title: item.name,
+          start: startOfDay(expirationDate),
+          end: endOfDay(expirationDate),
+          resource: {
+            itemId: item.id,
+            status: 'expired',
+          },
+        } as CalendarEvent);
       } else if (status === 'expiring_soon') {
-        // Yellow: Span 3 days before expiration to expiration date (4 days total)
-        startDate = startOfDay(addDays(expirationDate, -3));
-        endDate = endOfDay(expirationDate);
+        // Yellow: Show for the 3 days leading up to expiration (days -3, -2, -1)
+        allEvents.push({
+          title: item.name,
+          start: startOfDay(addDays(expirationDate, -3)),
+          end: endOfDay(addDays(expirationDate, -1)), // End the day before expiration
+          resource: {
+            itemId: item.id,
+            status: 'expiring_soon',
+          },
+        } as CalendarEvent);
+        
+        // Red: Show on the expiration date itself
+        allEvents.push({
+          title: item.name,
+          start: startOfDay(expirationDate),
+          end: endOfDay(expirationDate),
+          resource: {
+            itemId: item.id,
+            status: 'expired', // Use expired status for red color on expiration day
+          },
+        } as CalendarEvent);
       } else {
         // Green (fresh): Single day on expiration date
-        startDate = startOfDay(expirationDate);
-        endDate = endOfDay(expirationDate);
+        allEvents.push({
+          title: item.name,
+          start: startOfDay(expirationDate),
+          end: endOfDay(expirationDate),
+          resource: {
+            itemId: item.id,
+            status: 'fresh',
+          },
+        } as CalendarEvent);
       }
-
-      return {
-        title: item.name,
-        start: startDate,
-        end: endDate,
-        resource: {
-          itemId: item.id,
-          status: status,
-        },
-      } as CalendarEvent;
     });
+
+    return allEvents;
   }, [foodItems]);
 
   // Custom event style function
@@ -185,11 +207,12 @@ const Calendar: React.FC = () => {
     return <div style={{ padding: '2px 4px' }}>{event.title}</div>;
   };
 
-  // Add custom CSS for month view
+  // Add custom CSS for month view and day view
   useEffect(() => {
     const style = document.createElement('style');
-    style.id = 'calendar-month-dots-style';
+    style.id = 'calendar-custom-styles';
     style.textContent = `
+      /* Month view styles */
       .rbc-month-view .rbc-event {
         border: none !important;
         background: transparent !important;
@@ -213,10 +236,46 @@ const Calendar: React.FC = () => {
         align-items: center;
         padding-top: 2px;
       }
+      
+      /* Day view styles - remove time column and make events full-width */
+      .rbc-time-view .rbc-time-header {
+        display: none !important;
+      }
+      .rbc-time-view .rbc-time-content {
+        border-left: none !important;
+      }
+      .rbc-time-view .rbc-time-header-content {
+        display: none !important;
+      }
+      .rbc-time-view .rbc-time-slot {
+        display: none !important;
+      }
+      .rbc-time-view .rbc-day-slot {
+        min-height: 0 !important;
+      }
+      .rbc-time-view .rbc-events-container {
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
+      .rbc-time-view .rbc-event {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+      .rbc-time-view .rbc-event-content {
+        width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
     `;
     document.head.appendChild(style);
     return () => {
-      const existingStyle = document.getElementById('calendar-month-dots-style');
+      const existingStyle = document.getElementById('calendar-custom-styles');
       if (existingStyle) {
         document.head.removeChild(existingStyle);
       }
