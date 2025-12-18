@@ -5,6 +5,7 @@ import { auth } from '../firebase/firebaseConfig';
 import { useFoodItems } from '../hooks/useFoodItems';
 import { foodItemService } from '../services/firebaseService';
 import FoodItemCard from '../components/FoodItemCard';
+import HamburgerMenu from '../components/HamburgerMenu';
 
 type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
 
@@ -12,6 +13,7 @@ const Dashboard: React.FC = () => {
   const [user] = useAuthState(auth);
   const { foodItems, loading } = useFoodItems(user || null);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const filteredItems = useMemo(() => {
@@ -48,27 +50,75 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: '700', color: '#1f2937' }}>
-          My Food Items
-        </h1>
-        <button
-          onClick={() => navigate('/add')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#002B4D',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: '500',
-            cursor: 'pointer'
-          }}
-        >
-          + Add Item
-        </button>
+    <>
+      {/* Banner Header */}
+      <div style={{
+        backgroundColor: '#002B4D',
+        color: '#ffffff',
+        padding: '1rem',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
+            My Food Items
+          </h1>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              onClick={() => navigate('/add')}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                minHeight: '44px', // Touch target size for mobile
+                minWidth: '44px'
+              }}
+            >
+              + Add Item
+            </button>
+            <button
+              onClick={() => setMenuOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                padding: '0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '44px', // Touch target size for mobile
+                height: '44px',
+                minWidth: '44px',
+                minHeight: '44px',
+                borderRadius: '4px',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              aria-label="Open menu"
+            >
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {(['all', 'fresh', 'expiring_soon', 'expired'] as FilterType[]).map((filterType) => (
@@ -131,7 +181,11 @@ const Dashboard: React.FC = () => {
           ))}
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+    </>
   );
 };
 

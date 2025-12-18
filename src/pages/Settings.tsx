@@ -116,27 +116,53 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
-      <button
-        onClick={() => navigate('/')}
-        style={{
-          padding: '0.5rem 1rem',
-          backgroundColor: 'transparent',
-          color: '#002B4D',
-          border: '1px solid #002B4D',
-          borderRadius: '6px',
-          fontSize: '0.875rem',
-          fontWeight: '500',
-          cursor: 'pointer',
-          marginBottom: '1.5rem'
-        }}
-      >
-        ← Back to Dashboard
-      </button>
+    <>
+      {/* Banner Header */}
+      <div style={{
+        backgroundColor: '#002B4D',
+        color: '#ffffff',
+        padding: '1rem',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#ffffff',
+              cursor: 'pointer',
+              padding: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '44px', // Touch target size for mobile
+              height: '44px',
+              minWidth: '44px',
+              minHeight: '44px',
+              borderRadius: '4px',
+              transition: 'background-color 0.2s',
+              fontSize: '1.5rem',
+              lineHeight: 1
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            aria-label="Go to home"
+          >
+            ⌂
+          </button>
+          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff', flex: 1 }}>
+            Settings
+          </h1>
+        </div>
+      </div>
 
-      <h1 style={{ margin: '0 0 1.5rem 0', fontSize: '1.875rem', fontWeight: '700', color: '#1f2937' }}>
-        Settings
-      </h1>
+      {/* Main Content */}
+      <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '2rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
         <div style={{ marginBottom: '2rem' }}>
@@ -253,7 +279,8 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
