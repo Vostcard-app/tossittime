@@ -128,11 +128,13 @@ const Calendar: React.FC = () => {
     };
 
     // Position events vertically by row index in day/week views
+    // Start from top (0px) and stack downward
     if (currentView === 'day' || currentView === 'week') {
       const rowIndex = event.resource.rowIndex ?? 0;
       const rowHeight = 44; // Height per row in pixels
       baseStyle.top = `${rowIndex * rowHeight}px`;
       baseStyle.position = 'absolute';
+      baseStyle.bottom = 'auto';
     }
 
     return {
@@ -308,10 +310,13 @@ const Calendar: React.FC = () => {
       .rbc-time-view .rbc-day-slot {
         position: relative;
         min-height: auto !important;
+        padding-top: 0 !important;
       }
       .rbc-time-view .rbc-events-container {
         position: relative !important;
         min-height: 200px !important;
+        padding-top: 0 !important;
+        top: 0 !important;
       }
       .rbc-time-view .rbc-event {
         position: absolute !important;
@@ -320,6 +325,15 @@ const Calendar: React.FC = () => {
         width: 100% !important;
         height: 40px !important;
         margin: 0 !important;
+        transform: none !important;
+      }
+      /* Override react-big-calendar's default time-based positioning */
+      .rbc-time-view .rbc-event-label {
+        display: none !important;
+      }
+      /* Reset any default top positioning from react-big-calendar */
+      .rbc-time-view .rbc-time-content {
+        padding-top: 0 !important;
       }
     `;
     document.head.appendChild(style);
