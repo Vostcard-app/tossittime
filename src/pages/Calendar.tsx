@@ -42,14 +42,29 @@ const Calendar: React.FC = () => {
     if (!foodItems.length) return [];
 
     const allEvents: CalendarEvent[] = [];
+    
+    // Sort items by how close they are to expiring (soonest first) for proper row ordering
+    // Items expiring today should be at the top, then tomorrow, etc.
+    const today = startOfDay(new Date());
+    const sortedItems = [...foodItems].sort((a, b) => {
+      const dateA = new Date(a.expirationDate);
+      const dateB = new Date(b.expirationDate);
+      const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      // Sort by days until expiration (negative = expired, 0 = today, positive = future)
+      // Closest to expiring (smallest number) should be first
+      return daysUntilA - daysUntilB;
+    });
+
     let rowIndex = 0;
 
-    foodItems.forEach((item) => {
+    sortedItems.forEach((item) => {
       const expirationDate = new Date(item.expirationDate);
       const status = getFoodItemStatus(expirationDate, 7); // Using default 7 days for expiring soon
 
       if (status === 'expired') {
-        // Red: Show only on the expiration date itself
+        // Red: Show on expiration date and continue showing as red for expired items
+        // For day view, show on the expiration date (react-big-calendar will filter by date)
         allEvents.push({
           title: item.name,
           start: startOfDay(expirationDate),
@@ -63,7 +78,7 @@ const Calendar: React.FC = () => {
         rowIndex++;
       } else if (status === 'expiring_soon') {
         // Yellow: Create individual events for each of the 3 days leading up to expiration
-        // This ensures they show correctly in day view
+        // This works for both week and day views
         for (let i = 3; i >= 1; i--) {
           const dayBefore = addDays(expirationDate, -i);
           allEvents.push({
