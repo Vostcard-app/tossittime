@@ -237,7 +237,7 @@ const Calendar: React.FC = () => {
         padding-top: 2px;
       }
       
-      /* Day view styles - remove time column and make events full-width */
+      /* Day and Week view styles - remove time column and make events full-width */
       .rbc-time-view .rbc-time-header {
         display: none !important;
       }
@@ -271,6 +271,14 @@ const Calendar: React.FC = () => {
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
+      }
+      
+      /* Additional week view specific adjustments */
+      .rbc-time-view.rbc-week-view .rbc-time-content {
+        margin-left: 0 !important;
+      }
+      .rbc-time-view.rbc-week-view .rbc-day-slot {
+        width: 100% !important;
       }
     `;
     document.head.appendChild(style);
