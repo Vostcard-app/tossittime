@@ -77,33 +77,59 @@ const Calendar: React.FC = () => {
         } as CalendarEvent);
         rowIndex++;
       } else if (status === 'expiring_soon') {
-        // Yellow: Create individual events for each of the 3 days leading up to expiration
-        // This works for both week and day views
-        for (let i = 3; i >= 1; i--) {
-          const dayBefore = addDays(expirationDate, -i);
+        if (currentView === 'week') {
+          // Week view: Create a single spanning yellow event for 3 days before expiration
+          const threeDaysBefore = addDays(expirationDate, -3);
           allEvents.push({
             title: item.name,
-            start: startOfDay(dayBefore),
-            end: endOfDay(dayBefore),
+            start: startOfDay(threeDaysBefore),
+            end: endOfDay(addDays(expirationDate, -1)), // End the day before expiration
             resource: {
               itemId: item.id,
               status: 'expiring_soon',
               rowIndex: rowIndex,
             },
           } as CalendarEvent);
+          
+          // Red: Show on the expiration date itself
+          allEvents.push({
+            title: item.name,
+            start: startOfDay(expirationDate),
+            end: endOfDay(expirationDate),
+            resource: {
+              itemId: item.id,
+              status: 'expired', // Use expired status for red color on expiration day
+              rowIndex: rowIndex,
+            },
+          } as CalendarEvent);
+        } else {
+          // Day/month view: Create individual events for each day
+          for (let i = 3; i >= 1; i--) {
+            const dayBefore = addDays(expirationDate, -i);
+            allEvents.push({
+              title: item.name,
+              start: startOfDay(dayBefore),
+              end: endOfDay(dayBefore),
+              resource: {
+                itemId: item.id,
+                status: 'expiring_soon',
+                rowIndex: rowIndex,
+              },
+            } as CalendarEvent);
+          }
+          
+          // Red: Show on the expiration date itself
+          allEvents.push({
+            title: item.name,
+            start: startOfDay(expirationDate),
+            end: endOfDay(expirationDate),
+            resource: {
+              itemId: item.id,
+              status: 'expired', // Use expired status for red color on expiration day
+              rowIndex: rowIndex,
+            },
+          } as CalendarEvent);
         }
-        
-        // Red: Show on the expiration date itself
-        allEvents.push({
-          title: item.name,
-          start: startOfDay(expirationDate),
-          end: endOfDay(expirationDate),
-          resource: {
-            itemId: item.id,
-            status: 'expired', // Use expired status for red color on expiration day
-            rowIndex: rowIndex,
-          },
-        } as CalendarEvent);
         rowIndex++;
       } else {
         // Green (fresh): Single day on expiration date
@@ -332,6 +358,7 @@ const Calendar: React.FC = () => {
         min-height: 200px !important;
         padding-top: 0 !important;
         top: 0 !important;
+        align-items: flex-start !important;
       }
       .rbc-time-view .rbc-event {
         position: absolute !important;
@@ -349,6 +376,13 @@ const Calendar: React.FC = () => {
       /* Reset any default top positioning from react-big-calendar */
       .rbc-time-view .rbc-time-content {
         padding-top: 0 !important;
+      }
+      /* Ensure events start from the very top */
+      .rbc-time-view .rbc-time-slot {
+        padding-top: 0 !important;
+      }
+      .rbc-time-view .rbc-time-gutter {
+        display: none !important;
       }
     `;
     document.head.appendChild(style);
