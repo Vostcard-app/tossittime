@@ -27,6 +27,7 @@ interface CalendarEvent extends Event {
     itemId: string;
     status: 'fresh' | 'expiring_soon' | 'expired';
     rowIndex?: number; // For vertical stacking in day/week views
+    isAdjacentToYellow?: boolean; // Flag for red expiration day adjacent to yellow span
   };
 }
 
@@ -105,15 +106,16 @@ const Calendar: React.FC = () => {
             },
           } as CalendarEvent);
           
-          // Red: Show on the expiration date itself
+          // Red: Show on the expiration date itself (no title - adjacent to yellow span)
           allEvents.push({
-            title: item.name,
+            title: '', // Empty title since it's adjacent to yellow span
             start: setToMidnight(expirationDate),
             end: setToEndOfDay(expirationDate),
             resource: {
               itemId: item.id,
               status: 'expired', // Use expired status for red color on expiration day
               rowIndex: rowIndex,
+              isAdjacentToYellow: true, // Flag to indicate this is adjacent to yellow span
             },
           } as CalendarEvent);
         } else {
@@ -189,11 +191,15 @@ const Calendar: React.FC = () => {
       const rowIndex = event.resource.rowIndex ?? 0;
       const rowHeight = 44; // Height per row in pixels
       const topPosition = rowIndex * rowHeight;
+      // Force top position - this must override react-big-calendar's time-based positioning
       baseStyle.top = `${topPosition}px`;
       baseStyle.position = 'absolute' as React.CSSProperties['position'];
       baseStyle.bottom = 'auto';
+      baseStyle.marginTop = '0px';
       // Set CSS variable for additional CSS override support
       (baseStyle as any)['--rbc-event-top'] = `${topPosition}px`;
+      // Ensure z-index so events appear above grid lines
+      baseStyle.zIndex = 1;
     }
 
     return {
@@ -287,7 +293,10 @@ const Calendar: React.FC = () => {
       );
     }
     
-    // Week view: just show title
+    // Week view: show title only if not empty (red expiration day adjacent to yellow has empty title)
+    if (event.resource.isAdjacentToYellow) {
+      return <div style={{ padding: '2px 4px' }}></div>; // Empty div for red expiration day
+    }
     return <div style={{ padding: '2px 4px' }}>{event.title}</div>;
   };
 
@@ -377,6 +386,7 @@ const Calendar: React.FC = () => {
         padding-top: 0 !important;
         top: 0 !important;
         align-items: flex-start !important;
+        margin-top: 0 !important;
       }
       .rbc-time-view .rbc-event {
         position: absolute !important;
@@ -385,9 +395,39 @@ const Calendar: React.FC = () => {
         width: 100% !important;
         height: 40px !important;
         margin: 0 !important;
+        margin-top: 0 !important;
         transform: none !important;
         /* Force events to use inline style top positioning from eventStyleGetter */
+        /* Override any time-based positioning from react-big-calendar */
         top: var(--rbc-event-top, 0) !important;
+      }
+      /* Override react-big-calendar's time-based top calculation - more specific selectors */
+      .rbc-time-view .rbc-day-slot .rbc-events-container .rbc-event {
+        top: var(--rbc-event-top, 0) !important;
+        margin-top: 0 !important;
+      }
+      /* Force all events to start from top, ignoring time-based calculations */
+      .rbc-time-view .rbc-time-content .rbc-day-slot .rbc-events-container {
+        top: 0 !important;
+        padding-top: 0 !important;
+      }
+      /* Completely override react-big-calendar's time-based positioning */
+      /* Use attribute selector to target events with our CSS variable */
+      .rbc-time-view .rbc-event[style*="--rbc-event-top"] {
+        /* Our inline style should take precedence */
+      }
+      /* Force events container to start at top of day slot */
+      .rbc-time-view .rbc-day-slot .rbc-events-container {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: auto !important;
+      }
+      /* Make sure day slots don't have excessive height pushing events down */
+      .rbc-time-view .rbc-day-slot {
+        height: auto !important;
+        min-height: 200px !important;
       }
       /* Override react-big-calendar's default time-based positioning */
       .rbc-time-view .rbc-event-label {
