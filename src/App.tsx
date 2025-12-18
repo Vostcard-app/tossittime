@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import AddItem from './pages/AddItem';
 import ItemDetail from './pages/ItemDetail';
 import Settings from './pages/Settings';
+import Calendar from './pages/Calendar';
 import Login from './pages/Login';
 import { notificationService } from './services/notificationService';
 import { useFoodItems } from './hooks/useFoodItems';
@@ -74,6 +75,7 @@ function App() {
                   <Route path="/add" element={<AddItem />} />
                   <Route path="/item/:id" element={<ItemDetail />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/calendar" element={<Calendar />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

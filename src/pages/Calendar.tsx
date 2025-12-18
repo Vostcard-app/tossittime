@@ -1,0 +1,312 @@
+import React, { useMemo, useState, useEffect } from 'react';
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import type { View, Event } from 'react-big-calendar';
+import { useNavigate } from 'react-router-dom';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '../firebase/firebaseConfig';
+import { useFoodItems } from '../hooks/useFoodItems';
+import { getFoodItemStatus, getStatusColor } from '../utils/statusUtils';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { addDays, startOfDay, endOfDay, format, parse, startOfWeek, getDay } from 'date-fns';
+import { enUS } from 'date-fns/locale/en-US';
+
+const locales = {
+  'en-US': enUS,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
+
+interface CalendarEvent extends Event {
+  resource: {
+    itemId: string;
+    status: 'fresh' | 'expiring_soon' | 'expired';
+  };
+}
+
+const Calendar: React.FC = () => {
+  const [user] = useAuthState(auth);
+  const { foodItems, loading } = useFoodItems(user || null);
+  const navigate = useNavigate();
+  const [currentView, setCurrentView] = useState<View>('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Convert food items to calendar events
+  const events = useMemo<CalendarEvent[]>(() => {
+    if (!foodItems.length) return [];
+
+    return foodItems.map((item) => {
+      const expirationDate = new Date(item.expirationDate);
+      const status = getFoodItemStatus(expirationDate, 7); // Using default 7 days for expiring soon
+
+      let startDate: Date;
+      let endDate: Date;
+
+      // Calculate start and end dates based on status
+      if (status === 'expired') {
+        // Red: Span from expiration date onwards (to current date or far future)
+        startDate = startOfDay(expirationDate);
+        endDate = endOfDay(new Date()); // Current date
+      } else if (status === 'expiring_soon') {
+        // Yellow: Span 3 days before expiration to expiration date (4 days total)
+        startDate = startOfDay(addDays(expirationDate, -3));
+        endDate = endOfDay(expirationDate);
+      } else {
+        // Green (fresh): Single day on expiration date
+        startDate = startOfDay(expirationDate);
+        endDate = endOfDay(expirationDate);
+      }
+
+      return {
+        title: item.name,
+        start: startDate,
+        end: endDate,
+        resource: {
+          itemId: item.id,
+          status: status,
+        },
+      } as CalendarEvent;
+    });
+  }, [foodItems]);
+
+  // Custom event style function
+  const eventStyleGetter = (event: CalendarEvent) => {
+    const color = getStatusColor(event.resource.status);
+    const backgroundColor = color;
+    const borderColor = color;
+    const textColor = '#ffffff'; // White text for readability
+
+    return {
+      style: {
+        backgroundColor,
+        borderColor,
+        color: textColor,
+        border: `1px solid ${borderColor}`,
+        borderRadius: '4px',
+        padding: '2px 4px',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+      },
+    };
+  };
+
+  // Handle event click - navigate to item detail
+  const handleSelectEvent = (event: CalendarEvent) => {
+    navigate(`/item/${event.resource.itemId}`);
+  };
+
+  // Handle date click in month view - switch to day view
+  const handleSelectSlot = ({ start }: { start: Date }) => {
+    if (currentView === 'month') {
+      setCurrentDate(start);
+      setCurrentView('day');
+    }
+  };
+
+  // Custom day cell renderer for month view (to show dots)
+  const dayPropGetter = (date: Date) => {
+    // Check if any event spans this date
+    const dayEvents = events.filter((event) => {
+      if (!event.start || !event.end) return false;
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+      const checkDate = new Date(date);
+      
+      return checkDate >= eventStart && checkDate <= eventEnd;
+    });
+
+    if (dayEvents.length === 0) {
+      return {};
+    }
+
+    // Get unique statuses for this day
+    const statuses = new Set(dayEvents.map((e) => e.resource.status));
+    const hasFresh = statuses.has('fresh');
+    const hasExpiring = statuses.has('expiring_soon');
+    const hasExpired = statuses.has('expired');
+
+    // Store status info in data attributes for CSS
+    const statusClasses = [];
+    if (hasFresh) statusClasses.push('has-fresh');
+    if (hasExpiring) statusClasses.push('has-expiring');
+    if (hasExpired) statusClasses.push('has-expired');
+
+    return {
+      className: `calendar-day-with-events ${statusClasses.join(' ')}`,
+    };
+  };
+
+  // Custom event component
+  const EventComponent = ({ event }: { event: CalendarEvent }) => {
+    if (currentView === 'month') {
+      // In month view, show as a small colored dot
+      const color = getStatusColor(event.resource.status);
+      return (
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: color,
+            margin: '0 auto',
+            cursor: 'pointer',
+          }}
+          title={event.title as string}
+        />
+      );
+    }
+    
+    // In week/day view, show full event with title
+    // For day view, also show expiration date
+    if (currentView === 'day') {
+      // Find the original item to get expiration date
+      const item = foodItems.find((i) => i.id === event.resource.itemId);
+      const expirationDate = item ? new Date(item.expirationDate) : null;
+      const formattedDate = expirationDate ? format(expirationDate, 'MMM d, yyyy') : '';
+      
+      return (
+        <div style={{ padding: '2px 4px', fontSize: '0.875rem' }}>
+          <div style={{ fontWeight: '500' }}>{event.title}</div>
+          {formattedDate && (
+            <div style={{ fontSize: '0.75rem', opacity: 0.9, marginTop: '2px' }}>
+              Expires: {formattedDate}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Week view: just show title
+    return <div style={{ padding: '2px 4px' }}>{event.title}</div>;
+  };
+
+  // Add custom CSS for month view
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'calendar-month-dots-style';
+    style.textContent = `
+      .rbc-month-view .rbc-event {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .rbc-month-view .rbc-event-content {
+        padding: 0 !important;
+      }
+      .rbc-month-view .rbc-day-slot .rbc-events-container {
+        margin: 0 !important;
+        display: flex;
+        flex-direction: row;
+        gap: 2px;
+        justify-content: center;
+        align-items: center;
+        padding-top: 2px;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      const existingStyle = document.getElementById('calendar-month-dots-style');
+      if (existingStyle) {
+        document.head.removeChild(existingStyle);
+      }
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p>Loading calendar...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p>Please log in to view the calendar.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <h1 style={{ margin: '0 0 1.5rem 0', fontSize: '1.875rem', fontWeight: '700', color: '#1f2937' }}>
+        Calendar
+      </h1>
+
+      <div style={{ height: '600px', backgroundColor: '#ffffff', borderRadius: '8px', padding: '1rem' }}>
+        <BigCalendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: '100%' }}
+          view={currentView}
+          onView={setCurrentView}
+          date={currentDate}
+          onNavigate={setCurrentDate}
+          onSelectEvent={handleSelectEvent}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          eventPropGetter={eventStyleGetter}
+          dayPropGetter={dayPropGetter}
+          components={{
+            event: EventComponent,
+          }}
+          views={['month', 'week', 'day']}
+          defaultView="month"
+        />
+      </div>
+
+      {/* Legend */}
+      <div style={{ marginTop: '1rem', display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#22c55e',
+            }}
+          />
+          <span style={{ fontSize: '0.875rem' }}>Fresh</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#f59e0b',
+            }}
+          />
+          <span style={{ fontSize: '0.875rem' }}>Expiring Soon</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#ef4444',
+            }}
+          />
+          <span style={{ fontSize: '0.875rem' }}>Expired</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Calendar;

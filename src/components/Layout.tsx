@@ -56,6 +56,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 Add Item
               </Link>
               <Link
+                to="/calendar"
+                style={{
+                  textDecoration: 'none',
+                  color: isActive('/calendar') ? '#ffffff' : 'rgba(255, 255, 255, 0.8)',
+                  fontWeight: isActive('/calendar') ? '600' : '400',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  backgroundColor: isActive('/calendar') ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                }}
+              >
+                Calendar
+              </Link>
+              <Link
                 to="/settings"
                 style={{
                   textDecoration: 'none',
