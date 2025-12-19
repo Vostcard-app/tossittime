@@ -47,24 +47,6 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete })
     setIsDragging(true);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const diff = e.clientX - startX;
-    if (diff > 0) {
-      setTranslateX(Math.min(diff, SWIPE_THRESHOLD * 2));
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    if (translateX >= SWIPE_THRESHOLD) {
-      onDelete();
-      setTranslateX(0);
-    } else {
-      setTranslateX(0);
-    }
-  };
-
   // Add global mouse move/up listeners when dragging
   useEffect(() => {
     if (isDragging) {
