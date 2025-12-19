@@ -2,42 +2,120 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { shoppingListService } from '../services/firebaseService';
-import type { ShoppingListItem } from '../types';
+import { shoppingListService, shoppingListsService, userSettingsService } from '../services/firebaseService';
+import type { ShoppingListItem, ShoppingList } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
 
 const Shop: React.FC = () => {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
+  const [newListName, setNewListName] = useState('');
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Load shopping lists and set default/selected list
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const unsubscribe = shoppingListService.subscribeToShoppingList(user.uid, (items) => {
+    const loadListsAndSetDefault = async () => {
+      try {
+        // Subscribe to shopping lists
+        const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists) => {
+          setShoppingLists(lists);
+          
+          // If no list is selected yet, set default
+          if (!selectedListId && lists.length > 0) {
+            // Try to restore last used list from settings
+            userSettingsService.getUserSettings(user.uid).then(settings => {
+              if (settings?.lastUsedShoppingListId) {
+                const lastUsedList = lists.find(l => l.id === settings.lastUsedShoppingListId);
+                if (lastUsedList) {
+                  setSelectedListId(lastUsedList.id);
+                  return;
+                }
+              }
+              
+              // Use default list or first list
+              const defaultList = lists.find(l => l.isDefault) || lists[0];
+              if (defaultList) {
+                setSelectedListId(defaultList.id);
+              } else {
+                // Create default "shop list" if no lists exist
+                shoppingListsService.getDefaultShoppingList(user.uid).then(listId => {
+                  setSelectedListId(listId);
+                });
+              }
+            });
+          }
+        });
+
+        return () => unsubscribeLists();
+      } catch (error) {
+        console.error('Error loading shopping lists:', error);
+        setLoading(false);
+      }
+    };
+
+    loadListsAndSetDefault();
+  }, [user, selectedListId]);
+
+  // Subscribe to shopping list items for selected list
+  useEffect(() => {
+    if (!user || !selectedListId) {
+      setShoppingListItems([]);
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = shoppingListService.subscribeToShoppingList(user.uid, selectedListId, (items) => {
       setShoppingListItems(items);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, selectedListId]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newItemName.trim()) return;
+    if (!user || !newItemName.trim() || !selectedListId) return;
 
     try {
-      await shoppingListService.addShoppingListItem(user.uid, newItemName.trim());
+      await shoppingListService.addShoppingListItem(user.uid, selectedListId, newItemName.trim());
       setNewItemName('');
     } catch (error) {
       console.error('Error adding item to shopping list:', error);
       alert('Failed to add item. Please try again.');
+    }
+  };
+
+  const handleAddList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newListName.trim()) return;
+
+    try {
+      const listId = await shoppingListsService.createShoppingList(user.uid, newListName.trim(), false);
+      setSelectedListId(listId);
+      setNewListName('');
+      // Save as last used
+      await userSettingsService.setLastUsedShoppingList(user.uid, listId);
+    } catch (error) {
+      console.error('Error creating shopping list:', error);
+      alert('Failed to create list. Please try again.');
+    }
+  };
+
+  const handleListChange = async (listId: string) => {
+    setSelectedListId(listId);
+    // Save as last used
+    if (user) {
+      await userSettingsService.setLastUsedShoppingList(user.uid, listId);
     }
   };
 
@@ -186,7 +264,7 @@ const Shop: React.FC = () => {
         <div style={{ 
           marginBottom: '1.5rem'
         }}>
-          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
+          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input
               type="text"
               value={newItemName}
@@ -219,6 +297,63 @@ const Shop: React.FC = () => {
               Add Item
             </button>
           </form>
+
+          {/* List Selector and Add List */}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select
+              value={selectedListId || ''}
+              onChange={(e) => handleListChange(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                outline: 'none',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer'
+              }}
+            >
+              {shoppingLists.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                </option>
+              ))}
+            </select>
+            <form onSubmit={handleAddList} style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+              <input
+                type="text"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="New list name"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#002B4D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minHeight: '44px',
+                  minWidth: '100px'
+                }}
+              >
+                Add List
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* Shopping List Items */}

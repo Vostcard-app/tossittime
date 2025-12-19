@@ -16,7 +16,7 @@ import {
 import type { DocumentData } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
-import type { FoodItem, FoodItemData, UserSettings, ShoppingListItem } from '../types';
+import type { FoodItem, FoodItemData, UserSettings, ShoppingListItem, ShoppingList } from '../types';
 
 // Food Items Service
 export const foodItemService = {
@@ -157,11 +157,13 @@ export const shoppingListService = {
   // Subscribe to shopping list changes
   subscribeToShoppingList(
     userId: string,
+    listId: string,
     callback: (items: ShoppingListItem[]) => void
   ): () => void {
     const q = query(
       collection(db, 'shoppingList'),
       where('userId', '==', userId),
+      where('listId', '==', listId),
       orderBy('createdAt', 'desc')
     );
 
@@ -200,12 +202,13 @@ export const shoppingListService = {
   },
 
   // Add item to shopping list
-  async addShoppingListItem(userId: string, name: string): Promise<string> {
-    const cleanData: any = {
-      userId,
-      name,
-      createdAt: Timestamp.now()
-    };
+      async addShoppingListItem(userId: string, listId: string, name: string): Promise<string> {
+        const cleanData: any = {
+          userId,
+          listId,
+          name,
+          createdAt: Timestamp.now()
+        };
     
     const docRef = await addDoc(collection(db, 'shoppingList'), cleanData);
     return docRef.id;
