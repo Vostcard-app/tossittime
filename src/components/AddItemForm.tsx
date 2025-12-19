@@ -1,26 +1,42 @@
-import React, { useState, useRef } from 'react';
-import type { FoodItemData } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import type { FoodItemData, FoodItem } from '../types';
 
 interface AddItemFormProps {
   onSubmit: (data: FoodItemData, photoFile?: File) => Promise<void>;
   onCancel?: () => void;
   initialBarcode?: string;
   onScanBarcode?: () => void;
+  initialItem?: FoodItem | null;
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel }) => {
   const [formData, setFormData] = useState<FoodItemData>({
-    name: '',
-    barcode: initialBarcode || '',
-    expirationDate: new Date(),
-    quantity: 1,
-    category: '',
-    notes: ''
+    name: initialItem?.name || '',
+    barcode: initialBarcode || initialItem?.barcode || '',
+    expirationDate: initialItem?.expirationDate ? new Date(initialItem.expirationDate) : new Date(),
+    quantity: initialItem?.quantity || 1,
+    category: initialItem?.category || '',
+    notes: initialItem?.notes || ''
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialItem?.photoUrl || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update form data when initialItem changes
+  useEffect(() => {
+    if (initialItem) {
+      setFormData({
+        name: initialItem.name,
+        barcode: initialItem.barcode || '',
+        expirationDate: new Date(initialItem.expirationDate),
+        quantity: initialItem.quantity || 1,
+        category: initialItem.category || '',
+        notes: initialItem.notes || ''
+      });
+      setPhotoPreview(initialItem.photoUrl || null);
+    }
+  }, [initialItem]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -65,19 +81,21 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       };
       await onSubmit(dataToSubmit, photoFile || undefined);
       
-      // Reset form
-      setFormData({
-        name: '',
-        barcode: '',
-        expirationDate: new Date(),
-        quantity: 1,
-        category: '',
-        notes: ''
-      });
-      setPhotoFile(null);
-      setPhotoPreview(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      // Reset form only if not editing
+      if (!initialItem) {
+        setFormData({
+          name: '',
+          barcode: '',
+          expirationDate: new Date(),
+          quantity: 1,
+          category: '',
+          notes: ''
+        });
+        setPhotoFile(null);
+        setPhotoPreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -89,6 +107,27 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
+      {/* Cancel button at top */}
+      {onCancel && (
+        <div style={{ marginBottom: '1rem' }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#002B4D',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              padding: '0.5rem 0'
+            }}
+          >
+            ← Back
+          </button>
+        </div>
+      )}
+      
       {/* 1. Item Name Field */}
       <div style={{ marginBottom: '1.5rem' }}>
         <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
