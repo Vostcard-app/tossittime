@@ -380,8 +380,24 @@ const Calendar: React.FC = () => {
       const expirationDate = new Date(item.expirationDate);
       const expirationDay = startOfDay(expirationDate);
       // Only show items that haven't expired yet (expiration date is today or in the future)
-      return expirationDay >= today;
+      const isNotExpired = expirationDay >= today;
+      if (!isNotExpired) {
+        console.log(`🔴 Filtered out expired item: ${item.name}, expiration: ${expirationDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
+      }
+      return isNotExpired;
     });
+
+    // Debug: Log all items and their statuses
+    console.log('📋 All food items:', foodItems.map(item => ({
+      name: item.name,
+      expirationDate: item.expirationDate,
+      status: getFoodItemStatus(new Date(item.expirationDate), 7)
+    })));
+    console.log('✅ Non-expired items:', nonExpiredItems.map(item => ({
+      name: item.name,
+      expirationDate: item.expirationDate,
+      status: getFoodItemStatus(new Date(item.expirationDate), 7)
+    })));
 
     // Sort items by expiration proximity (soonest first)
     const sortedItems = [...nonExpiredItems].sort((a, b) => {
@@ -391,6 +407,13 @@ const Calendar: React.FC = () => {
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntilA - daysUntilB;
     });
+    
+    console.log('📊 Sorted items for rendering:', sortedItems.map(item => ({
+      name: item.name,
+      expirationDate: item.expirationDate,
+      status: getFoodItemStatus(new Date(item.expirationDate), 7),
+      daysUntil: Math.ceil((new Date(item.expirationDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    })));
 
     // Calculate which columns a date falls into
     const getColumnIndex = (date: Date): number | null => {
@@ -439,11 +462,24 @@ const Calendar: React.FC = () => {
             // Get column indices for the 4-day span (3 yellow days + 1 red day)
             const yellowStartCol = getColumnIndex(threeDaysBefore);
             const redCol = getColumnIndex(expirationDate);
+            
+            // Debug: Log item rendering info
+            console.log(`🔍 Item: ${item.name}`, {
+              status,
+              expirationDate: expirationDate.toISOString().split('T')[0],
+              threeDaysBefore: threeDaysBefore.toISOString().split('T')[0],
+              yellowStartCol,
+              redCol,
+              weekStart: weekStart.toISOString().split('T')[0],
+              weekEnd: weekDays[6].toISOString().split('T')[0],
+              spanIntersectsWeek: (yellowStartCol !== null || redCol !== null)
+            });
 
             // Only render expiring_soon items (expired items are filtered out above)
             if (status !== 'expiring_soon') {
-              // For fresh items, show green on expiration day only
+              // For fresh items, show green on expiration day only (if expiration is in current week)
               if (status === 'fresh' && redCol !== null) {
+                console.log(`✅ Rendering fresh item: ${item.name} on expiration day (col ${redCol})`);
                 return (
                   <div
                     key={item.id}
@@ -489,18 +525,49 @@ const Calendar: React.FC = () => {
                   </div>
                 );
               }
+              // Fresh item but expiration date not in current week - don't render
+              console.log(`⚠️ Fresh item ${item.name} expiration date not in current week - skipping`);
               return null;
             }
 
             // Render expiring_soon items with single 4-day span (3 yellow + 1 red)
             // Create a single continuous block spanning from yellowStartCol to redCol
+            // Use the actual dates to determine span, even if columns are null (span might extend beyond week)
             const spanStartCol = yellowStartCol;
             const spanEndCol = redCol;
             
-            // Calculate middle column for centering item name (between day -2 and day -1, or day -1 and expiration)
+            // Check if span intersects with week - if expiration date or any part of yellow span is in week
+            const expirationInWeek = redCol !== null;
+            const yellowSpanInWeek = yellowStartCol !== null;
+            const spanIntersectsWeek = expirationInWeek || yellowSpanInWeek;
+            
+            // Only render if the span intersects with the current week view
+            if (!spanIntersectsWeek) {
+              console.log(`⚠️ Item ${item.name} span doesn't intersect current week - skipping`, {
+                threeDaysBefore: threeDaysBefore.toISOString().split('T')[0],
+                expirationDate: expirationDate.toISOString().split('T')[0],
+                weekStart: weekStart.toISOString().split('T')[0],
+                weekEnd: weekDays[6].toISOString().split('T')[0]
+              });
+              return null;
+            }
+            
+            // Calculate middle column for centering item name
+            // If span is fully in week, use middle of span. Otherwise use available column
             const middleCol = spanStartCol !== null && spanEndCol !== null 
               ? Math.floor((spanStartCol + spanEndCol) / 2)
-              : null;
+              : (spanStartCol !== null ? spanStartCol : (spanEndCol !== null ? spanEndCol : 0));
+            
+            // Determine actual start and end columns to render (clip to week bounds if needed)
+            const renderStartCol = spanStartCol !== null ? spanStartCol : 0;
+            const renderEndCol = spanEndCol !== null ? spanEndCol : 6;
+
+            console.log(`✅ Rendering item: ${item.name}`, {
+              spanStartCol,
+              spanEndCol,
+              middleCol,
+              status
+            });
 
             return (
               <div
@@ -514,8 +581,9 @@ const Calendar: React.FC = () => {
                 }}
               >
                 {weekDays.map((_, colIndex) => {
-                  const isInSpan = spanStartCol !== null && spanEndCol !== null && 
-                    colIndex >= spanStartCol && colIndex <= spanEndCol;
+                  // Check if this column is part of the span
+                  // Span goes from yellowStartCol (or 0 if null) to redCol (or 6 if null)
+                  const isInSpan = colIndex >= renderStartCol && colIndex <= renderEndCol;
                   const isRedDay = colIndex === redCol;
                   const isMiddleCol = colIndex === middleCol;
 
