@@ -4,7 +4,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { useFoodItems } from '../hooks/useFoodItems';
 import { foodItemService } from '../services/firebaseService';
-import FoodItemCard from '../components/FoodItemCard';
+import SwipeableListItem from '../components/SwipeableListItem';
 import HamburgerMenu from '../components/HamburgerMenu';
 
 type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
@@ -36,24 +36,14 @@ const Dashboard: React.FC = () => {
   }, [foodItems, filter]);
 
   const handleDelete = async (itemId: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      try {
-        await foodItemService.deleteFoodItem(itemId);
-      } catch (error) {
-        console.error('Error deleting item:', error);
-        alert('Failed to delete item. Please try again.');
-      }
-    }
-  };
-
-  const handleMarkUsed = async (itemId: string) => {
     try {
       await foodItemService.deleteFoodItem(itemId);
     } catch (error) {
-      console.error('Error marking item as used:', error);
-      alert('Failed to mark item as used. Please try again.');
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item. Please try again.');
     }
   };
+
 
   if (loading) {
     return (
@@ -285,14 +275,12 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {filteredItems.map((item) => (
-            <FoodItemCard
+            <SwipeableListItem
               key={item.id}
               item={item}
-              onClick={() => navigate(`/item/${item.id}`)}
               onDelete={() => handleDelete(item.id)}
-              onMarkUsed={() => handleMarkUsed(item.id)}
             />
           ))}
         </div>
