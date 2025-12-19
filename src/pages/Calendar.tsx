@@ -200,6 +200,13 @@ const Calendar: React.FC = () => {
       (baseStyle as any)['--rbc-event-top'] = `${topPosition}px`;
       // Ensure z-index so events appear above grid lines
       baseStyle.zIndex = 1;
+      // For week view, ensure spanning events can span multiple days
+      if (currentView === 'week') {
+        // Don't force width/left/right for spanning events - let react-big-calendar handle it
+        baseStyle.width = 'auto';
+        baseStyle.left = 'auto';
+        baseStyle.right = 'auto';
+      }
     }
 
     return {
@@ -297,7 +304,8 @@ const Calendar: React.FC = () => {
     if (event.resource.isAdjacentToYellow) {
       return <div style={{ padding: '2px 4px' }}></div>; // Empty div for red expiration day
     }
-    return <div style={{ padding: '2px 4px' }}>{event.title}</div>;
+    // Show title for all other events (including yellow spanning events)
+    return <div style={{ padding: '2px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</div>;
   };
 
   // Add custom CSS for month view and day view
@@ -390,9 +398,6 @@ const Calendar: React.FC = () => {
       }
       .rbc-time-view .rbc-event {
         position: absolute !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: 100% !important;
         height: 40px !important;
         margin: 0 !important;
         margin-top: 0 !important;
@@ -400,6 +405,26 @@ const Calendar: React.FC = () => {
         /* Force events to use inline style top positioning from eventStyleGetter */
         /* Override any time-based positioning from react-big-calendar */
         top: var(--rbc-event-top, 0) !important;
+        /* For multi-day spanning events, react-big-calendar handles left/right/width automatically */
+        /* Don't force width: 100% as it breaks spanning events */
+        display: flex !important;
+        align-items: center !important;
+        z-index: 1 !important;
+      }
+      /* Single day events should still be full width */
+      .rbc-time-view .rbc-event:not(.rbc-event-continues-after):not(.rbc-event-continues-prior):not(.rbc-event-continues-earlier) {
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+      }
+      /* Ensure spanning events are visible and properly styled - let react-big-calendar handle positioning */
+      .rbc-time-view .rbc-event.rbc-event-continues-after,
+      .rbc-time-view .rbc-event.rbc-event-continues-prior,
+      .rbc-time-view .rbc-event.rbc-event-continues-earlier {
+        /* Let react-big-calendar handle left/right/width for spanning events */
+        left: auto !important;
+        right: auto !important;
+        width: auto !important;
       }
       /* Override react-big-calendar's time-based top calculation - more specific selectors */
       .rbc-time-view .rbc-day-slot .rbc-events-container .rbc-event {
