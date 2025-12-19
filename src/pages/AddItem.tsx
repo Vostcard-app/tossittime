@@ -74,7 +74,7 @@ const AddItem: React.FC = () => {
       if (editingItem) {
         // Update existing item
         const status = getFoodItemStatus(data.expirationDate);
-        await foodItemService.updateFoodItem(editingItem.id, itemData, status);
+        await foodItemService.updateFoodItem(editingItem.id, { ...itemData, status });
       } else {
         // Add new item
         const status = getFoodItemStatus(data.expirationDate);
