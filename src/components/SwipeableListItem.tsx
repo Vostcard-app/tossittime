@@ -133,16 +133,8 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete })
           cursor: isDragging ? 'grabbing' : 'grab'
         }}
       >
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
-            {item.name}
-          </span>
-          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-            Expiration:
-          </span>
-          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-            {formatDate(item.expirationDate)}
-          </span>
+        <div style={{ flex: 1, fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+          {item.name}
         </div>
         <button
           onClick={(e) => {
