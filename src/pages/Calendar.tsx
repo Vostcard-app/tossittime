@@ -95,16 +95,32 @@ const Calendar: React.FC = () => {
         if (currentView === 'week') {
           // Week view: Create a single spanning yellow event for 3 days before expiration
           const threeDaysBefore = addDays(expirationDate, -3);
-          allEvents.push({
+          const dayBeforeExpiration = addDays(expirationDate, -1);
+          const eventStart = setToMidnight(threeDaysBefore);
+          const eventEnd = setToEndOfDay(dayBeforeExpiration);
+          
+          // Debug: Verify date calculation
+          console.log('Expiring soon event date calculation:', {
+            item: item.name,
+            expirationDate: expirationDate.toISOString(),
+            threeDaysBefore: threeDaysBefore.toISOString(),
+            dayBeforeExpiration: dayBeforeExpiration.toISOString(),
+            eventStart: eventStart.toISOString(),
+            eventEnd: eventEnd.toISOString(),
+            spanDays: Math.ceil((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          });
+          
+          const yellowEvent = {
             title: item.name,
-            start: setToMidnight(threeDaysBefore),
-            end: setToEndOfDay(addDays(expirationDate, -1)), // End the day before expiration
+            start: eventStart,
+            end: eventEnd,
             resource: {
               itemId: item.id,
               status: 'expiring_soon',
               rowIndex: rowIndex,
             },
-          } as CalendarEvent);
+          } as CalendarEvent;
+          allEvents.push(yellowEvent);
           
           // Red: Show on the expiration date itself (no title - adjacent to yellow span)
           allEvents.push({
@@ -163,6 +179,17 @@ const Calendar: React.FC = () => {
       }
     });
 
+    // Debug: Log all events by status
+    const expiringSoonEvents = allEvents.filter(e => e.resource.status === 'expiring_soon');
+    const expiredEvents = allEvents.filter(e => e.resource.status === 'expired');
+    console.log('Calendar events summary:', {
+      total: allEvents.length,
+      expiring_soon: expiringSoonEvents.length,
+      expired: expiredEvents.length,
+      expiring_soon_events: expiringSoonEvents,
+      currentView: currentView
+    });
+
     return allEvents;
   }, [foodItems, currentView]);
 
@@ -183,6 +210,9 @@ const Calendar: React.FC = () => {
       fontSize: '0.875rem',
       fontWeight: '500',
     };
+    
+    // Add data attribute for CSS targeting
+    const className = `calendar-event-${event.resource.status}`;
 
     // Position events vertically by row index in day/week views
     // Start from top (0px) and stack downward based on expiration proximity
@@ -211,6 +241,7 @@ const Calendar: React.FC = () => {
 
     return {
       style: baseStyle,
+      className: className,
     };
   };
 
@@ -422,9 +453,24 @@ const Calendar: React.FC = () => {
       .rbc-time-view .rbc-event.rbc-event-continues-prior,
       .rbc-time-view .rbc-event.rbc-event-continues-earlier {
         /* Let react-big-calendar handle left/right/width for spanning events */
-        left: auto !important;
-        right: auto !important;
-        width: auto !important;
+        /* But ensure they're visible */
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      /* Ensure all events with expiring_soon status are visible */
+      .rbc-time-view .rbc-event.calendar-event-expiring_soon {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background-color: #f59e0b !important;
+      }
+      /* Debug: Make sure yellow events are visible */
+      .rbc-time-view .rbc-event[style*="rgb(245, 158, 11)"],
+      .rbc-time-view .rbc-event[style*="#f59e0b"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
       /* Override react-big-calendar's time-based top calculation - more specific selectors */
       .rbc-time-view .rbc-day-slot .rbc-events-container .rbc-event {
