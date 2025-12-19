@@ -76,8 +76,10 @@ if (requiredEnvVars.apiKey && !requiredEnvVars.apiKey.startsWith('AIzaSy')) {
 
 // Suppress harmless MutationObserver warning from Firebase Auth
 // This is a known issue in Firebase Auth's internal code and doesn't affect functionality
-// We intercept console.error to filter out this specific harmless warning
+// We intercept console.error and window.onerror to filter out this specific harmless warning
 const originalError = console.error;
+const originalWarn = console.warn;
+
 console.error = (...args: unknown[]) => {
   // Convert all arguments to string and check for MutationObserver error
   const errorMessage = args
@@ -97,6 +99,54 @@ console.error = (...args: unknown[]) => {
     return;
   }
   originalError.apply(console, args);
+};
+
+console.warn = (...args: unknown[]) => {
+  // Also filter MutationObserver warnings
+  const warningMessage = args
+    .map(arg => {
+      if (arg instanceof Error) {
+        return arg.message + ' ' + arg.stack;
+      }
+      return String(arg);
+    })
+    .join(' ');
+  
+  if (warningMessage.includes("MutationObserver") && 
+      (warningMessage.includes("parameter 1 is not of type 'Node'") ||
+       warningMessage.includes("Failed to execute 'observe'"))) {
+    return;
+  }
+  originalWarn.apply(console, args);
+};
+
+// Also catch unhandled errors and rejections
+const originalOnError = window.onerror;
+window.onerror = (message, source, lineno, colno, error) => {
+  const errorMessage = String(message) + (error ? ' ' + error.stack : '');
+  if (errorMessage.includes("MutationObserver") && 
+      (errorMessage.includes("parameter 1 is not of type 'Node'") ||
+       errorMessage.includes("Failed to execute 'observe'"))) {
+    return true; // Suppress the error
+  }
+  if (originalOnError) {
+    return originalOnError(message, source, lineno, colno, error);
+  }
+  return false;
+};
+
+const originalOnUnhandledRejection = window.onunhandledrejection;
+window.onunhandledrejection = (event: PromiseRejectionEvent) => {
+  const errorMessage = String(event.reason) + (event.reason instanceof Error ? ' ' + event.reason.stack : '');
+  if (errorMessage.includes("MutationObserver") && 
+      (errorMessage.includes("parameter 1 is not of type 'Node'") ||
+       errorMessage.includes("Failed to execute 'observe'"))) {
+    event.preventDefault(); // Suppress the error
+    return;
+  }
+  if (originalOnUnhandledRejection) {
+    originalOnUnhandledRejection(event);
+  }
 };
 
 // Initialize Firebase

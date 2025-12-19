@@ -178,9 +178,14 @@ export const shoppingListService = {
       (error) => {
         if (error.code === 'failed-precondition') {
           if (!(window as any).__shoppingListIndexWarningShown) {
+            const indexUrl = error.message.match(/https:\/\/[^\s]+/)?.[0];
             console.warn('⚠️ Firestore index required for shopping list query.');
-            console.warn('📋 Create the index here:', error.message.match(/https:\/\/[^\s]+/)?.[0] || 'Firebase Console → Firestore → Indexes');
-            console.warn('💡 The app will work, but shopping list items won\'t load until the index is created.');
+            if (indexUrl) {
+              console.warn('📋 Create the index here:', indexUrl);
+            } else {
+              console.warn('📋 Go to Firebase Console → Firestore → Indexes to create the index.');
+            }
+            console.warn('💡 Shopping list items won\'t load until the index is created and enabled.');
             (window as any).__shoppingListIndexWarningShown = true;
           }
           callback([]); // Return empty array so app doesn't break
