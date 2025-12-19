@@ -92,24 +92,22 @@ const Calendar: React.FC = () => {
         } as CalendarEvent);
         rowIndex++;
       } else if (status === 'expiring_soon') {
+        // ALWAYS create yellow 3-day event + red 1-day event for expiring_soon items
         if (currentView === 'week') {
           // Week view: Create a single spanning yellow event for 3 days before expiration
+          // Event should span: [3 days before] to [1 day before expiration] = 3 days total
           const threeDaysBefore = addDays(expirationDate, -3);
           const dayBeforeExpiration = addDays(expirationDate, -1);
           const eventStart = setToMidnight(threeDaysBefore);
           const eventEnd = setToEndOfDay(dayBeforeExpiration);
           
-          // Debug: Verify date calculation
-          console.log('Expiring soon event date calculation:', {
-            item: item.name,
-            expirationDate: expirationDate.toISOString(),
-            threeDaysBefore: threeDaysBefore.toISOString(),
-            dayBeforeExpiration: dayBeforeExpiration.toISOString(),
-            eventStart: eventStart.toISOString(),
-            eventEnd: eventEnd.toISOString(),
-            spanDays: Math.ceil((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-          });
+          // Verify date calculation creates exactly 3 days
+          const calculatedDays = Math.ceil((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (calculatedDays !== 3) {
+            console.warn(`⚠️ Yellow event span is ${calculatedDays} days, expected 3 days for item: ${item.name}`);
+          }
           
+          // Verify: Always create yellow event for expiring_soon items
           const yellowEvent = {
             title: item.name,
             start: eventStart,
@@ -121,6 +119,16 @@ const Calendar: React.FC = () => {
             },
           } as CalendarEvent;
           allEvents.push(yellowEvent);
+          
+          // Debug: Verify yellow event was created with correct span
+          console.log('✅ Created yellow expiring_soon event:', {
+            item: item.name,
+            expirationDate: expirationDate.toISOString().split('T')[0],
+            start: yellowEvent.start ? yellowEvent.start.toISOString().split('T')[0] : 'undefined',
+            end: yellowEvent.end ? yellowEvent.end.toISOString().split('T')[0] : 'undefined',
+            spanDays: calculatedDays,
+            status: yellowEvent.resource.status
+          });
           
           // Red: Show on the expiration date itself (no title - adjacent to yellow span)
           allEvents.push({
@@ -182,13 +190,31 @@ const Calendar: React.FC = () => {
     // Debug: Log all events by status
     const expiringSoonEvents = allEvents.filter(e => e.resource.status === 'expiring_soon');
     const expiredEvents = allEvents.filter(e => e.resource.status === 'expired');
-    console.log('Calendar events summary:', {
+    console.log('📅 Calendar events summary:', {
       total: allEvents.length,
       expiring_soon: expiringSoonEvents.length,
       expired: expiredEvents.length,
-      expiring_soon_events: expiringSoonEvents,
-      currentView: currentView
+      currentView: currentView,
+      currentDate: currentDate.toISOString().split('T')[0],
+      expiring_soon_details: expiringSoonEvents.map(e => ({
+        title: e.title,
+        start: e.start?.toISOString().split('T')[0],
+        end: e.end?.toISOString().split('T')[0],
+        status: e.resource.status
+      }))
     });
+    
+    // Verify: Ensure we have yellow events for all expiring_soon items
+    const expiringSoonItems = sortedItems.filter(item => {
+      const expDate = new Date(item.expirationDate);
+      return getFoodItemStatus(expDate, 7) === 'expiring_soon';
+    });
+    if (expiringSoonItems.length > 0 && expiringSoonEvents.length === 0 && currentView === 'week') {
+      console.error('❌ ERROR: No yellow events created for expiring_soon items!', {
+        expiringSoonItemsCount: expiringSoonItems.length,
+        expiringSoonItems: expiringSoonItems.map(i => i.name)
+      });
+    }
 
     return allEvents;
   }, [foodItems, currentView]);
@@ -464,10 +490,18 @@ const Calendar: React.FC = () => {
         visibility: visible !important;
         opacity: 1 !important;
         background-color: #f59e0b !important;
+        border-color: #f59e0b !important;
       }
-      /* Debug: Make sure yellow events are visible */
+      /* Debug: Make sure yellow events are visible - target by background color */
       .rbc-time-view .rbc-event[style*="rgb(245, 158, 11)"],
-      .rbc-time-view .rbc-event[style*="#f59e0b"] {
+      .rbc-time-view .rbc-event[style*="#f59e0b"],
+      .rbc-time-view .rbc-event[style*="background-color: rgb(245, 158, 11)"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      /* Ensure yellow events are not hidden by any parent containers */
+      .rbc-time-view .rbc-day-slot .rbc-events-container .rbc-event.calendar-event-expiring_soon {
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -615,6 +649,8 @@ const Calendar: React.FC = () => {
           }}
           views={['month', 'week', 'day']}
           defaultView="month"
+          // Ensure events that intersect with the current view are shown
+          // React-big-calendar by default shows events that overlap with the visible range
         />
       </div>
 
