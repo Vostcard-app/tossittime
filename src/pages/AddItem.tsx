@@ -58,7 +58,7 @@ const AddItem: React.FC = () => {
     );
   }, [sortedItems, searchQuery]);
 
-  const handleSubmit = async (data: FoodItemData, photoFile?: File) => {
+  const handleSubmit = async (data: FoodItemData, photoFile?: File, noExpiration?: boolean) => {
     if (!user) {
       alert('You must be logged in to add items');
       navigate('/login');
@@ -66,6 +66,33 @@ const AddItem: React.FC = () => {
     }
 
     try {
+      // If coming from shopping list and "no expiration" is selected
+      if (fromShoppingList && noExpiration) {
+        // Just delete from shopping list, don't add to food items
+        if (shoppingListItemId) {
+          try {
+            await shoppingListService.deleteShoppingListItem(shoppingListItemId);
+          } catch (error) {
+            console.error('Error deleting shopping list item:', error);
+            alert('Failed to remove item from shopping list. Please try again.');
+            throw error;
+          }
+        }
+        
+        // Reset and go back to shop page
+        setShowForm(false);
+        setEditingItem(null);
+        setSearchQuery('');
+        navigate('/shop');
+        return;
+      }
+
+      // Otherwise, proceed with adding/updating food item (requires expiration date)
+      if (!data.expirationDate) {
+        alert('Please select an expiration date or check "No expiration"');
+        return;
+      }
+
       // Upload photo if provided
       let photoUrl: string | undefined = undefined;
       if (photoFile) {

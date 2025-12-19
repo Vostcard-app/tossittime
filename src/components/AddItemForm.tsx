@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { FoodItemData, FoodItem } from '../types';
 
 interface AddItemFormProps {
-  onSubmit: (data: FoodItemData, photoFile?: File) => Promise<void>;
+  onSubmit: (data: FoodItemData, photoFile?: File, noExpiration?: boolean) => Promise<void>;
   onCancel?: () => void;
   initialBarcode?: string;
   onScanBarcode?: () => void;
@@ -22,6 +22,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialItem?.photoUrl || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noExpiration, setNoExpiration] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update form data when initialItem or initialName changes
@@ -154,29 +155,54 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         />
       </div>
 
-      {/* 2. Expiration Date Field */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="expirationDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
-          Expiration Date *
+      {/* 2. No Expiration Checkbox */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={noExpiration}
+            onChange={(e) => {
+              setNoExpiration(e.target.checked);
+              if (e.target.checked) {
+                // Clear expiration date when "no expiration" is checked
+                setFormData(prev => ({ ...prev, expirationDate: new Date() }));
+              }
+            }}
+            style={{
+              width: '18px',
+              height: '18px',
+              cursor: 'pointer'
+            }}
+          />
+          <span style={{ fontSize: '1rem', fontWeight: '500' }}>No expiration date</span>
         </label>
-        <input
-          type="date"
-          id="expirationDate"
-          name="expirationDate"
-          value={formData.expirationDate.toISOString().split('T')[0]}
-          onChange={handleDateChange}
-          required
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '1rem'
-          }}
-        />
       </div>
 
-      {/* 3. Save Button */}
+      {/* 3. Expiration Date Field */}
+      {!noExpiration && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="expirationDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
+            Expiration Date *
+          </label>
+          <input
+            type="date"
+            id="expirationDate"
+            name="expirationDate"
+            value={formData.expirationDate.toISOString().split('T')[0]}
+            onChange={handleDateChange}
+            required={!noExpiration}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem'
+            }}
+          />
+        </div>
+      )}
+
+      {/* 4. Save Button */}
       <div style={{ marginBottom: '2rem' }}>
         <button
           type="submit"
@@ -199,7 +225,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </button>
       </div>
 
-      {/* 4. Photo/Barcode Section */}
+      {/* 5. Photo/Barcode Section */}
       <div style={{ 
         paddingTop: '1.5rem', 
         borderTop: '1px solid #e5e7eb',
