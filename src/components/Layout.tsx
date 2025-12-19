@@ -7,8 +7,8 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  // Hide Layout header on Dashboard since it has its own banner
-  const showHeader = location.pathname !== '/';
+  // Hide Layout header on Dashboard and Calendar since they have their own banners
+  const showHeader = location.pathname !== '/' && location.pathname !== '/calendar';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
