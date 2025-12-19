@@ -373,9 +373,18 @@ const Calendar: React.FC = () => {
       end: addDays(weekStart, 6)
     });
 
-    // Sort items by expiration proximity (soonest first)
+    // Filter out expired items (items past their expiration date)
+    // Only show items that haven't expired yet - expired items fall off the calendar
     const today = startOfDay(new Date());
-    const sortedItems = [...foodItems].sort((a, b) => {
+    const nonExpiredItems = foodItems.filter(item => {
+      const expirationDate = new Date(item.expirationDate);
+      const expirationDay = startOfDay(expirationDate);
+      // Only show items that haven't expired yet (expiration date is today or in the future)
+      return expirationDay >= today;
+    });
+
+    // Sort items by expiration proximity (soonest first)
+    const sortedItems = [...nonExpiredItems].sort((a, b) => {
       const dateA = new Date(a.expirationDate);
       const dateB = new Date(b.expirationDate);
       const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -427,19 +436,20 @@ const Calendar: React.FC = () => {
             const expirationDate = new Date(item.expirationDate);
             const status = getFoodItemStatus(expirationDate, 7);
             
-            // Calculate yellow span (3 days before expiration)
+            // Calculate yellow span (always exactly 3 days before expiration: day -3, day -2, day -1)
             const threeDaysBefore = addDays(expirationDate, -3);
             const dayBeforeExpiration = addDays(expirationDate, -1);
             
-            // Get column indices
+            // Verify: Yellow span should be exactly 3 days (day -3, -2, -1)
+            // Get column indices for yellow span (3 days before expiration)
             const yellowStartCol = getColumnIndex(threeDaysBefore);
             const yellowEndCol = getColumnIndex(dayBeforeExpiration);
             const redCol = getColumnIndex(expirationDate);
 
-            // Only render if item has expiring_soon status and spans intersect with week
+            // Only render expiring_soon items (expired items are filtered out above)
             if (status !== 'expiring_soon') {
-              if (status === 'expired' && redCol !== null) {
-                // Show expired items as red on expiration day
+              // For fresh items, show green on expiration day only
+              if (status === 'fresh' && redCol !== null) {
                 return (
                   <div
                     key={item.id}
@@ -461,7 +471,7 @@ const Calendar: React.FC = () => {
                             style={{
                               flex: 1,
                               height: '100%',
-                              backgroundColor: '#ef4444',
+                              backgroundColor: '#22c55e',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
@@ -471,7 +481,7 @@ const Calendar: React.FC = () => {
                               padding: '0 0.5rem'
                             }}
                           >
-                            {/* Red block - no text since it's expired */}
+                            {item.name}
                           </div>
                         );
                       }
