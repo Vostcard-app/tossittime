@@ -124,8 +124,9 @@ const Calendar: React.FC = () => {
           },
         } as CalendarEvent);
         rowIndex++;
-      } else if (status === 'expiring_soon') {
-        // ALWAYS create yellow 3-day event + red 1-day event for expiring_soon items
+      } else {
+        // For all non-expired items (both 'fresh' and 'expiring_soon'), 
+        // ALWAYS create yellow 3-day event + red 1-day event
         if (currentView === 'week') {
           // Week view: Create a single spanning yellow event for 3 days before expiration
           // Event should span: [3 days before] to [1 day before expiration] = 3 days total
@@ -154,7 +155,7 @@ const Calendar: React.FC = () => {
             console.warn(`⚠️ Yellow event span is ${calculatedDays} days, expected 3 days for item: ${item.name}`);
           }
           
-          // Verify: Always create yellow event for expiring_soon items
+          // Always create yellow event for all non-expired items
           const yellowEvent = {
             title: item.name,
             start: eventStart,
@@ -168,7 +169,7 @@ const Calendar: React.FC = () => {
           allEvents.push(yellowEvent);
           
           // Debug: Verify yellow event was created with correct span
-          console.log('✅ Created yellow expiring_soon event:', {
+          console.log('✅ Created yellow event:', {
             item: item.name,
             expirationDate: expirationDate.toISOString().split('T')[0],
             start: yellowEvent.start ? yellowEvent.start.toISOString().split('T')[0] : 'undefined',
@@ -223,19 +224,6 @@ const Calendar: React.FC = () => {
             },
           } as CalendarEvent);
         }
-        rowIndex++;
-      } else {
-        // Green (fresh): Single day on expiration date
-        allEvents.push({
-          title: item.name,
-          start: setToMidnight(expirationDate),
-          end: setToEndOfDay(expirationDate),
-          resource: {
-            itemId: item.id,
-            status: 'fresh',
-            rowIndex: rowIndex,
-          },
-        } as CalendarEvent);
         rowIndex++;
       }
     });
