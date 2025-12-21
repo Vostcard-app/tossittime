@@ -13,8 +13,6 @@ const Shop: React.FC = () => {
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
-  const [showAddListToast, setShowAddListToast] = useState(false);
-  const [newListName, setNewListName] = useState('');
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -94,37 +92,6 @@ const Shop: React.FC = () => {
       console.error('Error adding item to shopping list:', error);
       alert('Failed to add item. Please try again.');
     }
-  };
-
-  const handleAddListClick = () => {
-    setShowAddListToast(true);
-    setNewListName('');
-  };
-
-  const handleAddList = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !newListName.trim()) {
-      setShowAddListToast(false);
-      return;
-    }
-
-    try {
-      const listId = await shoppingListsService.createShoppingList(user.uid, newListName.trim(), false);
-      setSelectedListId(listId);
-      setNewListName('');
-      setShowAddListToast(false);
-      // Save as last used
-      await userSettingsService.setLastUsedShoppingList(user.uid, listId);
-    } catch (error) {
-      console.error('Error creating shopping list:', error);
-      alert('Failed to create list. Please try again.');
-      setShowAddListToast(false);
-    }
-  };
-
-  const handleCancelAddList = () => {
-    setShowAddListToast(false);
-    setNewListName('');
   };
 
   const handleListChange = async (listId: string) => {
@@ -314,7 +281,7 @@ const Shop: React.FC = () => {
             </button>
           </form>
 
-          {/* List Selector and Add List */}
+          {/* List Selector and Lists Button */}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <select
               value={selectedListId || ''}
@@ -337,7 +304,7 @@ const Shop: React.FC = () => {
               ))}
             </select>
             <button
-              onClick={handleAddListClick}
+              onClick={() => navigate('/edit-lists')}
               style={{
                 padding: '0.75rem 1.5rem',
                 backgroundColor: '#002B4D',
@@ -351,7 +318,7 @@ const Shop: React.FC = () => {
                 minWidth: '100px'
               }}
             >
-              Add List
+              Lists
             </button>
           </div>
         </div>
@@ -414,100 +381,6 @@ const Shop: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Toast-style popup for adding new list */}
-      {showAddListToast && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: '#ffffff',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-            zIndex: 1000,
-            minWidth: '300px',
-            maxWidth: '90vw'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
-            Add New List
-          </h3>
-          <form onSubmit={handleAddList}>
-            <input
-              type="text"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              placeholder="Enter list name"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none',
-                marginBottom: '1rem',
-                boxSizing: 'border-box'
-              }}
-            />
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={handleCancelAddList}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#f3f4f6',
-                  color: '#1f2937',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  minHeight: '44px'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#002B4D',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  minHeight: '44px'
-                }}
-              >
-                Add
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Backdrop overlay */}
-      {showAddListToast && (
-        <div
-          onClick={handleCancelAddList}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 999
-          }}
-        />
-      )}
 
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
