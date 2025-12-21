@@ -598,20 +598,31 @@ const Calendar: React.FC = () => {
   // Custom event component
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
     if (currentView === 'month') {
-      // In month view, show as a small colored dot
+      // In month view, show item title with colored background
       const color = getStatusColor(event.resource.status);
+      // Only show title if it's not empty (red expiration day adjacent to yellow has empty title)
+      if (!event.title || event.title === '') {
+        return null; // Don't render empty events in month view
+      }
       return (
         <div
           style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
             backgroundColor: color,
-            margin: '0 auto',
+            color: '#ffffff',
+            padding: '2px 4px',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontWeight: '500',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             cursor: 'pointer',
+            maxWidth: '100%',
           }}
           title={event.title as string}
-        />
+        >
+          {event.title}
+        </div>
       );
     }
     
@@ -652,21 +663,22 @@ const Calendar: React.FC = () => {
       .rbc-month-view .rbc-event {
         border: none !important;
         background: transparent !important;
-        padding: 0 !important;
-        margin: 0 auto !important;
+        padding: 2px 0 !important;
+        margin: 1px 0 !important;
         height: auto !important;
         min-height: 0 !important;
         display: flex;
-        justify-content: center;
-        align-items: center;
+        align-items: flex-start;
       }
       .rbc-month-view .rbc-event-content {
         padding: 0 !important;
+        width: 100% !important;
       }
       .rbc-month-view .rbc-day-slot .rbc-events-container {
         margin: 0 !important;
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
+        gap: 2px;
         gap: 2px;
         justify-content: center;
         align-items: center;
