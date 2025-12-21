@@ -137,7 +137,7 @@ const EditLists: React.FC = () => {
             minHeight: '44px'
           }}
         >
-          Shop
+          Lists
         </button>
         <button
           onClick={() => navigate('/')}
@@ -153,7 +153,7 @@ const EditLists: React.FC = () => {
             minHeight: '44px'
           }}
         >
-          List
+          Items
         </button>
         <button
           onClick={() => navigate('/calendar', { state: { defaultView: 'week' } })}

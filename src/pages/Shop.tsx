@@ -205,7 +205,7 @@ const Shop: React.FC = () => {
             boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
           }}
         >
-          Shop
+          Lists
         </button>
         <button
           onClick={() => navigate('/')}
@@ -221,7 +221,7 @@ const Shop: React.FC = () => {
             minHeight: '44px'
           }}
         >
-          List
+          Items
         </button>
         <button
           onClick={() => navigate('/calendar', { state: { defaultView: 'week' } })}

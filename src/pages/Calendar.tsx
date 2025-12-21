@@ -989,7 +989,7 @@ const Calendar: React.FC = () => {
             minWidth: '120px'
           }}
         >
-          Shop
+          Lists
         </button>
         <button
           onClick={() => navigate('/')}
@@ -1006,7 +1006,7 @@ const Calendar: React.FC = () => {
             minWidth: '120px'
           }}
         >
-          List
+          Items
         </button>
         <button
           onClick={() => {

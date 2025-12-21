@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
             minWidth: '120px'
           }}
         >
-          Shop
+          Lists
         </button>
         <button
           onClick={() => {
@@ -138,7 +138,7 @@ const Dashboard: React.FC = () => {
             minWidth: '120px'
           }}
         >
-          List
+          Items
         </button>
         <button
           onClick={() => navigate('/calendar', { state: { defaultView: 'week' } })}
