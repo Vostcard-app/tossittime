@@ -243,46 +243,11 @@ const Shop: React.FC = () => {
 
       {/* Main Content */}
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
-        {/* Add Item Form */}
+        {/* List Selector and Lists Button */}
         <div style={{ 
           marginBottom: '1.5rem'
         }}>
-          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input
-              type="text"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="Add item to shopping list"
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#002B4D',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                minHeight: '44px',
-                minWidth: '100px'
-              }}
-            >
-              Add Item
-            </button>
-          </form>
-
-          {/* List Selector and Lists Button */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <select
               value={selectedListId || ''}
               onChange={(e) => handleListChange(e.target.value)}
@@ -321,6 +286,41 @@ const Shop: React.FC = () => {
               Lists
             </button>
           </div>
+
+          {/* Add Item Form */}
+          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="Add item to shopping list"
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#002B4D',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minHeight: '44px',
+                minWidth: '100px'
+              }}
+            >
+              Add Item
+            </button>
+          </form>
         </div>
 
         {/* Shopping List Items */}
