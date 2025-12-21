@@ -496,62 +496,8 @@ const Calendar: React.FC = () => {
               spanIntersectsWeek: (yellowStartCol !== null || redCol !== null)
             });
 
-            // Only render expiring_soon items (expired items are filtered out above)
-            if (status !== 'expiring_soon') {
-              // For fresh items, show green on expiration day only (if expiration is in current week)
-              if (status === 'fresh' && redCol !== null) {
-                console.log(`✅ Rendering fresh item: ${item.name} on expiration day (col ${redCol})`);
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: 'flex',
-                      height: `${rowHeight}px`,
-                      borderBottom: '1px solid #e5e7eb',
-                      alignItems: 'center'
-                    }}
-                  >
-                    {weekDays.map((_, colIndex) => {
-                      if (colIndex === redCol) {
-                        return (
-                          <div
-                            key={colIndex}
-                            style={{
-                              flex: 1,
-                              height: '100%',
-                              backgroundColor: '#22c55e',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none',
-                              fontWeight: '500',
-                              padding: '0 0.5rem'
-                            }}
-                          >
-                            {item.name}
-                          </div>
-                        );
-                      }
-                      return (
-                        <div
-                          key={colIndex}
-                          style={{
-                            flex: 1,
-                            borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none'
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                );
-              }
-              // Fresh item but expiration date not in current week - don't render
-              console.log(`⚠️ Fresh item ${item.name} expiration date not in current week - skipping`);
-              return null;
-            }
-
-            // Render expiring_soon items with single 4-day span (3 yellow + 1 red)
+            // Render all non-expired items with 3 yellow + 1 red pattern
+            // (expired items are filtered out above)
             // Create a single continuous block spanning from yellowStartCol to redCol
             // Use the actual dates to determine span, even if columns are null (span might extend beyond week)
             const spanStartCol = yellowStartCol;

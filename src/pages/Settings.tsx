@@ -125,13 +125,13 @@ const Settings: React.FC = () => {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{
+      <button
+        onClick={() => navigate('/')}
+        style={{
               background: 'none',
               border: 'none',
               color: '#ffffff',
-              cursor: 'pointer',
+          cursor: 'pointer',
               padding: '0.5rem',
               display: 'flex',
               alignItems: 'center',
@@ -154,10 +154,10 @@ const Settings: React.FC = () => {
             aria-label="Go to home"
           >
             ⌂
-          </button>
+      </button>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff', flex: 1 }}>
-            Settings
-          </h1>
+        Settings
+      </h1>
         </div>
       </div>
 
@@ -279,7 +279,7 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
-      </div>
+    </div>
     </>
   );
 };

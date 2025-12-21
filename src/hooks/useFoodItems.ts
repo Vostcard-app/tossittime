@@ -21,21 +21,21 @@ export const useFoodItems = (user: User | null) => {
     // Load user settings for reminder days
     userSettingsService.getUserSettings(user.uid)
       .then(settings => {
-        if (settings) {
-          setReminderDays(settings.reminderDays);
-        }
-        
-        // Subscribe to food items after settings are loaded
-        unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
-          // Update status for each item based on current date
-          const currentReminderDays = settings?.reminderDays || 7;
-          const updatedItems = items.map(item => ({
-            ...item,
-            status: getFoodItemStatus(item.expirationDate, currentReminderDays)
-          }));
-          setFoodItems(updatedItems);
-          setLoading(false);
-        });
+      if (settings) {
+        setReminderDays(settings.reminderDays);
+      }
+      
+      // Subscribe to food items after settings are loaded
+      unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
+        // Update status for each item based on current date
+        const currentReminderDays = settings?.reminderDays || 7;
+        const updatedItems = items.map(item => ({
+          ...item,
+          status: getFoodItemStatus(item.expirationDate, currentReminderDays)
+        }));
+        setFoodItems(updatedItems);
+        setLoading(false);
+      });
       })
       .catch(error => {
         console.error('Error loading user settings:', error);
@@ -48,7 +48,7 @@ export const useFoodItems = (user: User | null) => {
           setFoodItems(updatedItems);
           setLoading(false);
         });
-      });
+    });
 
     return () => {
       if (unsubscribe) unsubscribe();
