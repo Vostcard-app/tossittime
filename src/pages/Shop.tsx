@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
@@ -20,6 +20,7 @@ const Shop: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const hasInitialized = useRef(false);
 
   // Load user settings first to get lastUsedShoppingListId
   useEffect(() => {
@@ -45,16 +46,30 @@ const Shop: React.FC = () => {
     loadSettings();
   }, [user]);
 
+  // Reset initialization flag when user changes
+  useEffect(() => {
+    hasInitialized.current = false;
+  }, [user]);
+
   // Initialize list selection when both lists and settings are available
   useEffect(() => {
     if (!user || !settingsLoaded || shoppingLists.length === 0) {
       return;
     }
 
-    // Only initialize if we don't have a selected list yet
-    if (selectedListId) {
+    // Only initialize once
+    if (hasInitialized.current) {
       return;
     }
+
+    // Only initialize if we don't have a selected list yet
+    if (selectedListId) {
+      hasInitialized.current = true;
+      return;
+    }
+
+    // Mark as initialized before setting
+    hasInitialized.current = true;
 
     // Try to restore last used list first
     if (lastUsedListId) {
@@ -75,7 +90,7 @@ const Shop: React.FC = () => {
         setSelectedListId(listId);
       });
     }
-  }, [user, settingsLoaded, shoppingLists, lastUsedListId]);
+  }, [user, settingsLoaded, shoppingLists, lastUsedListId, selectedListId]);
 
   // Load shopping lists
   useEffect(() => {
