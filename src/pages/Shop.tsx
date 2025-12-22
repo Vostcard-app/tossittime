@@ -41,7 +41,7 @@ const Shop: React.FC = () => {
 
   // Initialize list selection when both lists and settings are available
   const initializeListSelection = (lists: ShoppingList[]) => {
-    if (hasInitializedList.current || lists.length === 0 || selectedListId) {
+    if (hasInitializedList.current || lists.length === 0 || selectedListId || !user) {
       return;
     }
 
