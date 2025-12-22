@@ -376,6 +376,307 @@
     "refrigeratorDays": 7,
     "freezerDays": 12,
     "pantryDays": null
+  },
+  {
+    "name": "Chicken Parmesan",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Lasagna",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Pizza",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Casserole",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Soup",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Chicken Soup",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Pasta",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Pasta",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Spaghetti",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Meatballs",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Chicken",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 4,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Beef",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Pork",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Fish",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Rice",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 6,
+    "pantryDays": null
+  },
+  {
+    "name": "Fried Rice",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Stir Fry",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Tacos",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Burritos",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Sandwich",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 1,
+    "pantryDays": null
+  },
+  {
+    "name": "Salad",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Potato Salad",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Macaroni Salad",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Coleslaw",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Quiche",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 2,
+    "pantryDays": null
+  },
+  {
+    "name": "Meatloaf",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Roast Chicken",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 4,
+    "pantryDays": null
+  },
+  {
+    "name": "Roast Beef",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Turkey",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 4,
+    "pantryDays": null
+  },
+  {
+    "name": "Cooked Turkey",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 4,
+    "pantryDays": null
+  },
+  {
+    "name": "Gravy",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Mashed Potatoes",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 10,
+    "pantryDays": null
+  },
+  {
+    "name": "Stuffing",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 1,
+    "pantryDays": null
+  },
+  {
+    "name": "Stew",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Chili",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Sauce",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Marinara Sauce",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Alfredo Sauce",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Salsa",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 5,
+    "freezerDays": 3,
+    "pantryDays": null
+  },
+  {
+    "name": "Guacamole",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 1,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Hummus",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 7,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Dips",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 7,
+    "freezerDays": null,
+    "pantryDays": null
+  },
+  {
+    "name": "Leftovers",
+    "category": "Prepared Dishes",
+    "refrigeratorDays": 3,
+    "freezerDays": 3,
+    "pantryDays": null
   }
 ]
 
