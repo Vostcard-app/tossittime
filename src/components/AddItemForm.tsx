@@ -213,14 +213,37 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
               minHeight: '44px'
             }}
           >
-            Suggested Expiration Date
+            Suggest Expiration Date
           </button>
         </div>
       )}
 
-      {/* 4. Remove/ No Exp. button (only when coming from shopping list) */}
+      {/* 4. Save Button */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          style={{
+            width: '100%',
+            padding: '0.875rem 1.5rem',
+            backgroundColor: '#002B4D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            opacity: isSubmitting ? 0.6 : 1,
+            minHeight: '44px' // Touch target size for mobile
+          }}
+        >
+          {isSubmitting ? 'Saving...' : 'Save to Calendar'}
+        </button>
+      </div>
+
+      {/* 5. Remove/ No Exp. button (only when coming from shopping list) */}
       {fromShoppingList && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
           <button
             type="button"
             onClick={async () => {
@@ -247,29 +270,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
           </button>
         </div>
       )}
-
-      {/* 5. Save Button */}
-      <div style={{ marginBottom: '2rem' }}>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{
-            width: '100%',
-            padding: '0.875rem 1.5rem',
-            backgroundColor: '#002B4D',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            opacity: isSubmitting ? 0.6 : 1,
-            minHeight: '44px' // Touch target size for mobile
-          }}
-        >
-          {isSubmitting ? 'Saving...' : 'Save to Calendar'}
-        </button>
-      </div>
 
       {/* 6. Photo/Barcode Section */}
       <div style={{ 
