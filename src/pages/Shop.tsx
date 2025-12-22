@@ -73,7 +73,7 @@ const Shop: React.FC = () => {
       settingsLoaded
     });
 
-    // Try to restore last used list first
+    // Try to restore last used list - ONLY use last used list, no fallback
     if (lastUsedId) {
       const lastUsedList = shoppingLists.find((l: ShoppingList) => l.id === lastUsedId);
       if (lastUsedList) {
@@ -82,24 +82,15 @@ const Shop: React.FC = () => {
         return;
       } else {
         console.log('⚠️ Last used list not found in shopping lists:', lastUsedId);
+        console.log('ℹ️ No list selected - user must choose manually');
+        // Don't select anything - let user choose
+        return;
       }
     } else {
       console.log('⚠️ No lastUsedListId from settings');
-    }
-
-    // Fall back to default list or first list
-    const defaultList = shoppingLists.find((l: ShoppingList) => l.isDefault) || shoppingLists[0];
-    if (defaultList) {
-      console.log('📋 Falling back to default/first list:', defaultList.name);
-      setSelectedListId(defaultList.id);
-    } else {
-      // Create default "shop list" if no lists exist
-      console.log('📝 Creating default shop list');
-      if (user) {
-        shoppingListsService.getDefaultShoppingList(user.uid).then((listId: string) => {
-          setSelectedListId(listId);
-        });
-      }
+      console.log('ℹ️ No list selected - user must choose manually');
+      // Don't select anything - let user choose
+      return;
     }
   };
 
