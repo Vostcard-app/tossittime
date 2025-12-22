@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { shoppingListService, shoppingListsService, userSettingsService } from '../services/firebaseService';
+import { findFoodItems } from '../services/foodkeeperService';
 import type { ShoppingListItem, ShoppingList } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
 
@@ -17,6 +18,8 @@ const Shop: React.FC = () => {
   const [newItemName, setNewItemName] = useState('');
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   // Load user settings first to get lastUsedShoppingListId
   useEffect(() => {
@@ -98,6 +101,14 @@ const Shop: React.FC = () => {
 
     return () => unsubscribe();
   }, [user, selectedListId]);
+
+  // Get FoodKeeper suggestions based on search query
+  const foodKeeperSuggestions = useMemo(() => {
+    if (!newItemName.trim()) {
+      return [];
+    }
+    return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
+  }, [newItemName]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,21 +318,89 @@ const Shop: React.FC = () => {
           </div>
 
           {/* Add Item Form */}
-          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
-            <input
-              type="text"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="Add item to list"
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-            />
+          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem', position: 'relative' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type="text"
+                value={newItemName}
+                onChange={(e) => {
+                  setNewItemName(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => {
+                  setInputFocused(true);
+                  setShowDropdown(true);
+                }}
+                onBlur={() => {
+                  setInputFocused(false);
+                  // Delay hiding dropdown to allow item clicks
+                  setTimeout(() => {
+                    setShowDropdown(false);
+                  }, 200);
+                }}
+                placeholder="Add item to list"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  outline: 'none'
+                }}
+              />
+              {/* Dropdown with FoodKeeper suggestions */}
+              {showDropdown && (inputFocused || newItemName.trim()) && foodKeeperSuggestions.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    zIndex: 1000
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                  }}
+                >
+                  {foodKeeperSuggestions.map((suggestion, index) => (
+                    <div
+                      key={`foodkeeper-${suggestion.name}-${index}`}
+                      onClick={() => {
+                        setNewItemName(suggestion.name);
+                        setShowDropdown(false);
+                      }}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderBottom: '1px solid #f3f4f6',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s',
+                        backgroundColor: '#fef3c7' // Light yellow to distinguish
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fde68a';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fef3c7';
+                      }}
+                    >
+                      <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                        {suggestion.name}
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                        {suggestion.category}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               style={{
