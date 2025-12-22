@@ -88,6 +88,17 @@ const Shop: React.FC = () => {
       }
     } else {
       console.log('⚠️ No lastUsedListId from settings');
+      // If there's only one list and no last used, select it automatically
+      if (shoppingLists.length === 1) {
+        console.log('📋 Only one list exists - selecting it automatically:', shoppingLists[0].name);
+        setSelectedListId(shoppingLists[0].id);
+        // Save it as last used
+        if (user) {
+          setLastUsedListId(shoppingLists[0].id);
+          userSettingsService.setLastUsedShoppingList(user.uid, shoppingLists[0].id).catch(console.error);
+        }
+        return;
+      }
       console.log('ℹ️ No list selected - user must choose manually');
       // Don't select anything - let user choose
       return;
@@ -141,6 +152,28 @@ const Shop: React.FC = () => {
     const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
       console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
       setShoppingLists(lists);
+      
+      // If a new list was created and no list is selected, select the new list
+      // This handles the case where user creates a list on EditLists page
+      if (lists.length > 0 && !selectedListId && settingsLoaded) {
+        // If there's only one list, select it
+        if (lists.length === 1) {
+          console.log('📋 New list created - selecting it:', lists[0].name);
+          setSelectedListId(lists[0].id);
+          setLastUsedListId(lists[0].id);
+          if (user) {
+            userSettingsService.setLastUsedShoppingList(user.uid, lists[0].id).catch(console.error);
+          }
+        }
+        // If there are multiple lists but no selection, and we have a lastUsedListId, try to use it
+        else if (lastUsedListId) {
+          const lastUsedList = lists.find((l: ShoppingList) => l.id === lastUsedListId);
+          if (lastUsedList) {
+            console.log('📋 Restoring last used list from subscription:', lastUsedList.name);
+            setSelectedListId(lastUsedList.id);
+          }
+        }
+      }
     });
 
     return () => unsubscribeLists();
