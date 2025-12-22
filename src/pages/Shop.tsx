@@ -112,7 +112,8 @@ const Shop: React.FC = () => {
 
   const handleListChange = async (listId: string) => {
     setSelectedListId(listId);
-    // Save as last used
+    // Update local state and save as last used
+    setLastUsedListId(listId);
     if (user) {
       await userSettingsService.setLastUsedShoppingList(user.uid, listId);
     }
