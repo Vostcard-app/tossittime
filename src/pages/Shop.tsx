@@ -47,7 +47,12 @@ const Shop: React.FC = () => {
 
   // Initialize list selection when both lists and settings are available
   useEffect(() => {
-    if (!user || !settingsLoaded || shoppingLists.length === 0 || selectedListId) {
+    if (!user || !settingsLoaded || shoppingLists.length === 0) {
+      return;
+    }
+
+    // Only initialize if we don't have a selected list yet
+    if (selectedListId) {
       return;
     }
 
@@ -70,7 +75,7 @@ const Shop: React.FC = () => {
         setSelectedListId(listId);
       });
     }
-  }, [user, settingsLoaded, shoppingLists, lastUsedListId, selectedListId]);
+  }, [user, settingsLoaded, shoppingLists, lastUsedListId]);
 
   // Load shopping lists
   useEffect(() => {
