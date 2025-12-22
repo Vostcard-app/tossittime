@@ -22,7 +22,7 @@ const Shop: React.FC = () => {
   const [inputFocused, setInputFocused] = useState(false);
   const hasInitialized = useRef(false);
 
-  // Load user settings first to get lastUsedShoppingListId
+  // Load user settings and initialize list selection in one effect
   useEffect(() => {
     if (!user) {
       setSettingsLoaded(true);
@@ -30,29 +30,80 @@ const Shop: React.FC = () => {
       return;
     }
 
-    const loadSettings = async () => {
+    // Reset initialization flag when user changes
+    hasInitialized.current = false;
+
+    let loadedLastUsedId: string | null = null;
+
+    const loadSettingsAndInitialize = async () => {
       try {
         const settings = await userSettingsService.getUserSettings(user.uid);
-        // Explicitly set lastUsedListId, even if null, so we know settings have loaded
-        setLastUsedListId(settings?.lastUsedShoppingListId || null);
+        loadedLastUsedId = settings?.lastUsedShoppingListId || null;
+        console.log('⚙️ Settings loaded:', { lastUsedShoppingListId: loadedLastUsedId, settings });
+        setLastUsedListId(loadedLastUsedId);
       } catch (error) {
         console.error('Error loading user settings:', error);
-        // Even on error, set to null so we know settings have been checked
+        loadedLastUsedId = null;
         setLastUsedListId(null);
       } finally {
         setSettingsLoaded(true);
+        console.log('✅ Settings loading complete, settingsLoaded = true');
+        
+        // Now initialize list selection if lists are already loaded
+        if (shoppingLists.length > 0 && !hasInitialized.current && !selectedListId) {
+          initializeListSelection(loadedLastUsedId);
+        }
       }
     };
 
-    loadSettings();
+    loadSettingsAndInitialize();
   }, [user]);
 
-  // Reset initialization flag when user changes
-  useEffect(() => {
-    hasInitialized.current = false;
-  }, [user]);
+  // Initialize list selection function
+  const initializeListSelection = (lastUsedId: string | null) => {
+    if (hasInitialized.current || shoppingLists.length === 0) {
+      return;
+    }
 
-  // Initialize list selection when both lists and settings are available
+    hasInitialized.current = true;
+
+    console.log('🔍 Initializing list selection:', {
+      lastUsedId,
+      shoppingLists: shoppingLists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })),
+      settingsLoaded
+    });
+
+    // Try to restore last used list first
+    if (lastUsedId) {
+      const lastUsedList = shoppingLists.find((l: ShoppingList) => l.id === lastUsedId);
+      if (lastUsedList) {
+        console.log('✅ Restoring last used list:', lastUsedList.name);
+        setSelectedListId(lastUsedList.id);
+        return;
+      } else {
+        console.log('⚠️ Last used list not found in shopping lists:', lastUsedId);
+      }
+    } else {
+      console.log('⚠️ No lastUsedListId from settings');
+    }
+
+    // Fall back to default list or first list
+    const defaultList = shoppingLists.find((l: ShoppingList) => l.isDefault) || shoppingLists[0];
+    if (defaultList) {
+      console.log('📋 Falling back to default/first list:', defaultList.name);
+      setSelectedListId(defaultList.id);
+    } else {
+      // Create default "shop list" if no lists exist
+      console.log('📝 Creating default shop list');
+      if (user) {
+        shoppingListsService.getDefaultShoppingList(user.uid).then((listId: string) => {
+          setSelectedListId(listId);
+        });
+      }
+    }
+  };
+
+  // Initialize list selection when lists become available (if settings are already loaded)
   useEffect(() => {
     if (!user || !settingsLoaded || shoppingLists.length === 0) {
       return;
@@ -69,41 +120,8 @@ const Shop: React.FC = () => {
       return;
     }
 
-    // Mark as initialized before setting
-    hasInitialized.current = true;
-
-    console.log('🔍 Initializing list selection:', {
-      lastUsedListId,
-      shoppingLists: shoppingLists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })),
-      settingsLoaded
-    });
-
-    // Try to restore last used list first
-    if (lastUsedListId) {
-      const lastUsedList = shoppingLists.find((l: ShoppingList) => l.id === lastUsedListId);
-      if (lastUsedList) {
-        console.log('✅ Restoring last used list:', lastUsedList.name);
-        setSelectedListId(lastUsedList.id);
-        return;
-      } else {
-        console.log('⚠️ Last used list not found in shopping lists:', lastUsedListId);
-      }
-    } else {
-      console.log('⚠️ No lastUsedListId from settings');
-    }
-
-    // Fall back to default list or first list
-    const defaultList = shoppingLists.find((l: ShoppingList) => l.isDefault) || shoppingLists[0];
-    if (defaultList) {
-      console.log('📋 Falling back to default/first list:', defaultList.name);
-      setSelectedListId(defaultList.id);
-    } else {
-      // Create default "shop list" if no lists exist
-      console.log('📝 Creating default shop list');
-      shoppingListsService.getDefaultShoppingList(user.uid).then((listId: string) => {
-        setSelectedListId(listId);
-      });
-    }
+    // Use the current lastUsedListId state value
+    initializeListSelection(lastUsedListId);
   }, [user, settingsLoaded, shoppingLists, lastUsedListId, selectedListId]);
 
   // Load shopping lists
@@ -114,6 +132,7 @@ const Shop: React.FC = () => {
     }
 
     const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
+      console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
       setShoppingLists(lists);
     });
 
