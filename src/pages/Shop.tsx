@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
@@ -12,9 +12,32 @@ const Shop: React.FC = () => {
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [lastUsedListId, setLastUsedListId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const hasInitializedList = useRef(false);
+
+  // Load user settings first to get lastUsedShoppingListId
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const loadSettings = async () => {
+      try {
+        const settings = await userSettingsService.getUserSettings(user.uid);
+        if (settings?.lastUsedShoppingListId) {
+          setLastUsedListId(settings.lastUsedShoppingListId);
+        }
+      } catch (error) {
+        console.error('Error loading user settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, [user]);
 
   // Load shopping lists and set default/selected list
   useEffect(() => {
@@ -23,47 +46,40 @@ const Shop: React.FC = () => {
       return;
     }
 
-    const loadListsAndSetDefault = async () => {
-      try {
-        // Subscribe to shopping lists
-        const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
-          setShoppingLists(lists);
-          
-          // If no list is selected yet, set default
-          if (!selectedListId && lists.length > 0) {
-            // Try to restore last used list from settings
-            userSettingsService.getUserSettings(user.uid).then(settings => {
-              if (settings?.lastUsedShoppingListId) {
-                const lastUsedList = lists.find((l: ShoppingList) => l.id === settings.lastUsedShoppingListId);
-                if (lastUsedList) {
-                  setSelectedListId(lastUsedList.id);
-                  return;
-                }
-              }
-              
-              // Use default list or first list
-              const defaultList = lists.find((l: ShoppingList) => l.isDefault) || lists[0];
-              if (defaultList) {
-                setSelectedListId(defaultList.id);
-              } else {
-                // Create default "shop list" if no lists exist
-                shoppingListsService.getDefaultShoppingList(user.uid).then((listId: string) => {
-                  setSelectedListId(listId);
-                });
-              }
-            });
+    // Reset initialization flag when user changes
+    hasInitializedList.current = false;
+
+    const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
+      setShoppingLists(lists);
+      
+      // Only initialize list selection once when lists first arrive
+      if (!hasInitializedList.current && lists.length > 0) {
+        hasInitializedList.current = true;
+        
+        // Try to restore last used list first
+        if (lastUsedListId) {
+          const lastUsedList = lists.find((l: ShoppingList) => l.id === lastUsedListId);
+          if (lastUsedList) {
+            setSelectedListId(lastUsedList.id);
+            return;
           }
-        });
-
-        return () => unsubscribeLists();
-      } catch (error) {
-        console.error('Error loading shopping lists:', error);
-        setLoading(false);
+        }
+        
+        // Fall back to default list or first list
+        const defaultList = lists.find((l: ShoppingList) => l.isDefault) || lists[0];
+        if (defaultList) {
+          setSelectedListId(defaultList.id);
+        } else {
+          // Create default "shop list" if no lists exist
+          shoppingListsService.getDefaultShoppingList(user.uid).then((listId: string) => {
+            setSelectedListId(listId);
+          });
+        }
       }
-    };
+    });
 
-    loadListsAndSetDefault();
-  }, [user, selectedListId]);
+    return () => unsubscribeLists();
+  }, [user, lastUsedListId]);
 
   // Subscribe to shopping list items for selected list
   useEffect(() => {
