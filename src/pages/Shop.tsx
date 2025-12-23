@@ -20,6 +20,8 @@ const Shop: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [showAddListToast, setShowAddListToast] = useState(false);
+  const [newListName, setNewListName] = useState('');
   const hasInitialized = useRef(false);
 
   // Load user settings and initialize list selection in one effect
@@ -246,6 +248,44 @@ const Shop: React.FC = () => {
     }
   };
 
+  const handleCreateListClick = () => {
+    if (shoppingLists.length === 0) {
+      // Show toast to create first list
+      setShowAddListToast(true);
+      setNewListName('');
+    } else {
+      // Navigate to edit-lists page
+      navigate('/edit-lists');
+    }
+  };
+
+  const handleCreateList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newListName.trim()) {
+      setShowAddListToast(false);
+      return;
+    }
+
+    try {
+      const listId = await shoppingListsService.createShoppingList(user.uid, newListName.trim(), false);
+      setNewListName('');
+      setShowAddListToast(false);
+      // Automatically select the newly created list and save as last used
+      setSelectedListId(listId);
+      setLastUsedListId(listId);
+      await userSettingsService.setLastUsedShoppingList(user.uid, listId);
+    } catch (error) {
+      console.error('Error creating shopping list:', error);
+      alert('Failed to create list. Please try again.');
+      setShowAddListToast(false);
+    }
+  };
+
+  const handleCancelCreateList = () => {
+    setShowAddListToast(false);
+    setNewListName('');
+  };
+
   const handleItemClick = (item: ShoppingListItem) => {
     navigate('/add', { state: { fromShoppingList: true, shoppingListItemId: item.id, itemName: item.name } });
   };
@@ -417,7 +457,7 @@ const Shop: React.FC = () => {
               )}
             </select>
             <button
-              onClick={() => navigate('/edit-lists')}
+              onClick={handleCreateListClick}
               style={{
                 padding: '0.75rem 1.5rem',
                 backgroundColor: '#002B4D',
@@ -603,6 +643,100 @@ const Shop: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Toast-style popup for creating first list */}
+      {showAddListToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#ffffff',
+            padding: '1.5rem',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+            zIndex: 1000,
+            minWidth: '300px',
+            maxWidth: '90vw'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+            Create New List
+          </h3>
+          <form onSubmit={handleCreateList}>
+            <input
+              type="text"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              placeholder="Enter list name"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                outline: 'none',
+                marginBottom: '1rem',
+                boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={handleCancelCreateList}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#f3f4f6',
+                  color: '#1f2937',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minHeight: '44px'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#002B4D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minHeight: '44px'
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Backdrop overlay */}
+      {showAddListToast && (
+        <div
+          onClick={handleCancelCreateList}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 999
+          }}
+        />
+      )}
 
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
