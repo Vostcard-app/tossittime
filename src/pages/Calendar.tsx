@@ -517,7 +517,36 @@ const Calendar: React.FC = () => {
 
         {/* Items rows */}
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
-          {sortedItems.map((item) => {
+          {sortedItems.length === 0 ? (
+            // Show empty grid row when no items
+            <div
+              style={{
+                display: 'flex',
+                height: `${rowHeight}px`,
+                borderBottom: '1px solid #e5e7eb',
+                alignItems: 'center',
+                position: 'relative',
+                width: '100%',
+                minWidth: 0,
+                maxWidth: '100%',
+                boxSizing: 'border-box'
+              }}
+            >
+              {weekDays.map((_, colIndex) => (
+                <div
+                  key={colIndex}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none'
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            sortedItems.map((item) => {
             const expirationDate = new Date(item.expirationDate);
             const status = getFoodItemStatus(expirationDate, 7);
             const isFrozen = item.isFrozen || false;
@@ -754,7 +783,8 @@ const Calendar: React.FC = () => {
                 })}
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     );
