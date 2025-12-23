@@ -116,29 +116,14 @@ const Calendar: React.FC = () => {
         return d;
       };
 
-      // If item is frozen, add thaw date and freeze date events
+      // If item is frozen, add only thaw date event
       if (isFrozen && item.thawDate) {
         // Thaw date for frozen items
         const thawDate = new Date(item.thawDate);
-        // Freeze date is 2 days before thaw date
-        const freezeDate = addDays(thawDate, -2);
         
-        // Add freeze date event (2 days before thaw)
+        // Add thaw date event only (orange color)
         allEvents.push({
-          title: item.name,
-          start: setToMidnight(freezeDate),
-          end: setToEndOfDay(freezeDate),
-          resource: {
-            itemId: item.id,
-            status: 'expiring_soon',
-            rowIndex: rowIndex,
-            isFreezeDate: true, // Flag to identify freeze date events
-          },
-        } as CalendarEvent);
-        
-        // Add thaw date event (same as expiration date, orange color)
-        allEvents.push({
-          title: item.name,
+          title: `${item.name}\n(Thaw)`,
           start: setToMidnight(thawDate),
           end: setToEndOfDay(thawDate),
           resource: {
@@ -576,23 +561,17 @@ const Calendar: React.FC = () => {
             
             // Handle frozen items separately
             if (isFrozen && item.thawDate) {
-              // For frozen items: use thawDate, freeze date = thaw date - 2 days
+              // For frozen items: use thawDate only
               const thawDate = new Date(item.thawDate);
-              const freezeDate = addDays(thawDate, -2);
               
-              const freezeCol = getColumnIndex(freezeDate);
               const thawCol = getColumnIndex(thawDate);
               
-              // Check if freeze or thaw date intersects with week
-              const freezeInWeek = freezeCol !== null;
-              const thawInWeek = thawCol !== null;
-              const intersectsWeek = freezeInWeek || thawInWeek;
-              
-              if (!intersectsWeek) {
+              // Check if thaw date intersects with week
+              if (thawCol === null) {
                 return null;
               }
               
-              // Render frozen item: freeze date and thaw date
+              // Render frozen item: only thaw date
               return (
                 <div
                   key={item.id}
@@ -610,11 +589,9 @@ const Calendar: React.FC = () => {
                   }}
                 >
                   {weekDays.map((_, colIndex) => {
-                    const isFreezeDay = freezeCol !== null && colIndex === freezeCol;
-                    const isThawDay = thawCol !== null && colIndex === thawCol;
+                    const isThawDay = colIndex === thawCol;
                     
-                    if (isFreezeDay || isThawDay) {
-                      const backgroundColor = isThawDay ? '#F4A261' : '#3b82f6'; // Orange for thaw, blue for freeze
+                    if (isThawDay) {
                       return (
                         <div
                           key={colIndex}
@@ -622,9 +599,10 @@ const Calendar: React.FC = () => {
                             flex: 1,
                             minWidth: 0,
                             height: '100%',
-                            backgroundColor: backgroundColor,
+                            backgroundColor: '#F4A261', // Orange for thaw
                             color: '#ffffff',
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             borderRight: colIndex < 6 ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
@@ -632,12 +610,14 @@ const Calendar: React.FC = () => {
                             padding: '0 0.25rem',
                             position: 'relative',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            textOverflow: 'ellipsis'
                           }}
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center', fontSize: '0.875rem' }}>
                             {item.name}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.9, marginTop: '2px' }}>
+                            (Thaw)
                           </span>
                         </div>
                       );
@@ -824,9 +804,13 @@ const Calendar: React.FC = () => {
 
   // Custom event component
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
+    // Check if this is a thaw date event
+    const isThawEvent = event.resource.isThawDate;
+    const itemName = isThawEvent ? (event.title as string).replace('\n(Thaw)', '') : (event.title as string);
+    
     if (currentView === 'month') {
       // In month view, show item title with colored background
-      const color = getStatusColor(event.resource.status);
+      const color = event.resource.isThawDate ? '#F4A261' : getStatusColor(event.resource.status);
       // Only show title if it's not empty (red expiration day adjacent to yellow has empty title)
       if (!event.title || event.title === '') {
         return null; // Don't render empty events in month view
@@ -840,35 +824,41 @@ const Calendar: React.FC = () => {
             borderRadius: '4px',
             fontSize: '0.75rem',
             fontWeight: '500',
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             cursor: 'pointer',
             maxWidth: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            lineHeight: '1.2'
           }}
           title={event.title as string}
         >
-          {event.title}
+          <span>{itemName}</span>
+          {isThawEvent && <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>(Thaw)</span>}
         </div>
       );
     }
     
     // In week/day view, show full event with title
-    // For day view, also show expiration date
+    // For day view, also show expiration/thaw date
     if (currentView === 'day') {
-      // Find the original item to get expiration date
+      // Find the original item to get expiration/thaw date
       const item = foodItems.find((i) => i.id === event.resource.itemId);
       // Use thawDate for frozen items, expirationDate for regular items
       const dateField = item && item.isFrozen && item.thawDate ? item.thawDate : (item?.expirationDate || null);
       const expirationDate = dateField ? new Date(dateField) : null;
       const formattedDate = expirationDate ? format(expirationDate, 'MMM d, yyyy') : '';
+      const dateLabel = item?.isFrozen ? 'Thaws' : 'Expires';
       
       return (
         <div style={{ padding: '2px 4px', fontSize: '0.875rem' }}>
-          <div style={{ fontWeight: '500' }}>{event.title}</div>
+          <div style={{ fontWeight: '500' }}>{itemName}</div>
+          {isThawEvent && <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>(Thaw)</div>}
           {formattedDate && (
             <div style={{ fontSize: '0.75rem', opacity: 0.9, marginTop: '2px' }}>
-              Expires: {formattedDate}
+              {dateLabel}: {formattedDate}
             </div>
           )}
         </div>
@@ -880,6 +870,15 @@ const Calendar: React.FC = () => {
       return <div style={{ padding: '2px 4px' }}></div>; // Empty div for red expiration day
     }
     // Show title for all other events (including yellow spanning events)
+    // For thaw events, show name and (Thaw) on separate lines
+    if (isThawEvent) {
+      return (
+        <div style={{ padding: '2px 4px', display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</span>
+          <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>(Thaw)</span>
+        </div>
+      );
+    }
     return <div style={{ padding: '2px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</div>;
   };
 
