@@ -493,9 +493,9 @@ const Calendar: React.FC = () => {
     const rowHeight = 50; // Height of each row
 
     return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', backgroundColor: '#ffffff' }}>
         {/* Day headers */}
-        <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', borderBottom: '2px solid #d1d5db', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#ffffff' }}>
           {weekDays.map((day, index) => (
             <div
               key={index}
@@ -505,8 +505,8 @@ const Calendar: React.FC = () => {
                 padding: '0.5rem',
                 textAlign: 'center',
                 fontWeight: '600',
-                borderRight: index < 6 ? '1px solid #e5e7eb' : 'none',
-                backgroundColor: isSameDay(day, today) ? '#f3f4f6' : 'transparent'
+                borderRight: index < 6 ? '1px solid #d1d5db' : 'none',
+                backgroundColor: isSameDay(day, today) ? '#f3f4f6' : '#ffffff'
               }}
             >
               <div style={{ fontSize: '0.875rem' }}>{format(day, 'EEE')}</div>
@@ -516,20 +516,21 @@ const Calendar: React.FC = () => {
         </div>
 
         {/* Items rows */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#ffffff' }}>
           {sortedItems.length === 0 ? (
             // Show empty grid row when no items
             <div
               style={{
                 display: 'flex',
                 height: `${rowHeight}px`,
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid #d1d5db',
                 alignItems: 'center',
                 position: 'relative',
                 width: '100%',
                 minWidth: 0,
                 maxWidth: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                backgroundColor: '#ffffff'
               }}
             >
               {weekDays.map((_, colIndex) => (
@@ -540,7 +541,8 @@ const Calendar: React.FC = () => {
                     minWidth: 0,
                     maxWidth: '100%',
                     boxSizing: 'border-box',
-                    borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none'
+                    borderRight: colIndex < 6 ? '1px solid #d1d5db' : 'none',
+                    backgroundColor: '#ffffff'
                   }}
                 />
               ))}
@@ -576,13 +578,14 @@ const Calendar: React.FC = () => {
                   style={{
                     display: 'flex',
                     height: `${rowHeight}px`,
-                    borderBottom: '1px solid #e5e7eb',
+                    borderBottom: '1px solid #d1d5db',
                     alignItems: 'center',
                     position: 'relative',
                     width: '100%',
                     minWidth: 0,
                     maxWidth: '100%',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    backgroundColor: '#ffffff'
                   }}
                 >
                   {weekDays.map((_, colIndex) => {
@@ -626,7 +629,8 @@ const Calendar: React.FC = () => {
                           minWidth: 0,
                           maxWidth: '100%',
                           boxSizing: 'border-box',
-                          borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none'
+                          borderRight: colIndex < 6 ? '1px solid #d1d5db' : 'none',
+                          backgroundColor: '#ffffff'
                         }}
                       />
                     );
@@ -700,13 +704,14 @@ const Calendar: React.FC = () => {
                 style={{
                   display: 'flex',
                   height: `${rowHeight}px`,
-                  borderBottom: '1px solid #e5e7eb',
+                  borderBottom: '1px solid #d1d5db',
                   alignItems: 'center',
                   position: 'relative',
                   width: '100%',
                   minWidth: 0,
                   maxWidth: '100%',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  backgroundColor: '#ffffff'
                 }}
               >
                 {weekDays.map((_, colIndex) => {
@@ -776,7 +781,8 @@ const Calendar: React.FC = () => {
                         minWidth: 0,
                         maxWidth: '100%',
                         boxSizing: 'border-box',
-                        borderRight: colIndex < 6 ? '1px solid #e5e7eb' : 'none'
+                        borderRight: colIndex < 6 ? '1px solid #d1d5db' : 'none',
+                        backgroundColor: '#ffffff'
                       }}
                     />
                   );
