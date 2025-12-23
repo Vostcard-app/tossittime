@@ -123,11 +123,27 @@ const AddItem: React.FC = () => {
       }
 
       // Build itemData without undefined fields
+      // For frozen items: include thawDate, exclude expirationDate
+      // For non-frozen items: include expirationDate, exclude thawDate
       const itemData: FoodItemData = {
         name: data.name,
-        expirationDate: data.expirationDate,
         quantity: data.quantity || 1
       };
+      
+      // Add date field based on whether item is frozen
+      if (data.isFrozen) {
+        if (data.thawDate) {
+          itemData.thawDate = data.thawDate;
+        }
+        // Explicitly exclude expirationDate for frozen items
+        itemData.expirationDate = undefined;
+      } else {
+        if (data.expirationDate) {
+          itemData.expirationDate = data.expirationDate;
+        }
+        // Explicitly exclude thawDate for non-frozen items
+        itemData.thawDate = undefined;
+      }
       
       // Only include optional fields if they have values (not undefined)
       if (scannedBarcode || data.barcode) {
@@ -141,11 +157,15 @@ const AddItem: React.FC = () => {
 
       if (editingItem) {
         // Update existing item
-        const status = getFoodItemStatus(data.expirationDate);
+        // For frozen items, status might not be relevant, but we'll use 'fresh' as default
+        // For non-frozen items, calculate status from expirationDate
+        const status = data.isFrozen ? 'fresh' : (data.expirationDate ? getFoodItemStatus(data.expirationDate) : 'fresh');
         await foodItemService.updateFoodItem(editingItem.id, { ...itemData, status });
       } else {
         // Add new item
-        const status = getFoodItemStatus(data.expirationDate);
+        // For frozen items, status might not be relevant, but we'll use 'fresh' as default
+        // For non-frozen items, calculate status from expirationDate
+        const status = data.isFrozen ? 'fresh' : (data.expirationDate ? getFoodItemStatus(data.expirationDate) : 'fresh');
         await foodItemService.addFoodItem(user.uid, itemData, status);
       }
       
@@ -379,7 +399,12 @@ const AddItem: React.FC = () => {
                     {item.name}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    Expiration: {formatDate(item.expirationDate)}
+                    {item.isFrozen && item.thawDate 
+                      ? `Thaws: ${formatDate(item.thawDate)}`
+                      : item.expirationDate 
+                        ? `Expiration: ${formatDate(item.expirationDate)}`
+                        : 'No date'
+                    }
                   </div>
                 </div>
               ))}
@@ -477,7 +502,12 @@ const AddItem: React.FC = () => {
                     {item.name}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    Expiration: {formatDate(item.expirationDate)}
+                    {item.isFrozen && item.thawDate 
+                      ? `Thaws: ${formatDate(item.thawDate)}`
+                      : item.expirationDate 
+                        ? `Expiration: ${formatDate(item.expirationDate)}`
+                        : 'No date'
+                    }
                   </div>
                 </div>
                 <button

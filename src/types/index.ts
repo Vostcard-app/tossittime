@@ -3,7 +3,8 @@ export interface FoodItem {
   userId: string;
   name: string;
   barcode?: string;
-  expirationDate: Date;
+  expirationDate?: Date; // Optional - frozen items use thawDate instead
+  thawDate?: Date; // For frozen items
   addedDate: Date;
   photoUrl?: string;
   quantity?: number;
@@ -12,12 +13,14 @@ export interface FoodItem {
   reminderSent?: boolean;
   notes?: string;
   isFrozen?: boolean;
+  freezeCategory?: string;
 }
 
 export interface FoodItemData {
   name: string;
   barcode?: string;
-  expirationDate: Date;
+  expirationDate?: Date; // Optional - frozen items use thawDate instead
+  thawDate?: Date; // For frozen items
   photoUrl?: string;
   quantity?: number;
   category?: string;

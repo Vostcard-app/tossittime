@@ -33,6 +33,15 @@ export const notificationService = {
       return;
     }
 
+    // Skip frozen items (they use thawDate, not expirationDate)
+    if (item.isFrozen) {
+      return;
+    }
+
+    if (!item.expirationDate) {
+      return;
+    }
+
     const daysUntilExpiration = calculateDaysUntilExpiration(item.expirationDate);
     
     if (daysUntilExpiration >= 0 && daysUntilExpiration <= reminderDays) {
@@ -59,6 +68,8 @@ export const notificationService = {
 
     const itemsToRemind = items.filter(item => {
       if (item.reminderSent) return false;
+      // Skip frozen items (they use thawDate, not expirationDate)
+      if (item.isFrozen || !item.expirationDate) return false;
       const days = calculateDaysUntilExpiration(item.expirationDate);
       return days >= 0 && days <= reminderDays;
     });

@@ -134,13 +134,23 @@ const ItemDetail: React.FC = () => {
 
         <div style={{ marginBottom: '1rem' }}>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '600', color: '#6b7280' }}>
-            Expiration Date
+            {item.isFrozen ? 'Thaw Date' : 'Expiration Date'}
           </h3>
           <p style={{ margin: 0, fontSize: '1.125rem', color: '#1f2937' }}>
-            {formatDate(item.expirationDate)}
+            {item.isFrozen && item.thawDate
+              ? formatDate(item.thawDate)
+              : item.expirationDate
+                ? formatDate(item.expirationDate)
+                : 'No date'
+            }
           </p>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
-            {formatRelativeDate(item.expirationDate)}
+            {item.isFrozen && item.thawDate
+              ? formatRelativeDate(item.thawDate)
+              : item.expirationDate
+                ? formatRelativeDate(item.expirationDate)
+                : ''
+            }
           </p>
         </div>
 

@@ -153,10 +153,15 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
             {item.name}
           </span>
           <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-            Expires
+            {item.isFrozen ? 'Thaws' : 'Expires'}
           </span>
           <span style={{ fontSize: '0.875rem', color: '#1f2937', fontWeight: '500' }}>
-            {formatDate(item.expirationDate)}
+            {item.isFrozen && item.thawDate 
+              ? formatDate(item.thawDate)
+              : item.expirationDate 
+                ? formatDate(item.expirationDate)
+                : 'No date'
+            }
           </span>
         </div>
         <button

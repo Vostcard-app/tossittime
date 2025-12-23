@@ -18,11 +18,13 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
     barcode: initialBarcode || initialItem?.barcode || '',
-    expirationDate: initialItem?.expirationDate ? new Date(initialItem.expirationDate) : new Date(),
+    expirationDate: initialItem?.isFrozen ? undefined : (initialItem?.expirationDate ? new Date(initialItem.expirationDate) : new Date()),
+    thawDate: initialItem?.isFrozen && initialItem?.thawDate ? new Date(initialItem.thawDate) : undefined,
     quantity: initialItem?.quantity || 1,
     category: initialItem?.category || '',
     notes: initialItem?.notes || '',
-    isFrozen: initialItem?.isFrozen || false
+    isFrozen: initialItem?.isFrozen || false,
+    freezeCategory: initialItem?.freezeCategory as FreezeCategory | undefined
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialItem?.photoUrl || null);
@@ -40,16 +42,17 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       setFormData({
         name: initialItem.name,
         barcode: initialItem.barcode || '',
-        expirationDate: new Date(initialItem.expirationDate),
+        expirationDate: initialItem.isFrozen ? undefined : (initialItem.expirationDate ? new Date(initialItem.expirationDate) : new Date()),
+        thawDate: initialItem.isFrozen && initialItem.thawDate ? new Date(initialItem.thawDate) : undefined,
         quantity: initialItem.quantity || 1,
         category: initialItem.category || '',
         notes: initialItem.notes || '',
-        isFrozen: initialItem.isFrozen || false
+        isFrozen: initialItem.isFrozen || false,
+        freezeCategory: initialItem.freezeCategory as FreezeCategory | undefined
       });
       setPhotoPreview(initialItem.photoUrl || null);
       setIsFrozen(initialItem.isFrozen || false);
-      // TODO: Store freezeCategory in FoodItem if needed, for now set to null
-      setFreezeCategory(null);
+      setFreezeCategory(initialItem.freezeCategory as FreezeCategory | null);
       setHasManuallyChangedDate(true); // Don't auto-apply when editing existing item
     } else if (initialName && !formData.name) {
       setFormData(prev => ({ ...prev, name: initialName }));
@@ -66,7 +69,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       
       // Auto-apply suggestion if available and user hasn't manually changed the date
       // BUT: Don't auto-apply if freeze is checked (we'll use category-based calculation instead)
-      if (suggestion && !hasManuallyChangedDate && !isFrozen) {
+      if (suggestion && !hasManuallyChangedDate && !isFrozen && formData.expirationDate) {
         // Only auto-apply if current date is today (default) or if we're editing and date hasn't been manually changed
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -96,12 +99,20 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       // Calculate thaw date = today + bestQualityMonths
       const thawDate = addMonths(today, bestQualityMonths);
       
-      // Set expiration date to thaw date (thaw replaces expiration)
+      // Set thawDate and remove expirationDate for frozen items
       setFormData(prev => ({
         ...prev,
-        expirationDate: thawDate
+        thawDate: thawDate,
+        expirationDate: undefined
       }));
       setHasManuallyChangedDate(false); // Reset flag since we're auto-setting
+    } else if (!isFrozen) {
+      // If unfrozen, clear thawDate and ensure expirationDate exists
+      setFormData(prev => ({
+        ...prev,
+        thawDate: undefined,
+        expirationDate: prev.expirationDate || new Date()
+      }));
     }
   }, [isFrozen, freezeCategory]);
 
@@ -120,6 +131,8 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       expirationDate: new Date(e.target.value)
     }));
   };
+  
+  // Note: Thaw date is calculated automatically from freeze category, so no manual change handler needed
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,17 +154,40 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       return;
     }
     
-    // If freeze is checked, category must be selected
-    if (isFrozen && !freezeCategory) {
-      alert('Please select a freeze category');
-      return;
+    // Validation: frozen items need thawDate, non-frozen items need expirationDate
+    if (isFrozen) {
+      if (!freezeCategory) {
+        alert('Please select a freeze category');
+        return;
+      }
+      if (!formData.thawDate) {
+        alert('Thaw date is required for frozen items');
+        return;
+      }
+    } else {
+      if (!formData.expirationDate) {
+        alert('Expiration date is required');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
+      // Build dataToSubmit: frozen items have thawDate (no expirationDate), non-frozen have expirationDate (no thawDate)
       const dataToSubmit: FoodItemData = {
-        ...formData,
-        freezeCategory: freezeCategory || undefined
+        name: formData.name,
+        barcode: formData.barcode,
+        quantity: formData.quantity,
+        category: formData.category,
+        notes: formData.notes,
+        isFrozen: isFrozen,
+        freezeCategory: freezeCategory || undefined,
+        // For frozen items: include thawDate, exclude expirationDate
+        // For non-frozen items: include expirationDate, exclude thawDate
+        ...(isFrozen 
+          ? { thawDate: formData.thawDate, expirationDate: undefined }
+          : { expirationDate: formData.expirationDate, thawDate: undefined }
+        )
         // Don't include photoUrl here - it will be set after upload
       };
       await onSubmit(dataToSubmit, photoFile || undefined);
@@ -162,6 +198,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
           name: '',
           barcode: '',
           expirationDate: new Date(),
+          thawDate: undefined,
           quantity: 1,
           category: '',
           notes: '',
@@ -230,36 +267,71 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         />
       </div>
 
-      {/* 2. Expiration Date Field */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="expirationDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
-          Expiration Date *
-        </label>
-        <input
-          ref={dateInputRef}
-          type="date"
-          id="expirationDate"
-          name="expirationDate"
-          value={formData.expirationDate.toISOString().split('T')[0]}
-          onChange={handleDateChange}
-          required
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '1rem'
-          }}
-        />
-      </div>
+      {/* 2. Expiration Date / Thaw Date Field */}
+      {!isFrozen && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="expirationDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
+            Expiration Date *
+          </label>
+          <input
+            ref={dateInputRef}
+            type="date"
+            id="expirationDate"
+            name="expirationDate"
+            value={formData.expirationDate ? formData.expirationDate.toISOString().split('T')[0] : ''}
+            onChange={handleDateChange}
+            required
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem'
+            }}
+          />
+        </div>
+      )}
+      
+      {/* 2a. Thaw Date Field (for frozen items) */}
+      {isFrozen && formData.thawDate && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="thawDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
+            Thaw Date *
+          </label>
+          <input
+            type="date"
+            id="thawDate"
+            name="thawDate"
+            value={formData.thawDate.toISOString().split('T')[0]}
+            disabled
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              backgroundColor: '#f3f4f6',
+              cursor: 'not-allowed'
+            }}
+          />
+          <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+            Thaw date is calculated from the selected freeze category
+          </p>
+        </div>
+      )}
 
       {/* 2.5. Freeze Checkbox */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer' }}>
           <input
             type="checkbox"
             checked={isFrozen}
+            disabled={initialItem?.isFrozen === true} // Prevent unfreezing
             onChange={(e) => {
+              // Don't allow unfreezing if item is already frozen
+              if (initialItem?.isFrozen) {
+                return;
+              }
               const frozen = e.target.checked;
               setIsFrozen(frozen);
               // Update formData with isFrozen flag
@@ -272,11 +344,12 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
             style={{
               width: '1.25rem',
               height: '1.25rem',
-              cursor: 'pointer'
+              cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer',
+              opacity: initialItem?.isFrozen ? 0.5 : 1
             }}
           />
           <span style={{ fontSize: '1rem', fontWeight: '500' }}>
-            Freeze
+            Freeze {initialItem?.isFrozen && '(Cannot be unfrozen)'}
           </span>
         </label>
       </div>

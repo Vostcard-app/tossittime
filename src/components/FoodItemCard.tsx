@@ -59,10 +59,21 @@ const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onClick, onDelete, on
 
       <div style={{ marginBottom: '0.5rem' }}>
         <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-          <strong>Expires:</strong> {formatDate(item.expirationDate)}
+          <strong>{item.isFrozen ? 'Thaws' : 'Expires'}:</strong> {
+            item.isFrozen && item.thawDate 
+              ? formatDate(item.thawDate)
+              : item.expirationDate 
+                ? formatDate(item.expirationDate)
+                : 'No date'
+          }
         </p>
         <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
-          {formatRelativeDate(item.expirationDate)}
+          {item.isFrozen && item.thawDate
+            ? formatRelativeDate(item.thawDate)
+            : item.expirationDate
+              ? formatRelativeDate(item.expirationDate)
+              : ''
+          }
         </p>
       </div>
 

@@ -79,25 +79,28 @@ const Calendar: React.FC = () => {
 
     const allEvents: CalendarEvent[] = [];
     
-    // Sort items by how close they are to expiring (soonest first) for proper row ordering
-    // Items expiring today should be at the top, then tomorrow, etc.
+    // Sort items by how close they are to expiring/thawing (soonest first) for proper row ordering
+    // Items expiring/thawing today should be at the top, then tomorrow, etc.
     const today = startOfDay(new Date());
     const sortedItems = [...foodItems].sort((a, b) => {
-      const dateA = new Date(a.expirationDate);
-      const dateB = new Date(b.expirationDate);
+      // Use thawDate for frozen items, expirationDate for regular items
+      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.expirationDate ? new Date(a.expirationDate) : new Date());
+      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.expirationDate ? new Date(b.expirationDate) : new Date());
       const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      // Sort by days until expiration (negative = expired, 0 = today, positive = future)
-      // Closest to expiring (smallest number) should be first
+      // Sort by days until expiration/thaw (negative = past, 0 = today, positive = future)
+      // Closest to expiring/thawing (smallest number) should be first
       return daysUntilA - daysUntilB;
     });
 
     let rowIndex = 0;
 
     sortedItems.forEach((item) => {
-      const expirationDate = new Date(item.expirationDate);
-      const status = getFoodItemStatus(expirationDate, 7); // Using default 7 days for expiring soon
       const isFrozen = item.isFrozen || false;
+      // Use thawDate for frozen items, expirationDate for regular items
+      const dateField = isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const expirationDate = new Date(dateField);
+      const status = isFrozen ? 'fresh' : getFoodItemStatus(expirationDate, 7); // Frozen items don't have expiration status
 
       // Helper function to set time to midnight (00:00:00) for top positioning
       const setToMidnight = (date: Date): Date => {
@@ -114,9 +117,9 @@ const Calendar: React.FC = () => {
       };
 
       // If item is frozen, add thaw date and freeze date events
-      if (isFrozen) {
-        // Thaw date is the expiration date for frozen items
-        const thawDate = expirationDate;
+      if (isFrozen && item.thawDate) {
+        // Thaw date for frozen items
+        const thawDate = new Date(item.thawDate);
         // Freeze date is 2 days before thaw date
         const freezeDate = addDays(thawDate, -2);
         
@@ -305,7 +308,11 @@ const Calendar: React.FC = () => {
     
     // Verify: Ensure we have yellow events for all expiring_soon items
     const expiringSoonItems = sortedItems.filter(item => {
-      const expDate = new Date(item.expirationDate);
+      // Use thawDate for frozen items, expirationDate for regular items
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const expDate = new Date(dateField);
+      // Frozen items don't have expiration status, so always return false
+      if (item.isFrozen) return false;
       return getFoodItemStatus(expDate, 7) === 'expiring_soon';
     });
     if (expiringSoonItems.length > 0 && expiringSoonEvents.length === 0 && currentView === 'week') {
@@ -437,47 +444,63 @@ const Calendar: React.FC = () => {
       end: addDays(weekStart, 6)
     });
 
-    // Filter out expired items (items past their expiration date)
-    // Only show items that haven't expired yet - expired items fall off the calendar
+    // Filter out expired items (items past their expiration/thaw date)
+    // Only show items that haven't expired/thawed yet - expired items fall off the calendar
+    // Frozen items use thawDate, regular items use expirationDate
     const today = startOfDay(new Date());
     const nonExpiredItems = foodItems.filter(item => {
-      const expirationDate = new Date(item.expirationDate);
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const expirationDate = new Date(dateField);
       const expirationDay = startOfDay(expirationDate);
-      // Only show items that haven't expired yet (expiration date is today or in the future)
+      // Only show items that haven't expired/thawed yet (date is today or in the future)
       const isNotExpired = expirationDay >= today;
       if (!isNotExpired) {
-        console.log(`🔴 Filtered out expired item: ${item.name}, expiration: ${expirationDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
+        const dateType = item.isFrozen ? 'thaw' : 'expiration';
+        console.log(`🔴 Filtered out expired item: ${item.name}, ${dateType}: ${expirationDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
       }
       return isNotExpired;
     });
 
     // Debug: Log all items and their statuses
-    console.log('📋 All food items:', foodItems.map(item => ({
-      name: item.name,
-      expirationDate: item.expirationDate,
-      status: getFoodItemStatus(new Date(item.expirationDate), 7)
-    })));
-    console.log('✅ Non-expired items:', nonExpiredItems.map(item => ({
-      name: item.name,
-      expirationDate: item.expirationDate,
-      status: getFoodItemStatus(new Date(item.expirationDate), 7)
-    })));
+    console.log('📋 All food items:', foodItems.map(item => {
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      return {
+        name: item.name,
+        isFrozen: item.isFrozen,
+        date: dateField,
+        status: item.isFrozen ? 'fresh' : getFoodItemStatus(new Date(dateField), 7)
+      };
+    }));
+    console.log('✅ Non-expired items:', nonExpiredItems.map(item => {
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      return {
+        name: item.name,
+        isFrozen: item.isFrozen,
+        date: dateField,
+        status: item.isFrozen ? 'fresh' : getFoodItemStatus(new Date(dateField), 7)
+      };
+    }));
 
-    // Sort items by expiration proximity (soonest first)
+    // Sort items by expiration/thaw proximity (soonest first)
     const sortedItems = [...nonExpiredItems].sort((a, b) => {
-      const dateA = new Date(a.expirationDate);
-      const dateB = new Date(b.expirationDate);
+      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.expirationDate ? new Date(a.expirationDate) : new Date());
+      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.expirationDate ? new Date(b.expirationDate) : new Date());
       const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntilA - daysUntilB;
     });
     
-    console.log('📊 Sorted items for rendering:', sortedItems.map(item => ({
-      name: item.name,
-      expirationDate: item.expirationDate,
-      status: getFoodItemStatus(new Date(item.expirationDate), 7),
-      daysUntil: Math.ceil((new Date(item.expirationDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    })));
+    console.log('📊 Sorted items for rendering:', sortedItems.map(item => {
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const date = new Date(dateField);
+      return {
+        name: item.name,
+        isFrozen: item.isFrozen,
+        date: dateField,
+        status: item.isFrozen ? 'fresh' : getFoodItemStatus(date, 7),
+        daysUntil: Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      };
+    }));
 
     // Calculate which columns a date falls into
     const getColumnIndex = (date: Date): number | null => {
@@ -549,14 +572,12 @@ const Calendar: React.FC = () => {
             </div>
           ) : (
             sortedItems.map((item) => {
-            const expirationDate = new Date(item.expirationDate);
-            const status = getFoodItemStatus(expirationDate, 7);
             const isFrozen = item.isFrozen || false;
             
             // Handle frozen items separately
-            if (isFrozen) {
-              // For frozen items: thaw date = expiration date, freeze date = thaw date - 2 days
-              const thawDate = expirationDate;
+            if (isFrozen && item.thawDate) {
+              // For frozen items: use thawDate, freeze date = thaw date - 2 days
+              const thawDate = new Date(item.thawDate);
               const freezeDate = addDays(thawDate, -2);
               
               const freezeCol = getColumnIndex(freezeDate);
@@ -640,6 +661,11 @@ const Calendar: React.FC = () => {
             }
             
             // Normal (non-frozen) items: Calculate 4-day span: 3 days before expiration (yellow) + expiration day (red)
+            // For non-frozen items, use expirationDate
+            if (!item.expirationDate) {
+              return null; // Skip items without expiration date
+            }
+            const expirationDate = new Date(item.expirationDate);
             const threeDaysBefore = addDays(expirationDate, -3);
             
             // Get column indices for the 4-day span (3 yellow days + 1 red day)
@@ -832,7 +858,9 @@ const Calendar: React.FC = () => {
     if (currentView === 'day') {
       // Find the original item to get expiration date
       const item = foodItems.find((i) => i.id === event.resource.itemId);
-      const expirationDate = item ? new Date(item.expirationDate) : null;
+      // Use thawDate for frozen items, expirationDate for regular items
+      const dateField = item && item.isFrozen && item.thawDate ? item.thawDate : (item?.expirationDate || null);
+      const expirationDate = dateField ? new Date(dateField) : null;
       const formattedDate = expirationDate ? format(expirationDate, 'MMM d, yyyy') : '';
       
       return (

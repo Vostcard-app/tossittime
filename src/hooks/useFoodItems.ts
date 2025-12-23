@@ -28,10 +28,11 @@ export const useFoodItems = (user: User | null) => {
       // Subscribe to food items after settings are loaded
       unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
         // Update status for each item based on current date
+        // Frozen items don't have expiration status, use 'fresh' as default
         const currentReminderDays = settings?.reminderDays || 7;
         const updatedItems = items.map(item => ({
           ...item,
-          status: getFoodItemStatus(item.expirationDate, currentReminderDays)
+          status: item.isFrozen ? 'fresh' : (item.expirationDate ? getFoodItemStatus(item.expirationDate, currentReminderDays) : 'fresh')
         }));
         setFoodItems(updatedItems);
         setLoading(false);
@@ -41,9 +42,10 @@ export const useFoodItems = (user: User | null) => {
         console.error('Error loading user settings:', error);
         // Still try to subscribe to food items even if settings fail
         unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
+          // Frozen items don't have expiration status, use 'fresh' as default
           const updatedItems = items.map(item => ({
             ...item,
-            status: getFoodItemStatus(item.expirationDate, 7) // Use default
+            status: item.isFrozen ? 'fresh' : (item.expirationDate ? getFoodItemStatus(item.expirationDate, 7) : 'fresh') // Use default
           }));
           setFoodItems(updatedItems);
           setLoading(false);
