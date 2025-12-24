@@ -80,21 +80,22 @@ const Shop: React.FC = () => {
 
     const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
       console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
-      setShoppingLists(lists);
       
-      // Restore last used list when lists are loaded
-      // Use ref to get current lastUsedListId value (not closure value)
+      // Restore last used list IMMEDIATELY before setting shoppingLists state
+      // This ensures the dropdown has the correct value when it renders
       const currentLastUsedId = lastUsedListIdRef.current;
-      setSelectedListId(currentSelectedId => {
-        if (lists.length > 0 && currentLastUsedId && !currentSelectedId) {
-          const lastUsedList = lists.find((l: ShoppingList) => l.id === currentLastUsedId);
-          if (lastUsedList) {
-            console.log('✅ Restoring last used list from subscription:', lastUsedList.name);
-            return lastUsedList.id;
-          }
+      if (lists.length > 0 && currentLastUsedId) {
+        const lastUsedList = lists.find((l: ShoppingList) => l.id === currentLastUsedId);
+        if (lastUsedList) {
+          console.log('✅ Restoring last used list from subscription (before setState):', lastUsedList.name);
+          // Set selectedListId FIRST, then set shoppingLists
+          // This ensures both states update together and dropdown shows correct value
+          setSelectedListId(lastUsedList.id);
         }
-        return currentSelectedId;
-      });
+      }
+      
+      // Now set shoppingLists - this will trigger re-render with correct selectedListId
+      setShoppingLists(lists);
     });
 
     return () => unsubscribeLists();
