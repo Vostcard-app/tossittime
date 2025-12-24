@@ -58,39 +58,20 @@ const Shop: React.FC = () => {
     settingsLoadedRef.current = settingsLoaded;
   }, [settingsLoaded]);
 
-  // Save selectedListId to settings whenever it changes
+  // Persist selection whenever user changes lists (safety net for handleCreateList, etc.)
   useEffect(() => {
-    if (!user || !selectedListId || !settingsLoaded) {
-      return;
-    }
-    
-    // Update ref and save to settings
+    if (!user) return;
+    if (!settingsLoaded) return; // avoid writing before initial load
+    if (!selectedListId) return;
+    if (lastUsedListIdRef.current === selectedListId) return; // avoid duplicate writes
+
+    // Update ref
     lastUsedListIdRef.current = selectedListId;
+    
     userSettingsService.setLastUsedShoppingList(user.uid, selectedListId)
-      .then(() => console.log('✅ Auto-saved last used list:', selectedListId))
-      .catch(err => console.error('❌ Failed to auto-save last used list:', err));
-  }, [user, selectedListId, settingsLoaded]);
+      .catch(err => console.error("Failed to persist lastUsedShoppingListId:", err));
+  }, [user, settingsLoaded, selectedListId]);
 
-  // Restore last used list when both settings and lists are loaded
-  // This is a backup restoration - main restoration happens in subscription callback
-  useEffect(() => {
-    if (!user || !settingsLoaded || shoppingLists.length === 0) {
-      return;
-    }
-
-    // Only restore if we have a lastUsedListId and no list is currently selected
-    // Use ref to get latest value (not closure value)
-    const currentLastUsedId = lastUsedListIdRef.current;
-    if (currentLastUsedId && !selectedListId) {
-      const lastUsedList = shoppingLists.find((l: ShoppingList) => l.id === currentLastUsedId);
-      if (lastUsedList) {
-        console.log('✅ Restoring last used list from backup effect:', lastUsedList.name);
-        setSelectedListId(lastUsedList.id);
-      } else {
-        console.log('⚠️ Last used list not found in shopping lists:', currentLastUsedId);
-      }
-    }
-  }, [user, settingsLoaded, shoppingLists, selectedListId]);
 
   // Load shopping lists
   useEffect(() => {
@@ -101,49 +82,60 @@ const Shop: React.FC = () => {
 
     const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
       console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
-      
-      // Check if settings are loaded before attempting restoration
-      const isSettingsLoaded = settingsLoadedRef.current;
-      const currentLastUsedId = lastUsedListIdRef.current;
-      console.log('🔍 Restoration check - settingsLoaded:', isSettingsLoaded, 'ref:', currentLastUsedId, 'selectedListId:', selectedListId, 'lists.length:', lists.length);
-      
-      // Only attempt restoration if settings are loaded and we have a lastUsedListId
-      // If settings aren't loaded yet, the backup effect will handle restoration once both are ready
-      if (lists.length > 0 && isSettingsLoaded && currentLastUsedId && !selectedListId) {
-        const lastUsedList = lists.find((l: ShoppingList) => l.id === currentLastUsedId);
-        if (lastUsedList) {
-          console.log('✅ Restoring last used list from subscription:', lastUsedList.name);
-          // Set selectedListId FIRST, then set shoppingLists
-          // This ensures both states update together and dropdown shows correct value
-          setSelectedListId(lastUsedList.id);
-          setShoppingLists(lists);
-          return; // Exit early to prevent double setShoppingLists
-        } else {
-          console.log('⚠️ Last used list ID not found in lists:', currentLastUsedId);
-        }
-      }
-      
-      // If no restoration needed, just set lists
       setShoppingLists(lists);
     });
 
     return () => unsubscribeLists();
   }, [user]);
 
-  // Subscribe to shopping list items for selected list
+  // Restore selected list after settings + lists load
   useEffect(() => {
-    if (!user || !selectedListId) {
-      setShoppingListItems([]);
-      setLoading(false);
+    if (!user) return;
+    if (!settingsLoaded) return;
+    if (shoppingLists.length === 0) return;
+
+    const savedId = lastUsedListIdRef.current;
+
+    // Keep current selection if still valid
+    if (selectedListId && shoppingLists.some(l => l.id === selectedListId)) return;
+
+    // Restore last-used list if valid
+    if (savedId && shoppingLists.some(l => l.id === savedId)) {
+      setSelectedListId(savedId);
       return;
     }
 
-    const unsubscribe = shoppingListService.subscribeToShoppingList(user.uid, selectedListId, (items) => {
-      setShoppingListItems(items);
-      setLoading(false);
-    });
+    // Final fallback: first list
+    setSelectedListId(shoppingLists[0].id);
 
-    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, settingsLoaded, shoppingLists]);
+
+  // Load items when selectedListId changes
+  useEffect(() => {
+    if (!user) return;
+    if (!selectedListId) return;
+
+    let cancelled = false;
+
+    const loadItems = async () => {
+      setLoading(true);
+      try {
+        const items = await shoppingListService.getShoppingListItems(user.uid, selectedListId);
+        if (!cancelled) setShoppingListItems(items);
+      } catch (e) {
+        console.error("Error loading shopping list items:", e);
+        if (!cancelled) setShoppingListItems([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadItems();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, selectedListId]);
 
   // Get FoodKeeper suggestions based on search query
@@ -167,16 +159,19 @@ const Shop: React.FC = () => {
       return;
     }
     
-    // Auto-select first list if available but none selected
+    // Auto-select list for internal use only (DO NOT set state here)
     let listIdToUse = selectedListId;
     if (!listIdToUse && shoppingLists.length > 0) {
-      listIdToUse = shoppingLists[0].id;
-      setSelectedListId(listIdToUse);
-      lastUsedListIdRef.current = listIdToUse;
-      if (user) {
-        userSettingsService.setLastUsedShoppingList(user.uid, listIdToUse).catch(console.error);
-      }
+      listIdToUse = selectedListId && shoppingLists.some(l => l.id === selectedListId)
+        ? selectedListId
+        : (lastUsedListIdRef.current && shoppingLists.some(l => l.id === lastUsedListIdRef.current))
+          ? lastUsedListIdRef.current
+          : shoppingLists[0].id;
     }
+
+    // IMPORTANT:
+    // - DO NOT call setSelectedListId here
+    // - Selection state is controlled only by restore effect and UI handlers
     
     if (!listIdToUse) {
       alert('Please select a list first.');
@@ -205,17 +200,15 @@ const Shop: React.FC = () => {
       return;
     }
 
-    console.log('🔄 Changing list to:', listId);
     setSelectedListId(listId);
-    // Update ref and save as last used
     lastUsedListIdRef.current = listId;
+
     if (user) {
-      try {
-        await userSettingsService.setLastUsedShoppingList(user.uid, listId);
-        console.log('✅ Saved last used list to settings:', listId);
-      } catch (error) {
-        console.error('❌ Failed to save last used list:', error);
-      }
+      userSettingsService
+        .setLastUsedShoppingList(user.uid, listId)
+        .catch(err =>
+          console.error('Failed to persist lastUsedShoppingListId:', err)
+        );
     }
   };
 
@@ -243,15 +236,7 @@ const Shop: React.FC = () => {
       setShowAddListToast(false);
       // Automatically select the newly created list
       setSelectedListId(listId);
-      lastUsedListIdRef.current = listId;
-      
-      // Try to save as last used, but don't fail if this errors
-      try {
-        await userSettingsService.setLastUsedShoppingList(user.uid, listId);
-      } catch (settingsError) {
-        console.error('Error saving last used list (non-critical):', settingsError);
-        // Don't show error to user - list was created successfully
-      }
+      // Persistence will be handled by the effect
     } catch (error) {
       console.error('Error creating shopping list:', error);
       alert('Failed to create list. Please try again.');
