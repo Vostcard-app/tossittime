@@ -24,7 +24,7 @@ const Shop: React.FC = () => {
   const [newListName, setNewListName] = useState('');
   const hasInitialized = useRef(false);
 
-  // Load user settings and initialize list selection in one effect
+  // Load user settings
   useEffect(() => {
     if (!user) {
       setSettingsLoaded(true);
@@ -34,31 +34,24 @@ const Shop: React.FC = () => {
 
     // Reset initialization flag when user changes
     hasInitialized.current = false;
+    setSelectedListId(null);
 
-    let loadedLastUsedId: string | null = null;
-
-    const loadSettingsAndInitialize = async () => {
+    const loadSettings = async () => {
       try {
         const settings = await userSettingsService.getUserSettings(user.uid);
-        loadedLastUsedId = settings?.lastUsedShoppingListId || null;
+        const loadedLastUsedId = settings?.lastUsedShoppingListId || null;
         console.log('⚙️ Settings loaded:', { lastUsedShoppingListId: loadedLastUsedId, settings });
         setLastUsedListId(loadedLastUsedId);
       } catch (error) {
         console.error('Error loading user settings:', error);
-        loadedLastUsedId = null;
         setLastUsedListId(null);
       } finally {
         setSettingsLoaded(true);
         console.log('✅ Settings loading complete, settingsLoaded = true');
-        
-        // Now initialize list selection if lists are already loaded
-        if (shoppingLists.length > 0 && !hasInitialized.current && !selectedListId) {
-          initializeListSelection(loadedLastUsedId);
-        }
       }
     };
 
-    loadSettingsAndInitialize();
+    loadSettings();
   }, [user]);
 
   // Initialize list selection function
@@ -107,7 +100,7 @@ const Shop: React.FC = () => {
     }
   };
 
-  // Initialize list selection when lists become available (if settings are already loaded)
+  // Initialize list selection when both settings and lists are loaded
   useEffect(() => {
     if (!user || !settingsLoaded) {
       return;
@@ -118,7 +111,7 @@ const Shop: React.FC = () => {
       return;
     }
 
-    // Only initialize once
+    // Only initialize once per component mount
     if (hasInitialized.current) {
       return;
     }
@@ -129,9 +122,10 @@ const Shop: React.FC = () => {
       return;
     }
 
-    // Use the current lastUsedListId state value
+    // Use the current lastUsedListId state value to restore the list
+    console.log('🔄 Initializing list selection with lastUsedListId:', lastUsedListId);
     initializeListSelection(lastUsedListId);
-  }, [user, settingsLoaded, shoppingLists, lastUsedListId, selectedListId]);
+  }, [user, settingsLoaded, shoppingLists.length, lastUsedListId]);
 
   // Load shopping lists
   useEffect(() => {
@@ -144,27 +138,8 @@ const Shop: React.FC = () => {
       console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
       setShoppingLists(lists);
       
-      // If a new list was created and no list is selected, select the new list
-      // This handles the case where user creates a list on EditLists page
-      if (lists.length > 0 && !selectedListId && settingsLoaded) {
-        // If there's only one list, select it
-        if (lists.length === 1) {
-          console.log('📋 New list created - selecting it:', lists[0].name);
-          setSelectedListId(lists[0].id);
-          setLastUsedListId(lists[0].id);
-          if (user) {
-            userSettingsService.setLastUsedShoppingList(user.uid, lists[0].id).catch(console.error);
-          }
-        }
-        // If there are multiple lists but no selection, and we have a lastUsedListId, try to use it
-        else if (lastUsedListId) {
-          const lastUsedList = lists.find((l: ShoppingList) => l.id === lastUsedListId);
-          if (lastUsedList) {
-            console.log('📋 Restoring last used list from subscription:', lastUsedList.name);
-            setSelectedListId(lastUsedList.id);
-          }
-        }
-      }
+      // Don't auto-select here - let the initialization effect handle it
+      // This prevents race conditions and ensures lastUsedListId is respected
     });
 
     return () => unsubscribeLists();
@@ -440,7 +415,7 @@ const Shop: React.FC = () => {
         }}>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <select
-              value={selectedListId || (shoppingLists.length > 0 ? shoppingLists[0].id : '')}
+              value={selectedListId || ''}
               onChange={(e) => handleListChange(e.target.value)}
               style={{
                 flex: 1,
@@ -456,11 +431,14 @@ const Shop: React.FC = () => {
               {shoppingLists.length === 0 ? (
                 <option value="">No lists available</option>
               ) : (
-                shoppingLists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.name}
-                  </option>
-                ))
+                <>
+                  {!selectedListId && <option value="">Select a list</option>}
+                  {shoppingLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name}
+                    </option>
+                  ))}
+                </>
               )}
             </select>
             <button
