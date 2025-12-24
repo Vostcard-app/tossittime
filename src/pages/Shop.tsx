@@ -22,6 +22,7 @@ const Shop: React.FC = () => {
   const [showAddListToast, setShowAddListToast] = useState(false);
   const [newListName, setNewListName] = useState('');
   const lastUsedListIdRef = useRef<string | null>(null);
+  const settingsLoadedRef = useRef(false);
 
   // Load user settings
   useEffect(() => {
@@ -44,12 +45,31 @@ const Shop: React.FC = () => {
         lastUsedListIdRef.current = null;
       } finally {
         setSettingsLoaded(true);
+        settingsLoadedRef.current = true;
         console.log('✅ Settings loading complete, settingsLoaded = true');
       }
     };
 
     loadSettings();
   }, [user]);
+
+  // Update settingsLoadedRef whenever settingsLoaded changes
+  useEffect(() => {
+    settingsLoadedRef.current = settingsLoaded;
+  }, [settingsLoaded]);
+
+  // Save selectedListId to settings whenever it changes
+  useEffect(() => {
+    if (!user || !selectedListId || !settingsLoaded) {
+      return;
+    }
+    
+    // Update ref and save to settings
+    lastUsedListIdRef.current = selectedListId;
+    userSettingsService.setLastUsedShoppingList(user.uid, selectedListId)
+      .then(() => console.log('✅ Auto-saved last used list:', selectedListId))
+      .catch(err => console.error('❌ Failed to auto-save last used list:', err));
+  }, [user, selectedListId, settingsLoaded]);
 
   // Restore last used list when both settings and lists are loaded
   // This is a backup restoration - main restoration happens in subscription callback
@@ -82,13 +102,14 @@ const Shop: React.FC = () => {
     const unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
       console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
       
-      // ALWAYS check the ref - it has the latest value even if subscription was created before settings loaded
+      // Check if settings are loaded before attempting restoration
+      const isSettingsLoaded = settingsLoadedRef.current;
       const currentLastUsedId = lastUsedListIdRef.current;
-      console.log('🔍 Restoration check - ref:', currentLastUsedId, 'selectedListId:', selectedListId, 'lists.length:', lists.length);
+      console.log('🔍 Restoration check - settingsLoaded:', isSettingsLoaded, 'ref:', currentLastUsedId, 'selectedListId:', selectedListId, 'lists.length:', lists.length);
       
-      // Restore last used list IMMEDIATELY before setting shoppingLists state
-      // This ensures the dropdown has the correct value when it renders
-      if (lists.length > 0 && currentLastUsedId) {
+      // Only attempt restoration if settings are loaded and we have a lastUsedListId
+      // If settings aren't loaded yet, the backup effect will handle restoration once both are ready
+      if (lists.length > 0 && isSettingsLoaded && currentLastUsedId && !selectedListId) {
         const lastUsedList = lists.find((l: ShoppingList) => l.id === currentLastUsedId);
         if (lastUsedList) {
           console.log('✅ Restoring last used list from subscription:', lastUsedList.name);
