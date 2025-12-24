@@ -69,7 +69,7 @@ const Shop: React.FC = () => {
     lastUsedListIdRef.current = selectedListId;
     
     userSettingsService.setLastUsedShoppingList(user.uid, selectedListId)
-      .catch(err => console.error("Failed to persist lastUsedShoppingListId:", err));
+      .catch(err => console.error('Failed to persist lastUsedShoppingListId:', err));
   }, [user, settingsLoaded, selectedListId]);
 
 
@@ -96,7 +96,7 @@ const Shop: React.FC = () => {
 
     const savedId = lastUsedListIdRef.current;
 
-    // Keep current selection if still valid
+    // Preserve valid existing selection
     if (selectedListId && shoppingLists.some(l => l.id === selectedListId)) return;
 
     // Restore last-used list if valid
@@ -105,7 +105,7 @@ const Shop: React.FC = () => {
       return;
     }
 
-    // Final fallback: first list
+    // Final fallback
     setSelectedListId(shoppingLists[0].id);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,7 +124,7 @@ const Shop: React.FC = () => {
         const items = await shoppingListService.getShoppingListItems(user.uid, selectedListId);
         if (!cancelled) setShoppingListItems(items);
       } catch (e) {
-        console.error("Error loading shopping list items:", e);
+        console.error('Error loading shopping list items:', e);
         if (!cancelled) setShoppingListItems([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -159,8 +159,9 @@ const Shop: React.FC = () => {
       return;
     }
     
-    // Auto-select list for internal use only (DO NOT set state here)
+    // Determine list for internal use ONLY — do not mutate UI state
     let listIdToUse = selectedListId;
+
     if (!listIdToUse && shoppingLists.length > 0) {
       listIdToUse = selectedListId && shoppingLists.some(l => l.id === selectedListId)
         ? selectedListId
@@ -169,9 +170,7 @@ const Shop: React.FC = () => {
           : shoppingLists[0].id;
     }
 
-    // IMPORTANT:
-    // - DO NOT call setSelectedListId here
-    // - Selection state is controlled only by restore effect and UI handlers
+    // DO NOT call setSelectedListId here
     
     if (!listIdToUse) {
       alert('Please select a list first.');
@@ -190,12 +189,10 @@ const Shop: React.FC = () => {
 
   const handleListChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const listId = e.target.value;
-    
-    // Handle "Add list" option
+
     if (listId === '__add_list__') {
       setShowAddListToast(true);
       setNewListName('');
-      // Reset dropdown to previously selected list by resetting the select value
       e.target.value = selectedListId || '';
       return;
     }
