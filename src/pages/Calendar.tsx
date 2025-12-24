@@ -502,6 +502,53 @@ const Calendar: React.FC = () => {
 
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'hidden', backgroundColor: '#ffffff' }}>
+        {/* Color Key */}
+        <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', padding: '0.75rem', borderBottom: '1px solid #d1d5db', flexWrap: 'wrap', backgroundColor: '#ffffff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#22c55e',
+              }}
+            />
+            <span style={{ fontSize: '0.875rem' }}>Fresh</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#f59e0b',
+              }}
+            />
+            <span style={{ fontSize: '0.875rem' }}>Expiring Soon</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#3b82f6',
+              }}
+            />
+            <span style={{ fontSize: '0.875rem' }}>Freeze</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#ef4444',
+              }}
+            />
+            <span style={{ fontSize: '0.875rem' }}>Expired</span>
+          </div>
+        </div>
         {/* Day headers */}
         <div style={{ display: 'flex', borderBottom: '2px solid #d1d5db', width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', backgroundColor: '#ffffff' }}>
           {weekDays.map((day, index) => (
