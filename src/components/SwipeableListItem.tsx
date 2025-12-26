@@ -156,12 +156,13 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
           transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           zIndex: 2,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          flexDirection: 'column',
+          gap: '0.5rem',
           cursor: isDragging ? 'grabbing' : (onClick ? 'pointer' : 'grab')
         }}
       >
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {/* First line: Title and Purchased date */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
             {item.name}
           </span>
@@ -171,29 +172,61 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
           <span style={{ fontSize: '0.875rem', color: '#1f2937', fontWeight: '500' }}>
             {item.addedDate ? formatDate(item.addedDate) : 'No date'}
           </span>
-          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-            {item.isFrozen ? 'Thaws' : 'Expires'}
-          </span>
-          <span style={{ fontSize: '0.875rem', color: '#1f2937', fontWeight: '500' }}>
-            {item.isFrozen && item.thawDate 
-              ? formatDate(item.thawDate)
-              : item.expirationDate 
-                ? formatDate(item.expirationDate)
-                : 'No date'
-            }
-          </span>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
-          {onFreeze && (
+
+        {/* Second line: Expires date and buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+              {item.isFrozen ? 'Thaws' : 'Expires'}
+            </span>
+            <span style={{ fontSize: '0.875rem', color: '#1f2937', fontWeight: '500' }}>
+              {item.isFrozen && item.thawDate 
+                ? formatDate(item.thawDate)
+                : item.expirationDate 
+                  ? formatDate(item.expirationDate)
+                  : 'No date'
+              }
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+            {onFreeze && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onFreeze();
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minWidth: '60px',
+                  minHeight: '36px'
+                }}
+                aria-label="Freeze item"
+              >
+                Freeze
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                onFreeze();
+                // Show confirmation before deleting
+                const confirmed = window.confirm('Are you sure you want to toss this item?');
+                if (confirmed) {
+                  onDelete();
+                }
               }}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#3b82f6',
+                backgroundColor: '#ef4444',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -203,37 +236,11 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
                 minWidth: '60px',
                 minHeight: '36px'
               }}
-              aria-label="Freeze item"
+              aria-label="Toss item"
             >
-              Freeze
+              Toss
             </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              // Show confirmation before deleting
-              const confirmed = window.confirm('Are you sure you want to toss this item?');
-              if (confirmed) {
-                onDelete();
-              }
-            }}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              minWidth: '60px',
-              minHeight: '36px'
-            }}
-            aria-label="Toss item"
-          >
-            Toss
-          </button>
+          </div>
         </div>
       </div>
     </div>
