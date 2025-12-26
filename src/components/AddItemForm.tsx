@@ -3,7 +3,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import type { FoodItemData, FoodItem, UserCategory, UserCategoryData, UserItem } from '../types';
 import { getSuggestedExpirationDate } from '../services/foodkeeperService';
-import { freezeGuidelines, freezeCategoryLabels, type FreezeCategory } from '../data/freezeGuidelines';
+import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../data/freezeGuidelines';
 import { userCategoriesService, userItemsService } from '../services/firebaseService';
 import { addMonths, addDays } from 'date-fns';
 
@@ -41,6 +41,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
+  const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +96,18 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     }
   };
 
+  const handleDismissFreezeWarning = () => {
+    setShowFreezeWarning(false);
+    setIsFrozen(false);
+    setFormData(prev => ({ ...prev, isFrozen: false }));
+  };
+
+  const handleProceedWithFreeze = () => {
+    setShowFreezeWarning(false);
+    setIsFrozen(true);
+    setFormData(prev => ({ ...prev, isFrozen: true }));
+  };
+
   // Update form data when initialItem or initialName changes
   useEffect(() => {
     if (initialItem) {
@@ -123,10 +136,22 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   // Handle forceFreeze when no initialItem
   useEffect(() => {
     if (forceFreeze && !initialItem) {
-      setIsFrozen(true);
-      setFormData(prev => ({ ...prev, isFrozen: true }));
+      // Check if item is not recommended to freeze
+      const normalizedName = formData.name.trim().toLowerCase();
+      const isNotRecommended = notRecommendedToFreeze.some(
+        item => item.toLowerCase() === normalizedName
+      );
+      
+      if (isNotRecommended && normalizedName) {
+        // Show warning modal
+        setShowFreezeWarning(true);
+      } else {
+        // Proceed normally
+        setIsFrozen(true);
+        setFormData(prev => ({ ...prev, isFrozen: true }));
+      }
     }
-  }, [forceFreeze, initialItem]);
+  }, [forceFreeze, initialItem, formData.name]);
 
   // Watch formData.name and isFrozen to calculate suggested expiration date and auto-apply it
   useEffect(() => {
@@ -419,6 +444,22 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
                 return;
               }
               const frozen = e.target.checked;
+              
+              // Check if item is not recommended to freeze
+              if (frozen) {
+                const normalizedName = formData.name.trim().toLowerCase();
+                const isNotRecommended = notRecommendedToFreeze.some(
+                  item => item.toLowerCase() === normalizedName
+                );
+                
+                if (isNotRecommended) {
+                  // Show warning modal and don't set isFrozen yet
+                  setShowFreezeWarning(true);
+                  return;
+                }
+              }
+              
+              // Proceed normally if not in the list or if unchecking
               setIsFrozen(frozen);
               // Update formData with isFrozen flag
               setFormData(prev => ({ ...prev, isFrozen: frozen }));
@@ -659,6 +700,15 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
           onClose={() => setShowAddCategoryModal(false)}
         />
       )}
+
+      {/* Freeze Warning Modal */}
+      {showFreezeWarning && (
+        <FreezeWarningModal
+          itemName={formData.name}
+          onDismiss={handleDismissFreezeWarning}
+          onProceed={handleProceedWithFreeze}
+        />
+      )}
     </form>
   );
 };
@@ -781,6 +831,90 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onSave, onClose }) 
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+// Freeze Warning Modal Component
+interface FreezeWarningModalProps {
+  itemName: string;
+  onDismiss: () => void;
+  onProceed: () => void;
+}
+
+const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000
+      }}
+      onClick={onDismiss}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+          minWidth: '300px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+          Not Recommended to Freeze
+        </h3>
+
+        <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#374151', lineHeight: '1.5' }}>
+          <strong>{itemName}</strong> is not recommended to freeze. Freezing may cause changes in texture, quality, or safety.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onDismiss}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onProceed}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Proceed Anyway
+          </button>
+        </div>
       </div>
     </div>
   );
