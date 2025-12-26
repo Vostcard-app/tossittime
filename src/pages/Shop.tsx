@@ -163,6 +163,17 @@ const Shop: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  // Debug: Log foodItems and shopping list items changes
+  useEffect(() => {
+    if (user) {
+      console.log('🍔 FoodItems in Shop:', {
+        count: foodItems.length,
+        items: foodItems.map(fi => fi.name),
+        shoppingListItems: shoppingListItems.map(sli => sli.name)
+      });
+    }
+  }, [foodItems, user, shoppingListItems]);
+
   // Get FoodKeeper suggestions based on search query
   const foodKeeperSuggestions = useMemo(() => {
     if (!newItemName.trim()) {
