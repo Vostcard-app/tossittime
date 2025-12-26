@@ -16,7 +16,7 @@ import {
 import type { DocumentData } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
-import type { FoodItem, FoodItemData, UserSettings, ShoppingListItem, ShoppingList } from '../types';
+import type { FoodItem, FoodItemData, UserSettings, ShoppingListItem, ShoppingList, UserItem, UserItemData } from '../types';
 
 // Food Items Service
 export const foodItemService = {
@@ -425,6 +425,143 @@ export const userSettingsService = {
         lastUsedShoppingListId: listId
       });
     }
+  }
+};
+
+// User Items Service
+export const userItemsService = {
+  // Get all user items
+  async getUserItems(userId: string): Promise<UserItem[]> {
+    const q = query(
+      collection(db, 'userItems'),
+      where('userId', '==', userId),
+      orderBy('lastUsed', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt.toDate(),
+      lastUsed: doc.data().lastUsed ? doc.data().lastUsed.toDate() : undefined
+    })) as UserItem[];
+  },
+
+  // Get user item by name
+  async getUserItemByName(userId: string, name: string): Promise<UserItem | null> {
+    const q = query(
+      collection(db, 'userItems'),
+      where('userId', '==', userId),
+      where('name', '==', name)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      return null;
+    }
+    
+    const doc = querySnapshot.docs[0];
+    return {
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt.toDate(),
+      lastUsed: doc.data().lastUsed ? doc.data().lastUsed.toDate() : undefined
+    } as UserItem;
+  },
+
+  // Create or update user item by name
+  async createOrUpdateUserItem(userId: string, data: UserItemData): Promise<string> {
+    const existing = await this.getUserItemByName(userId, data.name);
+    
+    if (existing) {
+      // Update existing item
+      const docRef = doc(db, 'userItems', existing.id);
+      await updateDoc(docRef, {
+        expirationLength: data.expirationLength,
+        category: data.category || null,
+        lastUsed: Timestamp.now()
+      });
+      return existing.id;
+    } else {
+      // Create new item
+      const cleanData: any = {
+        userId,
+        name: data.name,
+        expirationLength: data.expirationLength,
+        createdAt: Timestamp.now(),
+        lastUsed: Timestamp.now()
+      };
+      
+      if (data.category) {
+        cleanData.category = data.category;
+      }
+      
+      const docRef = await addDoc(collection(db, 'userItems'), cleanData);
+      return docRef.id;
+    }
+  },
+
+  // Update user item by ID
+  async updateUserItem(itemId: string, data: Partial<UserItemData>): Promise<void> {
+    const docRef = doc(db, 'userItems', itemId);
+    const updateData: any = {};
+    
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.expirationLength !== undefined) updateData.expirationLength = data.expirationLength;
+    if (data.category !== undefined) updateData.category = data.category || null;
+    
+    await updateDoc(docRef, updateData);
+  },
+
+  // Update all user items with the same name
+  async updateAllUserItemsByName(userId: string, name: string, data: Partial<UserItemData>): Promise<void> {
+    const q = query(
+      collection(db, 'userItems'),
+      where('userId', '==', userId),
+      where('name', '==', name)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const updatePromises = querySnapshot.docs.map(doc => {
+      const updateData: any = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.expirationLength !== undefined) updateData.expirationLength = data.expirationLength;
+      if (data.category !== undefined) updateData.category = data.category || null;
+      return updateDoc(doc.ref, updateData);
+    });
+    
+    await Promise.all(updatePromises);
+  },
+
+  // Subscribe to user items changes
+  subscribeToUserItems(
+    userId: string,
+    callback: (items: UserItem[]) => void
+  ): () => void {
+    const q = query(
+      collection(db, 'userItems'),
+      where('userId', '==', userId),
+      orderBy('lastUsed', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot: QuerySnapshot) => {
+        const items = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt.toDate(),
+          lastUsed: doc.data().lastUsed ? doc.data().lastUsed.toDate() : undefined
+        })) as UserItem[];
+        callback(items);
+      },
+      (error) => {
+        console.error('Error in user items subscription:', error);
+        callback([]);
+      }
+    );
+    
+    return unsubscribe;
   }
 };
 

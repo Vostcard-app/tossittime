@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { useFoodItems } from '../hooks/useFoodItems';
-import { foodItemService } from '../services/firebaseService';
+import { foodItemService, userItemsService } from '../services/firebaseService';
 import { formatDate } from '../utils/dateUtils';
 import SwipeableListItem from '../components/SwipeableListItem';
 import HamburgerMenu from '../components/HamburgerMenu';
+import EditItemModal from '../components/EditItemModal';
+import type { UserItem } from '../types';
+import { differenceInDays } from 'date-fns';
 
 type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
 
@@ -16,6 +19,7 @@ const Dashboard: React.FC = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showIndexWarning, setShowIndexWarning] = useState(false);
+  const [editingUserItem, setEditingUserItem] = useState<UserItem | null>(null);
   const navigate = useNavigate();
 
   // Check for Firestore index warning
@@ -53,6 +57,38 @@ const Dashboard: React.FC = () => {
 
   const handleItemClick = (item: typeof foodItems[0]) => {
     navigate('/add', { state: { editingItem: item } });
+  };
+
+  const handleEditItem = async (item: typeof foodItems[0]) => {
+    // Find the userItem by name
+    if (!user) return;
+    
+    try {
+      const userItem = await userItemsService.getUserItemByName(user.uid, item.name);
+      if (userItem) {
+        setEditingUserItem(userItem);
+      } else {
+        // If no userItem exists, create one from the foodItem
+        const expirationLength = item.isFrozen && item.thawDate
+          ? differenceInDays(item.thawDate, item.addedDate)
+          : item.expirationDate
+            ? differenceInDays(item.expirationDate, item.addedDate)
+            : 7;
+        
+        await userItemsService.createOrUpdateUserItem(user.uid, {
+          name: item.name,
+          expirationLength: Math.max(1, expirationLength),
+          category: item.category
+        });
+        
+        const newUserItem = await userItemsService.getUserItemByName(user.uid, item.name);
+        if (newUserItem) {
+          setEditingUserItem(newUserItem);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user item:', error);
+    }
   };
 
 
@@ -294,11 +330,24 @@ const Dashboard: React.FC = () => {
               item={item}
               onDelete={() => handleDelete(item.id)}
               onClick={() => handleItemClick(item)}
+              onEdit={() => handleEditItem(item)}
             />
           ))}
         </div>
       )}
       </div>
+
+      {/* Edit Item Modal */}
+      {editingUserItem && (
+        <EditItemModal
+          item={editingUserItem}
+          onClose={() => setEditingUserItem(null)}
+          onSave={() => {
+            // Refresh will happen automatically via subscription
+            setEditingUserItem(null);
+          }}
+        />
+      )}
 
       {/* Hamburger Menu */}
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />

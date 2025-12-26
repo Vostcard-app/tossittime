@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import type { FoodItemData, FoodItem } from '../types';
-import { foodItemService, shoppingListService } from '../services/firebaseService';
+import { foodItemService, shoppingListService, userItemsService } from '../services/firebaseService';
 import { getFoodItemStatus } from '../utils/statusUtils';
 import { useFoodItems } from '../hooks/useFoodItems';
 import { formatDate } from '../utils/dateUtils';
@@ -11,6 +11,7 @@ import AddItemForm from '../components/AddItemForm';
 import BarcodeScanner from '../components/BarcodeScanner';
 import type { BarcodeScanResult } from '../services/barcodeService';
 import { findFoodItems } from '../services/foodkeeperService';
+import { differenceInDays } from 'date-fns';
 
 const AddItem: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -175,6 +176,33 @@ const AddItem: React.FC = () => {
         // For non-frozen items, calculate status from expirationDate
         const status = data.isFrozen ? 'fresh' : (data.expirationDate ? getFoodItemStatus(data.expirationDate) : 'fresh');
         await foodItemService.addFoodItem(user.uid, itemData, status);
+        
+        // Save to userItems database if item has expiration or thaw date
+        const targetDate = data.isFrozen ? data.thawDate : data.expirationDate;
+        if (targetDate) {
+          try {
+            const addedDate = itemData.addedDate || new Date();
+            const expirationLength = differenceInDays(targetDate, addedDate);
+            
+            // Get category from FoodKeeper or use form category
+            let category = data.category;
+            if (!category) {
+              const foodKeeperMatches = findFoodItems(data.name, 1);
+              if (foodKeeperMatches.length > 0) {
+                category = foodKeeperMatches[0].category;
+              }
+            }
+            
+            await userItemsService.createOrUpdateUserItem(user.uid, {
+              name: data.name,
+              expirationLength: Math.max(1, expirationLength), // Ensure at least 1 day
+              category: category
+            });
+          } catch (error) {
+            console.error('Error saving to userItems:', error);
+            // Don't block the save if userItems save fails
+          }
+        }
       }
       
       // If coming from shopping list, delete the shopping list item

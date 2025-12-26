@@ -63,3 +63,19 @@ export interface FoodKeeperItem {
   pantryDays?: number | null;
 }
 
+export interface UserItem {
+  id: string;
+  userId: string;
+  name: string;
+  expirationLength: number; // Number of days from addedDate to expiration
+  category?: string;
+  createdAt: Date;
+  lastUsed?: Date; // Track when last added to a list
+}
+
+export interface UserItemData {
+  name: string;
+  expirationLength: number;
+  category?: string;
+}
+

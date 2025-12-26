@@ -6,9 +6,10 @@ interface SwipeableListItemProps {
   item: FoodItem;
   onDelete: () => void;
   onClick?: () => void;
+  onEdit?: () => void;
 }
 
-const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, onClick }) => {
+const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, onClick, onEdit }) => {
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -164,28 +165,52 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
             }
           </span>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#6b7280',
-            cursor: 'pointer',
-            padding: '0.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minWidth: '36px',
-            minHeight: '36px',
-            marginLeft: '0.5rem'
-          }}
-          aria-label="Delete item"
-        >
-          🗑️
-        </button>
+        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6b7280',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '36px',
+                minHeight: '36px'
+              }}
+              aria-label="Edit item"
+            >
+              ✏️
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#6b7280',
+              cursor: 'pointer',
+              padding: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '36px',
+              minHeight: '36px'
+            }}
+            aria-label="Delete item"
+          >
+            🗑️
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { shoppingListService, shoppingListsService, userSettingsService } from '../services/firebaseService';
+import { shoppingListService, shoppingListsService, userSettingsService, userItemsService } from '../services/firebaseService';
 import { findFoodItems } from '../services/foodkeeperService';
-import type { ShoppingListItem, ShoppingList } from '../types';
+import type { ShoppingListItem, ShoppingList, UserItem } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
 
 const LAST_LIST_STORAGE_KEY = 'tossittime:lastShoppingListId';
@@ -23,6 +23,8 @@ const Shop: React.FC = () => {
   const [inputFocused, setInputFocused] = useState(false);
   const [showAddListToast, setShowAddListToast] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [userItems, setUserItems] = useState<UserItem[]>([]);
+  const [editingUserItem, setEditingUserItem] = useState<UserItem | null>(null);
   const lastUsedListIdRef = useRef<string | null>(null);
   const settingsLoadedRef = useRef(false);
 
@@ -120,31 +122,25 @@ const Shop: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, settingsLoaded, shoppingLists]);
 
-  // Load items when selectedListId changes
+  // Load items when selectedListId changes (using subscription for real-time updates)
   useEffect(() => {
-    if (!user) return;
-    if (!selectedListId) return;
+    if (!user || !selectedListId) {
+      setShoppingListItems([]);
+      setLoading(false);
+      return;
+    }
 
-    let cancelled = false;
-
-    const loadItems = async () => {
-      setLoading(true);
-      try {
-        const items = await shoppingListService.getShoppingListItems(user.uid, selectedListId);
-        if (!cancelled) setShoppingListItems(items);
-      } catch (e) {
-        console.error('Error loading shopping list items:', e);
-        if (!cancelled) setShoppingListItems([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+    setLoading(true);
+    const unsubscribe = shoppingListService.subscribeToShoppingList(
+      user.uid,
+      selectedListId,
+      (items) => {
+        setShoppingListItems(items);
+        setLoading(false);
       }
-    };
+    );
 
-    loadItems();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => unsubscribe();
   }, [user, selectedListId]);
 
   // Get FoodKeeper suggestions based on search query
@@ -154,6 +150,47 @@ const Shop: React.FC = () => {
     }
     return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
   }, [newItemName]);
+
+  // Filter and sort previously used items (exclude items already in current list)
+  const previouslyUsedItems = useMemo(() => {
+    if (!selectedListId || shoppingListItems.length === 0) {
+      return userItems;
+    }
+    
+    const currentListNames = new Set(shoppingListItems.map(item => item.name.toLowerCase()));
+    return userItems
+      .filter(item => !currentListNames.has(item.name.toLowerCase()))
+      .sort((a, b) => {
+        if (!a.lastUsed && !b.lastUsed) return 0;
+        if (!a.lastUsed) return 1;
+        if (!b.lastUsed) return -1;
+        return b.lastUsed.getTime() - a.lastUsed.getTime();
+      });
+  }, [userItems, shoppingListItems, selectedListId]);
+
+  // Handle adding previously used item to current list
+  const handleAddPreviouslyUsedItem = async (itemName: string) => {
+    if (!user || !selectedListId) {
+      alert('Please select a list first');
+      return;
+    }
+
+    try {
+      await shoppingListService.addShoppingListItem(user.uid, selectedListId, itemName);
+      // Update lastUsed for the userItem
+      const userItem = userItems.find(ui => ui.name.toLowerCase() === itemName.toLowerCase());
+      if (userItem) {
+        await userItemsService.createOrUpdateUserItem(user.uid, {
+          name: userItem.name,
+          expirationLength: userItem.expirationLength,
+          category: userItem.category
+        });
+      }
+    } catch (error) {
+      console.error('Error adding previously used item:', error);
+      alert('Failed to add item to list. Please try again.');
+    }
+  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -597,30 +634,138 @@ const Shop: React.FC = () => {
                   <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
                     {item.name}
                   </div>
-                  <button
-                    onClick={(e) => handleDelete(item.id, e)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#6b7280',
-                      cursor: 'pointer',
-                      padding: '0.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '36px',
-                      minHeight: '36px'
-                    }}
-                    aria-label="Delete item"
-                  >
-                    🗑️
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const userItem = userItems.find(ui => ui.name.toLowerCase() === item.name.toLowerCase());
+                        if (userItem) {
+                          setEditingUserItem(userItem);
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        minHeight: '36px'
+                      }}
+                      aria-label="Edit item"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(item.id, e)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        minHeight: '36px'
+                      }}
+                      aria-label="Delete item"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Previously Used Items */}
+        {previouslyUsedItems.length > 0 && (
+          <div style={{ marginTop: '2rem' }}>
+            <h3 style={{ 
+              fontSize: '1.125rem', 
+              fontWeight: '600', 
+              color: '#1f2937', 
+              marginBottom: '1rem' 
+            }}>
+              Previously Used
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {previouslyUsedItems.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleAddPreviouslyUsedItem(item.name)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    backgroundColor: '#f9fafb',
+                    transition: 'background-color 0.2s',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                  }}
+                >
+                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                    {item.name}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      {item.expirationLength} days
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingUserItem(item);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        minHeight: '36px'
+                      }}
+                      aria-label="Edit item"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Edit Item Modal */}
+      {editingUserItem && (
+        <EditItemModal
+          item={editingUserItem}
+          onClose={() => setEditingUserItem(null)}
+          onSave={() => {
+            // Refresh will happen automatically via subscription
+            setEditingUserItem(null);
+          }}
+        />
+      )}
 
       {/* Toast-style popup for creating first list */}
       {showAddListToast && (
