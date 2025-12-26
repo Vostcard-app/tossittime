@@ -256,8 +256,24 @@ const AddItem: React.FC = () => {
       setEditingItem(null);
       setSearchQuery('');
     }
-    // Always navigate to shop page when back button is clicked
-    navigate('/shop');
+    // Always navigate to dashboard page when back button is clicked
+    navigate('/dashboard');
+  };
+
+  const handleToss = async () => {
+    if (!editingItem) return;
+    
+    if (!window.confirm('Are you sure you want to toss this item?')) {
+      return;
+    }
+
+    try {
+      await foodItemService.deleteFoodItem(editingItem.id);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item. Please try again.');
+    }
   };
 
   const handleScan = (result: BarcodeScanResult) => {
@@ -309,6 +325,7 @@ const AddItem: React.FC = () => {
           onScanBarcode={() => setShowScanner(true)}
           initialItem={editingItem}
           onCancel={handleCancel}
+          onToss={editingItem ? handleToss : undefined}
           initialName={fromShoppingList && shoppingListItemName ? shoppingListItemName : undefined}
           fromShoppingList={fromShoppingList}
           forceFreeze={forceFreeze}

@@ -10,6 +10,7 @@ import { addMonths, addDays } from 'date-fns';
 interface AddItemFormProps {
   onSubmit: (data: FoodItemData, photoFile?: File, noExpiration?: boolean) => Promise<void>;
   onCancel?: () => void;
+  onToss?: () => void;
   initialBarcode?: string;
   onScanBarcode?: () => void;
   initialItem?: FoodItem | null;
@@ -18,7 +19,7 @@ interface AddItemFormProps {
   forceFreeze?: boolean;
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, initialName, fromShoppingList, forceFreeze }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, fromShoppingList, forceFreeze }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
@@ -340,24 +341,46 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
-      {/* Cancel button at top */}
-      {onCancel && (
-        <div style={{ marginBottom: '1rem' }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#002B4D',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              padding: '0.5rem 0'
-            }}
-          >
-            ← Back
-          </button>
+      {/* Back button and Toss button at top */}
+      {(onCancel || onToss) && (
+        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#002B4D',
+                fontSize: '1rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                padding: '0.5rem 0'
+              }}
+            >
+              ← Back
+            </button>
+          )}
+          {onToss && (
+            <button
+              type="button"
+              onClick={onToss}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minWidth: '60px'
+              }}
+              aria-label="Toss item"
+            >
+              Toss
+            </button>
+          )}
         </div>
       )}
       
