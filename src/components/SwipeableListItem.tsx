@@ -6,9 +6,10 @@ interface SwipeableListItemProps {
   item: FoodItem;
   onDelete: () => void;
   onClick?: () => void;
+  onFreeze?: () => void;
 }
 
-const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, onClick }) => {
+const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, onClick, onFreeze }) => {
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -137,10 +138,11 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
       {/* Item content */}
       <div
         onClick={(e) => {
-          // Only trigger onClick if not dragging/swiping and toss button wasn't clicked
+          // Only trigger onClick if not dragging/swiping and buttons weren't clicked
           const target = e.target as HTMLElement;
           const isTossButton = target.closest('button[aria-label="Toss item"]');
-          if (!isDragging && translateX < 10 && !isTossButton && onClick) {
+          const isFreezeButton = target.closest('button[aria-label="Freeze item"]');
+          if (!isDragging && translateX < 10 && !isTossButton && !isFreezeButton && onClick) {
             onClick();
           }
         }}
@@ -181,7 +183,31 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
             }
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+          {onFreeze && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onFreeze();
+              }}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minWidth: '60px',
+                minHeight: '36px'
+              }}
+              aria-label="Freeze item"
+            >
+              Freeze
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

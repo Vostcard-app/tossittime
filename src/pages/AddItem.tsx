@@ -36,6 +36,7 @@ const AddItem: React.FC = () => {
   
   // Check if coming from Dashboard with item to edit
   const dashboardEditingItem = (location.state as any)?.editingItem as FoodItem | undefined;
+  const forceFreeze = (location.state as any)?.forceFreeze as boolean | undefined;
   
   // If coming from shopping list, show form immediately with pre-filled name
   React.useEffect(() => {
@@ -310,6 +311,7 @@ const AddItem: React.FC = () => {
           onCancel={handleCancel}
           initialName={fromShoppingList && shoppingListItemName ? shoppingListItemName : undefined}
           fromShoppingList={fromShoppingList}
+          forceFreeze={forceFreeze}
         />
       </div>
     );

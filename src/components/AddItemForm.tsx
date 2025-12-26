@@ -15,9 +15,10 @@ interface AddItemFormProps {
   initialItem?: FoodItem | null;
   initialName?: string;
   fromShoppingList?: boolean;
+  forceFreeze?: boolean;
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, initialName, fromShoppingList }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, initialName, fromShoppingList, forceFreeze }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
@@ -97,26 +98,35 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   // Update form data when initialItem or initialName changes
   useEffect(() => {
     if (initialItem) {
+      const shouldFreeze = forceFreeze !== undefined ? forceFreeze : initialItem.isFrozen;
       setFormData({
         name: initialItem.name,
         barcode: initialItem.barcode || '',
-        expirationDate: initialItem.isFrozen ? undefined : (initialItem.expirationDate ? new Date(initialItem.expirationDate) : new Date()),
-        thawDate: initialItem.isFrozen && initialItem.thawDate ? new Date(initialItem.thawDate) : undefined,
+        expirationDate: shouldFreeze ? undefined : (initialItem.expirationDate ? new Date(initialItem.expirationDate) : new Date()),
+        thawDate: shouldFreeze && initialItem.thawDate ? new Date(initialItem.thawDate) : undefined,
         quantity: initialItem.quantity || 1,
         category: initialItem.category || '',
         notes: initialItem.notes || '',
-        isFrozen: initialItem.isFrozen || false,
+        isFrozen: shouldFreeze,
         freezeCategory: initialItem.freezeCategory as FreezeCategory | undefined
       });
       setPhotoPreview(initialItem.photoUrl || null);
-      setIsFrozen(initialItem.isFrozen || false);
+      setIsFrozen(shouldFreeze);
       setFreezeCategory(initialItem.freezeCategory as FreezeCategory | null);
       setHasManuallyChangedDate(true); // Don't auto-apply when editing existing item
     } else if (initialName && !formData.name) {
       setFormData(prev => ({ ...prev, name: initialName }));
       setHasManuallyChangedDate(false); // Reset flag for new items
     }
-  }, [initialItem, initialName]);
+  }, [initialItem, initialName, forceFreeze]);
+
+  // Handle forceFreeze when no initialItem
+  useEffect(() => {
+    if (forceFreeze && !initialItem) {
+      setIsFrozen(true);
+      setFormData(prev => ({ ...prev, isFrozen: true }));
+    }
+  }, [forceFreeze, initialItem]);
 
   // Watch formData.name and isFrozen to calculate suggested expiration date and auto-apply it
   useEffect(() => {

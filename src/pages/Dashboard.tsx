@@ -52,6 +52,10 @@ const Dashboard: React.FC = () => {
     navigate('/add', { state: { editingItem: item } });
   };
 
+  const handleFreezeItem = (item: typeof foodItems[0]) => {
+    navigate('/add', { state: { editingItem: item, forceFreeze: true } });
+  };
+
 
   if (loading) {
     return (
@@ -291,6 +295,7 @@ const Dashboard: React.FC = () => {
               item={item}
               onDelete={() => handleDelete(item.id)}
               onClick={() => handleItemClick(item)}
+              onFreeze={() => handleFreezeItem(item)}
             />
           ))}
         </div>
