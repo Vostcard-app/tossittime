@@ -3,7 +3,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import type { FoodItemData, FoodItem, UserCategory, UserCategoryData, UserItem } from '../types';
 import { getSuggestedExpirationDate } from '../services/foodkeeperService';
-import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../data/freezeGuidelines';
+import { freezeGuidelines, freezeCategoryLabels, type FreezeCategory } from '../data/freezeGuidelines';
 import { userCategoriesService, userItemsService } from '../services/firebaseService';
 import { addMonths, addDays } from 'date-fns';
 
@@ -11,15 +11,18 @@ interface AddItemFormProps {
   onSubmit: (data: FoodItemData, photoFile?: File, noExpiration?: boolean) => Promise<void>;
   onCancel?: () => void;
   onToss?: () => void;
+  onFreeze?: () => void;
   initialBarcode?: string;
   onScanBarcode?: () => void;
   initialItem?: FoodItem | null;
   initialName?: string;
   fromShoppingList?: boolean;
   forceFreeze?: boolean;
+  externalIsFrozen?: boolean;
+  onIsFrozenChange?: (isFrozen: boolean) => void;
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, fromShoppingList, forceFreeze }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, onFreeze, initialName, fromShoppingList, forceFreeze, externalIsFrozen, onIsFrozenChange }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
@@ -36,13 +39,24 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialItem?.photoUrl || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedExpirationDate, setSuggestedExpirationDate] = useState<Date | null>(null);
-  const [isFrozen, setIsFrozen] = useState(false);
+  // Use external isFrozen if provided, otherwise use internal state
+  const [internalIsFrozen, setInternalIsFrozen] = useState(false);
+  const isFrozen = externalIsFrozen !== undefined ? externalIsFrozen : internalIsFrozen;
+  
+  // Helper function to set freeze state (works with both internal and external)
+  const setIsFrozenState = (frozen: boolean) => {
+    if (externalIsFrozen !== undefined && onIsFrozenChange) {
+      onIsFrozenChange(frozen);
+    } else {
+      setInternalIsFrozen(frozen);
+    }
+    setFormData(prev => ({ ...prev, isFrozen: frozen }));
+  };
   const [freezeCategory, setFreezeCategory] = useState<FreezeCategory | null>(null);
   const [hasManuallyChangedDate, setHasManuallyChangedDate] = useState(false);
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
-  const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,17 +111,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     }
   };
 
-  const handleDismissFreezeWarning = () => {
-    setShowFreezeWarning(false);
-    setIsFrozen(false);
-    setFormData(prev => ({ ...prev, isFrozen: false }));
-  };
-
-  const handleProceedWithFreeze = () => {
-    setShowFreezeWarning(false);
-    setIsFrozen(true);
-    setFormData(prev => ({ ...prev, isFrozen: true }));
-  };
 
   // Update form data when initialItem or initialName changes
   useEffect(() => {
@@ -125,7 +128,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         freezeCategory: initialItem.freezeCategory as FreezeCategory | undefined
       });
       setPhotoPreview(initialItem.photoUrl || null);
-      setIsFrozen(shouldFreeze);
+      setIsFrozenState(shouldFreeze);
       setFreezeCategory(initialItem.freezeCategory as FreezeCategory | null);
       setHasManuallyChangedDate(true); // Don't auto-apply when editing existing item
     } else if (initialName && !formData.name) {
@@ -141,8 +144,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     if (forceFreeze && !initialItem) {
       // User already saw warning on dashboard and proceeded, so just set frozen state
       console.log('✅ Setting freeze state from forceFreeze (warning already shown on dashboard)');
-      setIsFrozen(true);
-      setFormData(prev => ({ ...prev, isFrozen: true }));
+      setIsFrozenState(true);
     }
   }, [forceFreeze, initialItem]);
 
@@ -310,7 +312,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         });
         setPhotoFile(null);
         setPhotoPreview(null);
-        setIsFrozen(false);
+        setIsFrozenState(false);
         setFreezeCategory(null);
         setHasManuallyChangedDate(false); // Reset flag for next item
         if (fileInputRef.current) {
@@ -347,26 +349,50 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
               ← Back
             </button>
           )}
-          {onToss && (
-            <button
-              type="button"
-              onClick={onToss}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                minWidth: '60px'
-              }}
-              aria-label="Toss item"
-            >
-              Toss
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {onFreeze && (
+              <button
+                type="button"
+                onClick={onFreeze}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minWidth: '60px',
+                  minHeight: '36px'
+                }}
+                aria-label="Freeze item"
+              >
+                Freeze
+              </button>
+            )}
+            {onToss && (
+              <button
+                type="button"
+                onClick={onToss}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minWidth: '60px',
+                  minHeight: '36px'
+                }}
+                aria-label="Toss item"
+              >
+                Toss
+              </button>
+            )}
+          </div>
         </div>
       )}
       
@@ -446,61 +472,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </div>
       )}
 
-      {/* 2.5. Freeze Checkbox */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={isFrozen}
-            disabled={initialItem?.isFrozen === true} // Prevent unfreezing
-            onChange={(e) => {
-              // Don't allow unfreezing if item is already frozen
-              if (initialItem?.isFrozen) {
-                return;
-              }
-              const frozen = e.target.checked;
-              
-              // Check if item is not recommended to freeze
-              if (frozen) {
-                const normalizedName = formData.name.trim().toLowerCase();
-                
-                // Check for exact match OR if any list item is contained in the name
-                const isNotRecommended = notRecommendedToFreeze.some(item => {
-                  const normalizedItem = item.toLowerCase();
-                  const exactMatch = normalizedItem === normalizedName;
-                  const containsMatch = normalizedName.includes(normalizedItem);
-                  return exactMatch || containsMatch;
-                });
-                
-                if (isNotRecommended) {
-                  console.log('⚠️ Freeze warning triggered for:', normalizedName);
-                  // Show warning modal and don't set isFrozen yet
-                  setShowFreezeWarning(true);
-                  return;
-                }
-              }
-              
-              // Proceed normally if not in the list or if unchecking
-              setIsFrozen(frozen);
-              // Update formData with isFrozen flag
-              setFormData(prev => ({ ...prev, isFrozen: frozen }));
-              // Reset category when unchecked
-              if (!frozen) {
-                setFreezeCategory(null);
-              }
-            }}
-            style={{
-              width: '1.25rem',
-              height: '1.25rem',
-              cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer',
-              opacity: initialItem?.isFrozen ? 0.5 : 1
-            }}
-          />
-          <span style={{ fontSize: '1rem', fontWeight: '500' }}>
-            Freeze {initialItem?.isFrozen && '(Cannot be unfrozen)'}
-          </span>
-        </label>
-      </div>
 
       {/* Freeze Category Dropdown (appears when freeze is checked) */}
       {isFrozen && (
@@ -722,14 +693,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         />
       )}
 
-      {/* Freeze Warning Modal */}
-      {showFreezeWarning && (
-        <FreezeWarningModal
-          itemName={formData.name}
-          onDismiss={handleDismissFreezeWarning}
-          onProceed={handleProceedWithFreeze}
-        />
-      )}
     </form>
   );
 };
@@ -857,89 +820,6 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onSave, onClose }) 
   );
 };
 
-// Freeze Warning Modal Component
-interface FreezeWarningModalProps {
-  itemName: string;
-  onDismiss: () => void;
-  onProceed: () => void;
-}
-
-const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000
-      }}
-      onClick={onDismiss}
-    >
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-          minWidth: '300px',
-          maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
-          Not Recommended to Freeze
-        </h3>
-
-        <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#374151', lineHeight: '1.5' }}>
-          <strong>{itemName}</strong> is not recommended to freeze. Freezing may cause changes in texture, quality, or safety.
-        </p>
-
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onDismiss}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
-          >
-            Dismiss
-          </button>
-          <button
-            type="button"
-            onClick={onProceed}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#002B4D',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
-          >
-            Proceed Anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default AddItemForm;
 

@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
@@ -12,6 +13,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import type { BarcodeScanResult } from '../services/barcodeService';
 import { findFoodItems } from '../services/foodkeeperService';
 import { differenceInDays } from 'date-fns';
+import { notRecommendedToFreeze } from '../data/freezeGuidelines';
 
 const AddItem: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -28,6 +30,8 @@ const AddItem: React.FC = () => {
   const [scannedBarcode, setScannedBarcode] = useState<string | undefined>(
     searchParams.get('barcode') || undefined
   );
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   
   // Check if coming from shopping list
   const fromShoppingList = (location.state as any)?.fromShoppingList;
@@ -37,6 +41,13 @@ const AddItem: React.FC = () => {
   // Check if coming from Dashboard with item to edit
   const dashboardEditingItem = (location.state as any)?.editingItem as FoodItem | undefined;
   const forceFreeze = (location.state as any)?.forceFreeze as boolean | undefined;
+
+  // Initialize isFrozen from forceFreeze if provided
+  React.useEffect(() => {
+    if (forceFreeze && !editingItem) {
+      setIsFrozen(true);
+    }
+  }, [forceFreeze, editingItem]);
   
   // If coming from shopping list, show form immediately with pre-filled name
   React.useEffect(() => {
@@ -52,8 +63,20 @@ const AddItem: React.FC = () => {
       setEditingItem(dashboardEditingItem);
       setShowForm(true);
       setSearchQuery('');
+      // Initialize freeze state from item
+      setIsFrozen(dashboardEditingItem.isFrozen || false);
     }
   }, [dashboardEditingItem]);
+
+  // Sync isFrozen state when editingItem changes
+  React.useEffect(() => {
+    if (editingItem) {
+      setIsFrozen(editingItem.isFrozen || false);
+    } else if (!editingItem && !forceFreeze) {
+      // Reset freeze state when not editing
+      setIsFrozen(false);
+    }
+  }, [editingItem, forceFreeze]);
 
   // Sort items by most recent first (by addedDate)
   const sortedItems = useMemo(() => {
@@ -276,6 +299,45 @@ const AddItem: React.FC = () => {
     }
   };
 
+  const handleFreezeItem = () => {
+    const itemName = editingItem?.name || (fromShoppingList && shoppingListItemName ? shoppingListItemName : '');
+    if (!itemName) return;
+    
+    const normalizedName = itemName.trim().toLowerCase();
+    console.log('🔍 Freeze check for:', normalizedName);
+    
+    // Check for exact match OR if any list item is contained in the name
+    const isNotRecommended = notRecommendedToFreeze.some(listItem => {
+      const normalizedItem = listItem.toLowerCase();
+      const exactMatch = normalizedItem === normalizedName;
+      const containsMatch = normalizedName.includes(normalizedItem);
+      return exactMatch || containsMatch;
+    });
+    
+    console.log('⚠️ Is not recommended:', isNotRecommended);
+    
+    if (isNotRecommended) {
+      // Show warning modal
+      console.log('📋 Showing freeze warning modal');
+      setShowFreezeWarning(true);
+    } else {
+      // Set freeze directly
+      console.log('✅ Item is safe to freeze, setting freeze state');
+      setIsFrozen(true);
+    }
+  };
+
+  const handleDismissFreezeWarning = () => {
+    console.log('❌ Freeze warning dismissed');
+    setShowFreezeWarning(false);
+  };
+
+  const handleProceedWithFreeze = () => {
+    console.log('✅ Proceeding with freeze');
+    setShowFreezeWarning(false);
+    setIsFrozen(true);
+  };
+
   const handleScan = (result: BarcodeScanResult) => {
     setScannedBarcode(result.data);
     setShowScanner(false);
@@ -326,9 +388,12 @@ const AddItem: React.FC = () => {
           initialItem={editingItem}
           onCancel={handleCancel}
           onToss={editingItem ? handleToss : undefined}
+          onFreeze={editingItem ? handleFreezeItem : undefined}
           initialName={fromShoppingList && shoppingListItemName ? shoppingListItemName : undefined}
           fromShoppingList={fromShoppingList}
           forceFreeze={forceFreeze}
+          externalIsFrozen={isFrozen}
+          onIsFrozenChange={setIsFrozen}
         />
       </div>
     );
@@ -582,7 +647,133 @@ const AddItem: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Freeze Warning Modal */}
+      {showFreezeWarning && (() => {
+        const itemName = editingItem?.name || (fromShoppingList && shoppingListItemName ? shoppingListItemName : '');
+        return itemName ? (
+          <FreezeWarningModal
+            itemName={itemName}
+            onDismiss={handleDismissFreezeWarning}
+            onProceed={handleProceedWithFreeze}
+          />
+        ) : null;
+      })()}
     </div>
+  );
+};
+
+// Freeze Warning Modal Component
+interface FreezeWarningModalProps {
+  itemName: string;
+  onDismiss: () => void;
+  onProceed: () => void;
+}
+
+const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
+  const [modalJustOpened, setModalJustOpened] = useState(true);
+  
+  // Prevent backdrop clicks immediately after modal opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModalJustOpened(false);
+    }, 100); // Prevent clicks for 100ms after opening
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Use portal to render outside normal DOM hierarchy and ensure it's on top
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999
+      }}
+      onClick={(e) => {
+        // Prevent dismissal if modal just opened
+        if (modalJustOpened) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        // Only dismiss if clicking directly on backdrop (not child elements)
+        if (e.target === e.currentTarget) {
+          onDismiss();
+        }
+      }}
+      onMouseDown={(e) => {
+        // Prevent mouse down from triggering click if modal just opened
+        if (modalJustOpened && e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+          minWidth: '300px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+          Not Recommended to Freeze
+        </h3>
+
+        <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#374151', lineHeight: '1.5' }}>
+          <strong>{itemName}</strong> is not recommended to freeze. Freezing may cause changes in texture, quality, or safety.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onDismiss}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onProceed}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Proceed Anyway
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };
 
