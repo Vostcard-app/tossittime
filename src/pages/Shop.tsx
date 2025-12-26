@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { shoppingListService, shoppingListsService, userSettingsService, userItemsService, foodItemService } from '../services/firebaseService';
+import { shoppingListService, shoppingListsService, userSettingsService, userItemsService } from '../services/firebaseService';
 import { findFoodItems } from '../services/foodkeeperService';
 import type { ShoppingListItem, ShoppingList } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
@@ -187,40 +187,9 @@ const Shop: React.FC = () => {
     return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
   }, [newItemName]);
 
-  // Separate regular and crossed-off items
-  const { regularItems, crossedOffItems } = useMemo(() => {
-    // Normalize food item names (trim and lowercase) for matching
-    const foodItemNames = new Set(foodItems.map(fi => fi.name.trim().toLowerCase()));
-    
-    const regular: ShoppingListItem[] = [];
-    const crossedOff: ShoppingListItem[] = [];
-    const seenCrossedOffNames = new Set<string>(); // Track names we've already added
-    
-    shoppingListItems.forEach(item => {
-      const normalizedItemName = item.name.trim().toLowerCase();
-      if (foodItemNames.has(normalizedItemName)) {
-        // Only add if we haven't seen this name before
-        if (!seenCrossedOffNames.has(normalizedItemName)) {
-          crossedOff.push(item);
-          seenCrossedOffNames.add(normalizedItemName);
-        }
-      } else {
-        regular.push(item);
-      }
-    });
-    
-    // Debug: Log separation results
-    if (shoppingListItems.length > 0) {
-      console.log('🛒 Items separation:', {
-        shoppingListItems: shoppingListItems.map(sli => sli.name),
-        foodItemNames: Array.from(foodItemNames),
-        regular: regular.map(r => r.name),
-        crossedOff: crossedOff.map(c => c.name)
-      });
-    }
-    
-    return { regularItems: regular, crossedOffItems: crossedOff };
-  }, [shoppingListItems, foodItems]);
+  // All shopping list items are shown as regular items (active list)
+  // Items can exist on both the active list and dashboard simultaneously
+  const regularItems = shoppingListItems;
 
   // Filter and sort previously used items (exclude items already in current list)
   const previouslyUsedItems = useMemo(() => {
@@ -263,28 +232,6 @@ const Shop: React.FC = () => {
     }
   };
 
-  // Handle uncrossing an item (remove from dashboard)
-  const handleUncrossItem = async (item: ShoppingListItem) => {
-    if (!user) return;
-
-    try {
-      // Find the matching foodItem by name (case-insensitive, trimmed)
-      const normalizedItemName = item.name.trim().toLowerCase();
-      const foodItem = foodItems.find(fi => fi.name.trim().toLowerCase() === normalizedItemName);
-      if (foodItem) {
-        await foodItemService.deleteFoodItem(foodItem.id);
-        // Item will automatically move back to regular list since it's no longer in foodItems
-      } else {
-        console.warn(`FoodItem not found for: ${item.name}`, { 
-          foodItems: foodItems.map(fi => fi.name),
-          searchingFor: item.name 
-        });
-      }
-    } catch (error) {
-      console.error('Error removing item from dashboard:', error);
-      alert('Failed to remove item from dashboard. Please try again.');
-    }
-  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -737,69 +684,6 @@ const Shop: React.FC = () => {
                 </div>
               )}
 
-              {/* Crossed Off Items */}
-              {crossedOffItems.length > 0 && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <h3 style={{ 
-                    fontSize: '1rem', 
-                    fontWeight: '600', 
-                    color: '#1f2937', 
-                    marginBottom: '0.75rem',
-                    padding: '0.5rem 0',
-                    borderBottom: '2px solid #e5e7eb'
-                  }}>
-                    Crossed off
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {crossedOffItems.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          backgroundColor: '#f9fafb',
-                          transition: 'background-color 0.2s',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                        }}
-                      >
-                        <div style={{ 
-                          fontSize: '1rem', 
-                          fontWeight: '500', 
-                          color: '#9ca3af',
-                          textDecoration: 'line-through'
-                        }}>
-                          {item.name}
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUncrossItem(item);
-                            }}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#002B4D',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '6px',
-                              fontSize: '0.875rem',
-                              fontWeight: '500',
-                              cursor: 'pointer'
-                            }}
-                            aria-label="Add to active list"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
