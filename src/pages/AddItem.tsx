@@ -205,15 +205,9 @@ const AddItem: React.FC = () => {
         }
       }
       
-      // If coming from shopping list, delete the shopping list item
-      if (fromShoppingList && shoppingListItemId) {
-        try {
-          await shoppingListService.deleteShoppingListItem(shoppingListItemId);
-        } catch (error) {
-          console.error('Error deleting shopping list item:', error);
-          // Don't block the save if shopping list deletion fails
-        }
-      }
+      // NOTE: Do NOT delete shopping list item when adding to dashboard
+      // The item should remain in the shopping list so it can be shown as "crossed off"
+      // It will only be removed when user explicitly uncrosses it or deletes it
       
       // Reset and go back to appropriate view
       setShowForm(false);

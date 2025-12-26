@@ -40,6 +40,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
         onDelete();
       }
       setTranslateX(0);
+      return; // Don't trigger onClick after delete
     } else {
       // Snap back
       setTranslateX(0);
@@ -75,6 +76,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
             onDelete();
           }
           setTranslateX(0);
+          return; // Don't trigger onClick after delete
         } else {
           setTranslateX(0);
           // If no swipe occurred and onClick is provided, trigger click
