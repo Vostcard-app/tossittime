@@ -715,9 +715,9 @@ const Shop: React.FC = () => {
                         fontWeight: '500',
                         cursor: 'pointer'
                       }}
-                      aria-label="Add item"
+                      aria-label="Buy item"
                     >
-                      Add
+                      Buy
                     </button>
                   </div>
                 </div>
