@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
@@ -400,7 +401,9 @@ interface FreezeWarningModalProps {
 
 const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
   console.log('🎨 FreezeWarningModal rendering with itemName:', itemName);
-  return (
+  
+  // Use portal to render outside normal DOM hierarchy and ensure it's on top
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -412,7 +415,7 @@ const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDis
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 2000
+        zIndex: 99999
       }}
       onClick={onDismiss}
     >
@@ -472,7 +475,8 @@ const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDis
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
