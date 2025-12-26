@@ -181,7 +181,7 @@ const AddItem: React.FC = () => {
         const targetDate = data.isFrozen ? data.thawDate : data.expirationDate;
         if (targetDate) {
           try {
-            const addedDate = itemData.addedDate || new Date();
+            const addedDate = new Date(); // Use current date for new items
             const expirationLength = differenceInDays(targetDate, addedDate);
             
             // Get category from FoodKeeper or use form category

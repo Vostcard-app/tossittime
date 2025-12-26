@@ -6,6 +6,7 @@ import { shoppingListService, shoppingListsService, userSettingsService, userIte
 import { findFoodItems } from '../services/foodkeeperService';
 import type { ShoppingListItem, ShoppingList, UserItem } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
+import EditItemModal from '../components/EditItemModal';
 
 const LAST_LIST_STORAGE_KEY = 'tossittime:lastShoppingListId';
 
@@ -142,6 +143,23 @@ const Shop: React.FC = () => {
 
     return () => unsubscribe();
   }, [user, selectedListId]);
+
+  // Load user items for previously used items
+  useEffect(() => {
+    if (!user) {
+      setUserItems([]);
+      return;
+    }
+
+    const unsubscribe = userItemsService.subscribeToUserItems(
+      user.uid,
+      (items) => {
+        setUserItems(items);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Get FoodKeeper suggestions based on search query
   const foodKeeperSuggestions = useMemo(() => {
