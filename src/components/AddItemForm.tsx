@@ -98,7 +98,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   // Update form data when initialItem or initialName changes
   useEffect(() => {
     if (initialItem) {
-      const shouldFreeze = forceFreeze !== undefined ? forceFreeze : initialItem.isFrozen;
+      const shouldFreeze = forceFreeze !== undefined ? forceFreeze : (initialItem.isFrozen ?? false);
       setFormData({
         name: initialItem.name,
         barcode: initialItem.barcode || '',
