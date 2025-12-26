@@ -21,12 +21,28 @@ const Dashboard: React.FC = () => {
   const [showIndexWarning, setShowIndexWarning] = useState(false);
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const [pendingFreezeItem, setPendingFreezeItem] = useState<FoodItem | null>(null);
+  const [modalJustOpened, setModalJustOpened] = useState(false);
   const navigate = useNavigate();
 
   // Debug: Track state changes
   useEffect(() => {
     console.log('🔍 Modal state changed - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
   }, [showFreezeWarning, pendingFreezeItem]);
+
+  // Prevent backdrop clicks immediately after modal opens
+  useEffect(() => {
+    if (showFreezeWarning) {
+      console.log('🔒 Modal just opened - preventing backdrop clicks for 100ms');
+      setModalJustOpened(true);
+      const timer = setTimeout(() => {
+        console.log('🔓 Modal protection period ended - backdrop clicks now allowed');
+        setModalJustOpened(false);
+      }, 100); // Prevent clicks for 100ms after opening
+      return () => clearTimeout(timer);
+    } else {
+      setModalJustOpened(false);
+    }
+  }, [showFreezeWarning]);
 
   // Check for Firestore index warning
   useEffect(() => {
@@ -115,16 +131,22 @@ const Dashboard: React.FC = () => {
 
   const handleDismissFreezeWarning = () => {
     console.log('❌ Freeze warning dismissed - staying on dashboard');
+    console.log('🔍 State before dismiss - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
     setShowFreezeWarning(false);
     setPendingFreezeItem(null);
+    console.log('🔍 State after dismiss - should be cleared');
   };
 
   const handleProceedWithFreeze = () => {
     if (pendingFreezeItem) {
       console.log('✅ Proceeding with freeze - navigating to add page');
+      console.log('🔍 State before proceed - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
       setShowFreezeWarning(false);
       navigate('/add', { state: { editingItem: pendingFreezeItem, forceFreeze: true } });
       setPendingFreezeItem(null);
+      console.log('🔍 State after proceed - should be cleared');
+    } else {
+      console.warn('⚠️ handleProceedWithFreeze called but pendingFreezeItem is null!');
     }
   };
 
@@ -401,6 +423,15 @@ interface FreezeWarningModalProps {
 
 const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
   console.log('🎨 FreezeWarningModal rendering with itemName:', itemName);
+  const [modalJustOpened, setModalJustOpened] = useState(true);
+  
+  // Prevent backdrop clicks immediately after modal opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModalJustOpened(false);
+    }, 100); // Prevent clicks for 100ms after opening
+    return () => clearTimeout(timer);
+  }, []);
   
   // Use portal to render outside normal DOM hierarchy and ensure it's on top
   return createPortal(
@@ -417,7 +448,27 @@ const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDis
         justifyContent: 'center',
         zIndex: 99999
       }}
-      onClick={onDismiss}
+      onClick={(e) => {
+        // Prevent dismissal if modal just opened
+        if (modalJustOpened) {
+          console.log('🔒 Backdrop click blocked - modal just opened');
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        // Only dismiss if clicking directly on backdrop (not child elements)
+        if (e.target === e.currentTarget) {
+          console.log('✅ Backdrop clicked - dismissing modal');
+          onDismiss();
+        }
+      }}
+      onMouseDown={(e) => {
+        // Prevent mouse down from triggering click if modal just opened
+        if (modalJustOpened && e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
     >
       <div
         style={{
