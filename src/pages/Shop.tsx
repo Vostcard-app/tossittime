@@ -16,12 +16,16 @@ const Shop: React.FC = () => {
   const navigate = useNavigate();
   const { foodItems, loading: foodItemsLoading } = useFoodItems(user || null);
   
-  // Debug: Log foodItems changes
+  // Debug: Log foodItems and shopping list items changes
   useEffect(() => {
     if (user && !foodItemsLoading) {
-      console.log('🍔 FoodItems updated in Shop:', foodItems.map(fi => fi.name));
+      console.log('🍔 FoodItems in Shop:', {
+        count: foodItems.length,
+        items: foodItems.map(fi => fi.name),
+        shoppingListItems: shoppingListItems.map(sli => sli.name)
+      });
     }
-  }, [foodItems, foodItemsLoading, user]);
+  }, [foodItems, foodItemsLoading, user, shoppingListItems]);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -194,6 +198,16 @@ const Shop: React.FC = () => {
         regular.push(item);
       }
     });
+    
+    // Debug: Log separation results
+    if (shoppingListItems.length > 0) {
+      console.log('🛒 Items separation:', {
+        shoppingListItems: shoppingListItems.map(sli => sli.name),
+        foodItemNames: Array.from(foodItemNames),
+        regular: regular.map(r => r.name),
+        crossedOff: crossedOff.map(c => c.name)
+      });
+    }
     
     return { regularItems: regular, crossedOffItems: crossedOff };
   }, [shoppingListItems, foodItems]);
