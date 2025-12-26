@@ -137,9 +137,12 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
 
       {/* Item content */}
       <div
-        onClick={() => {
-          // Only trigger onClick if not dragging/swiping and delete button wasn't clicked
-          if (!isDragging && translateX < 10 && onClick) {
+        onClick={(e) => {
+          // Only trigger onClick if not dragging/swiping and delete/edit buttons weren't clicked
+          const target = e.target as HTMLElement;
+          const isDeleteButton = target.closest('button[aria-label="Delete item"]');
+          const isEditButton = target.closest('button[aria-label="Edit item"]');
+          if (!isDragging && translateX < 10 && !isDeleteButton && !isEditButton && onClick) {
             onClick();
           }
         }}
