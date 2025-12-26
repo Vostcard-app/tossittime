@@ -34,8 +34,11 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
   const handleTouchEnd = () => {
     setIsDragging(false);
     if (translateX >= SWIPE_THRESHOLD) {
-      // Trigger delete
-      onDelete();
+      // Show confirmation before deleting
+      const confirmed = window.confirm('Are you sure you want to delete this item?');
+      if (confirmed) {
+        onDelete();
+      }
       setTranslateX(0);
     } else {
       // Snap back
@@ -66,7 +69,11 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
       const handleGlobalMouseUp = () => {
         setIsDragging(false);
         if (translateX >= SWIPE_THRESHOLD) {
-          onDelete();
+          // Show confirmation before deleting
+          const confirmed = window.confirm('Are you sure you want to delete this item?');
+          if (confirmed) {
+            onDelete();
+          }
           setTranslateX(0);
         } else {
           setTranslateX(0);
