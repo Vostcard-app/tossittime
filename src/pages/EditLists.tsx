@@ -228,26 +228,31 @@ const EditLists: React.FC = () => {
 
       {/* Main Content */}
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
-        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
-            Manage Lists
-          </h2>
-          <button
-            onClick={handleAddListClick}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#002B4D',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              minHeight: '44px'
-            }}
-          >
-            Add List
-          </button>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
+              Manage Lists
+            </h2>
+            <button
+              onClick={handleAddListClick}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#002B4D',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minHeight: '44px'
+              }}
+            >
+              Add List
+            </button>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280', textAlign: 'left' }}>
+            Choose Default
+          </p>
         </div>
 
         {/* Lists */}
