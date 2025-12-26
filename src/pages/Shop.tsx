@@ -240,6 +240,8 @@ const Shop: React.FC = () => {
       if (foodItem) {
         await foodItemService.deleteFoodItem(foodItem.id);
         // Item will automatically move back to regular list since it's no longer in foodItems
+      } else {
+        console.warn(`FoodItem not found for: ${item.name}`);
       }
     } catch (error) {
       console.error('Error removing item from dashboard:', error);
