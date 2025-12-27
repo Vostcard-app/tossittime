@@ -328,9 +328,12 @@ const Calendar: React.FC = () => {
     };
   };
 
-  // Handle event click - navigate to item detail
+  // Handle event click - navigate to add form with item to edit
   const handleSelectEvent = (event: CalendarEvent) => {
-    navigate(`/item/${event.resource.itemId}`);
+    const item = foodItems.find(fi => fi.id === event.resource.itemId);
+    if (item) {
+      navigate('/add', { state: { editingItem: item } });
+    }
   };
 
   // Handle date click in month view - switch to day view
@@ -588,6 +591,9 @@ const Calendar: React.FC = () => {
                       return (
                         <div
                           key={colIndex}
+                          onClick={() => {
+                            navigate('/add', { state: { editingItem: item } });
+                          }}
                           style={{
                             flex: 1,
                             minWidth: 0,
@@ -603,7 +609,8 @@ const Calendar: React.FC = () => {
                             padding: '0 0.25rem',
                             position: 'relative',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            cursor: 'pointer'
                           }}
                         >
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center', fontSize: '0.875rem' }}>
@@ -703,6 +710,9 @@ const Calendar: React.FC = () => {
                     return (
                       <div
                         key={colIndex}
+                        onClick={() => {
+                          navigate('/add', { state: { editingItem: item } });
+                        }}
                         style={{
                           flex: 1,
                           minWidth: 0,
@@ -718,7 +728,8 @@ const Calendar: React.FC = () => {
                           position: 'relative',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer'
                         }}
                       >
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
