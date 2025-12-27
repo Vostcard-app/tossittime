@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
-import type { FoodItemData, FoodItem, UserCategory, UserCategoryData, UserItem } from '../types';
+import type { FoodItemData, FoodItem, UserItem } from '../types';
 import { getSuggestedExpirationDate } from '../services/foodkeeperService';
 import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../data/freezeGuidelines';
-import { userCategoriesService, userItemsService } from '../services/firebaseService';
+import { userItemsService } from '../services/firebaseService';
 import { addMonths, addDays } from 'date-fns';
 
 interface AddItemFormProps {
@@ -54,26 +54,10 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   };
   const [freezeCategory, setFreezeCategory] = useState<FreezeCategory | null>(null);
   const [hasManuallyChangedDate, setHasManuallyChangedDate] = useState(false);
-  const [categories, setCategories] = useState<UserCategory[]>([]);
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
-
-  // Load categories
-  useEffect(() => {
-    if (!user) return;
-
-    const unsubscribe = userCategoriesService.subscribeToUserCategories(
-      user.uid,
-      (cats) => {
-        setCategories(cats);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
 
   // Load userItems
   useEffect(() => {
@@ -88,29 +72,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
 
     return () => unsubscribe();
   }, [user]);
-
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === '__add_category__') {
-      setShowAddCategoryModal(true);
-    } else {
-      setFormData(prev => ({ ...prev, category: value }));
-    }
-  };
-
-  const handleAddCategory = async (data: UserCategoryData) => {
-    if (!user) return;
-    try {
-      await userCategoriesService.createCategory(user.uid, data);
-      setShowAddCategoryModal(false);
-      // The category will be automatically selected when the list refreshes
-      setTimeout(() => {
-        setFormData(prev => ({ ...prev, category: data.name }));
-      }, 100);
-    } catch (err: any) {
-      alert(err.message || 'Failed to add category. Please try again.');
-    }
-  };
 
   const handleDismissFreezeWarning = () => {
     setShowFreezeWarning(false);
@@ -552,36 +513,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </div>
       )}
 
-      {/* Category Dropdown */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="category" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
-          Category (optional)
-        </label>
-        <select
-          id="category"
-          value={formData.category || ''}
-          onChange={handleCategoryChange}
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            outline: 'none',
-            backgroundColor: '#ffffff',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="">None</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.name}>
-              {cat.name}
-            </option>
-          ))}
-          <option value="__add_category__">Add Category</option>
-        </select>
-      </div>
-
       {/* 3. Change Expiration Date button (appears when suggestion is available) */}
       {formData.name.trim() && suggestedExpirationDate && (
         <div style={{ marginBottom: '1.5rem' }}>
@@ -729,14 +660,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </div>
       </div>
 
-      {/* Add Category Modal */}
-      {showAddCategoryModal && (
-        <AddCategoryModal
-          onSave={handleAddCategory}
-          onClose={() => setShowAddCategoryModal(false)}
-        />
-      )}
-
       {/* Freeze Warning Modal */}
       {showFreezeWarning && (
         <FreezeWarningModal
@@ -747,129 +670,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       )}
 
     </form>
-  );
-};
-
-// Add Category Modal Component
-interface AddCategoryModalProps {
-  onSave: (data: UserCategoryData) => void;
-  onClose: () => void;
-}
-
-const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onSave, onClose }) => {
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      setError('Category name cannot be empty.');
-      return;
-    }
-
-    onSave({
-      name: name.trim()
-    });
-  };
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-          minWidth: '300px',
-          maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
-          Add Category
-        </h3>
-
-        {error && (
-          <p style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>
-            {error}
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
-              Category Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-              required
-              autoFocus
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#002B4D',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
-            >
-              Add
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 };
 

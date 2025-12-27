@@ -253,6 +253,29 @@ const Shop: React.FC = () => {
     }
   };
 
+  // Handle adding crossed-off item directly to active list
+  const handleAddCrossedOffItem = async (item: ShoppingListItem) => {
+    if (!user || !selectedListId) {
+      alert('Please select a list first');
+      return;
+    }
+
+    try {
+      await shoppingListService.addShoppingListItem(user.uid, selectedListId, item.name);
+      // Update lastUsed for the userItem if it exists
+      const userItem = userItems.find(ui => ui.name.toLowerCase() === item.name.toLowerCase());
+      if (userItem) {
+        await userItemsService.createOrUpdateUserItem(user.uid, {
+          name: userItem.name,
+          expirationLength: userItem.expirationLength,
+          category: userItem.category
+        });
+      }
+    } catch (error) {
+      console.error('Error adding crossed-off item:', error);
+      alert('Failed to add item to list. Please try again.');
+    }
+  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -745,7 +768,7 @@ const Shop: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleItemClick(item);
+                              handleAddCrossedOffItem(item);
                             }}
                             style={{
                               padding: '0.5rem 1rem',
