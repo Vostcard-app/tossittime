@@ -144,9 +144,20 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
           const target = e.target as HTMLElement;
           const isTossButton = target.closest('button[aria-label="Toss item"]');
           const isFreezeButton = target.closest('button[aria-label="Freeze item"]');
-          if (!isDragging && translateX < 10 && !isTossButton && !isFreezeButton && !justDeletedRef.current && onClick) {
-            onClick();
+          const isAnyButton = target.closest('button');
+          
+          // Prevent navigation if:
+          // 1. We're dragging/swiping
+          // 2. Any button was clicked (Toss, Freeze, or any other button)
+          // 3. We just deleted an item
+          // 4. The click originated from within a button
+          if (isDragging || translateX >= 10 || isTossButton || isFreezeButton || isAnyButton || justDeletedRef.current || !onClick) {
+            e.stopPropagation();
+            e.preventDefault();
+            return;
           }
+          
+          onClick();
         }}
         style={{
           position: 'relative',
@@ -218,28 +229,35 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = ({ item, onDelete, o
             )}
             <button
               onClick={(e) => {
+                // Aggressively prevent all event propagation
                 e.stopPropagation();
                 e.preventDefault();
+                e.nativeEvent.stopImmediatePropagation();
+                
                 // Set flag immediately to prevent any onClick from firing
                 justDeletedRef.current = true;
-                // Show confirmation before deleting
-                const confirmed = window.confirm('Are you sure you want to toss this item?');
-                if (confirmed) {
-                  // Prevent any navigation - user stays on dashboard
-                  e.stopPropagation();
-                  e.preventDefault();
-                  // Reset any state that might trigger navigation
-                  setTranslateX(0);
-                  // Call delete handler
-                  onDelete();
-                  // Keep flag set for longer to prevent any delayed events
-                  setTimeout(() => {
-                    justDeletedRef.current = false;
-                  }, 500);
-                } else {
-                  // User cancelled - clear the flag immediately
-                  justDeletedRef.current = false;
-                }
+                
+                // Use setTimeout to ensure flag is set before any other handlers run
+                setTimeout(() => {
+                  // Show confirmation before deleting
+                  const confirmed = window.confirm('Are you sure you want to toss this item?');
+                  if (confirmed) {
+                    // Reset any state that might trigger navigation
+                    setTranslateX(0);
+                    // Call delete handler
+                    onDelete();
+                    // Keep flag set for longer to prevent any delayed events
+                    setTimeout(() => {
+                      justDeletedRef.current = false;
+                    }, 1000);
+                  } else {
+                    // User cancelled - clear the flag after a short delay
+                    setTimeout(() => {
+                      justDeletedRef.current = false;
+                    }, 100);
+                  }
+                }, 0);
+                
                 // Explicitly prevent any navigation
                 return false;
               }}
