@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import type { FoodItemData, FoodItem, UserCategory, UserCategoryData, UserItem } from '../types';
 import { getSuggestedExpirationDate } from '../services/foodkeeperService';
-import { freezeGuidelines, freezeCategoryLabels, type FreezeCategory } from '../data/freezeGuidelines';
+import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../data/freezeGuidelines';
 import { userCategoriesService, userItemsService } from '../services/firebaseService';
 import { addMonths, addDays } from 'date-fns';
 
@@ -11,7 +12,6 @@ interface AddItemFormProps {
   onSubmit: (data: FoodItemData, photoFile?: File, noExpiration?: boolean) => Promise<void>;
   onCancel?: () => void;
   onToss?: () => void;
-  onFreeze?: () => void;
   initialBarcode?: string;
   onScanBarcode?: () => void;
   initialItem?: FoodItem | null;
@@ -22,7 +22,7 @@ interface AddItemFormProps {
   onIsFrozenChange?: (isFrozen: boolean) => void;
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, onFreeze, initialName, fromShoppingList, forceFreeze, externalIsFrozen, onIsFrozenChange }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, fromShoppingList, forceFreeze, externalIsFrozen, onIsFrozenChange }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
@@ -57,6 +57,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
+  const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,6 +112,17 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     }
   };
 
+  const handleDismissFreezeWarning = () => {
+    setShowFreezeWarning(false);
+    setIsFrozenState(false);
+    setFormData(prev => ({ ...prev, isFrozen: false }));
+  };
+
+  const handleProceedWithFreeze = () => {
+    setShowFreezeWarning(false);
+    setIsFrozenState(true);
+    setFormData(prev => ({ ...prev, isFrozen: true }));
+  };
 
   // Update form data when initialItem or initialName changes
   useEffect(() => {
@@ -350,27 +362,6 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
             </button>
           )}
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {onFreeze && (
-              <button
-                type="button"
-                onClick={onFreeze}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  minWidth: '60px',
-                  minHeight: '36px'
-                }}
-                aria-label="Freeze item"
-              >
-                Freeze
-              </button>
-            )}
             {onToss && (
               <button
                 type="button"
@@ -472,6 +463,59 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </div>
       )}
 
+      {/* 2.5. Freeze Checkbox */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={isFrozen}
+            disabled={initialItem?.isFrozen === true} // Prevent unfreezing
+            onChange={(e) => {
+              // Don't allow unfreezing if item is already frozen
+              if (initialItem?.isFrozen) {
+                return;
+              }
+              const frozen = e.target.checked;
+              
+              // Check if item is not recommended to freeze
+              if (frozen) {
+                const normalizedName = formData.name.trim().toLowerCase();
+                
+                // Check for exact match OR if any list item is contained in the name
+                const isNotRecommended = notRecommendedToFreeze.some(item => {
+                  const normalizedItem = item.toLowerCase();
+                  const exactMatch = normalizedItem === normalizedName;
+                  const containsMatch = normalizedName.includes(normalizedItem);
+                  return exactMatch || containsMatch;
+                });
+                
+                if (isNotRecommended) {
+                  console.log('⚠️ Freeze warning triggered for:', normalizedName);
+                  // Show warning modal and don't set isFrozen yet
+                  setShowFreezeWarning(true);
+                  return;
+                }
+              }
+              
+              // Proceed normally if not in the list or if unchecking
+              setIsFrozenState(frozen);
+              // Reset category when unchecked
+              if (!frozen) {
+                setFreezeCategory(null);
+              }
+            }}
+            style={{
+              width: '1.25rem',
+              height: '1.25rem',
+              cursor: initialItem?.isFrozen ? 'not-allowed' : 'pointer',
+              opacity: initialItem?.isFrozen ? 0.5 : 1
+            }}
+          />
+          <span style={{ fontSize: '1rem', fontWeight: '500' }}>
+            Freeze this item
+          </span>
+        </label>
+      </div>
 
       {/* Freeze Category Dropdown (appears when freeze is checked) */}
       {isFrozen && (
@@ -693,6 +737,15 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         />
       )}
 
+      {/* Freeze Warning Modal */}
+      {showFreezeWarning && (
+        <FreezeWarningModal
+          itemName={formData.name}
+          onDismiss={handleDismissFreezeWarning}
+          onProceed={handleProceedWithFreeze}
+        />
+      )}
+
     </form>
   );
 };
@@ -820,6 +873,119 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onSave, onClose }) 
   );
 };
 
+// Freeze Warning Modal Component
+interface FreezeWarningModalProps {
+  itemName: string;
+  onDismiss: () => void;
+  onProceed: () => void;
+}
+
+const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
+  const [modalJustOpened, setModalJustOpened] = useState(true);
+  
+  // Prevent backdrop clicks immediately after modal opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModalJustOpened(false);
+    }, 100); // Prevent clicks for 100ms after opening
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Use portal to render outside normal DOM hierarchy and ensure it's on top
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999
+      }}
+      onClick={(e) => {
+        // Prevent dismissal if modal just opened
+        if (modalJustOpened) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        // Only dismiss if clicking directly on backdrop (not child elements)
+        if (e.target === e.currentTarget) {
+          onDismiss();
+        }
+      }}
+      onMouseDown={(e) => {
+        // Prevent mouse down from triggering click if modal just opened
+        if (modalJustOpened && e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+          minWidth: '300px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+          Not Recommended to Freeze
+        </h3>
+
+        <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#374151', lineHeight: '1.5' }}>
+          <strong>{itemName}</strong> is not recommended to freeze. Freezing may cause changes in texture, quality, or safety.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onDismiss}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onProceed}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Proceed Anyway
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 export default AddItemForm;
 
