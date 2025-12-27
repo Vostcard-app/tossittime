@@ -9,6 +9,7 @@ import {
   FacebookAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
+import { userSettingsService, shoppingListsService } from '../services/firebaseService';
 
 // Helper function to get user-friendly error messages
 const getErrorMessage = (errorCode: string, errorMessage?: string): string => {
@@ -83,7 +84,25 @@ const Login: React.FC = () => {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // New user - initialize default settings
+        if (userCredential.user && userCredential.user.uid) {
+          const userId = userCredential.user.uid;
+          try {
+            await userSettingsService.updateUserSettings({
+              userId,
+              reminderDays: 7,
+              notificationsEnabled: true
+            });
+            
+            // Create default shopping list for new user
+            await shoppingListsService.getDefaultShoppingList(userId);
+          } catch (initError) {
+            console.error('Error initializing user settings:', initError);
+            // Don't block sign-up if initialization fails
+          }
+        }
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -122,7 +141,33 @@ const Login: React.FC = () => {
     setSocialLoading('google');
 
     try {
-      await signInWithPopup(auth, googleProvider);
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      
+      // Check if this is a new user (first time sign-in)
+      if (userCredential.user && userCredential.user.uid) {
+        const userId = userCredential.user.uid;
+        
+        // Check if user settings exist
+        const existingSettings = await userSettingsService.getUserSettings(userId);
+        
+        if (!existingSettings) {
+          // New user - initialize default settings
+          try {
+            await userSettingsService.updateUserSettings({
+              userId,
+              reminderDays: 7,
+              notificationsEnabled: true
+            });
+            
+            // Create default shopping list for new user
+            await shoppingListsService.getDefaultShoppingList(userId);
+          } catch (initError) {
+            console.error('Error initializing user settings:', initError);
+            // Don't block sign-in if initialization fails
+          }
+        }
+      }
+      
       navigate('/shop');
     } catch (err: any) {
       // Don't show error for user cancellation
@@ -140,7 +185,33 @@ const Login: React.FC = () => {
     setSocialLoading('facebook');
 
     try {
-      await signInWithPopup(auth, facebookProvider);
+      const userCredential = await signInWithPopup(auth, facebookProvider);
+      
+      // Check if this is a new user (first time sign-in)
+      if (userCredential.user && userCredential.user.uid) {
+        const userId = userCredential.user.uid;
+        
+        // Check if user settings exist
+        const existingSettings = await userSettingsService.getUserSettings(userId);
+        
+        if (!existingSettings) {
+          // New user - initialize default settings
+          try {
+            await userSettingsService.updateUserSettings({
+              userId,
+              reminderDays: 7,
+              notificationsEnabled: true
+            });
+            
+            // Create default shopping list for new user
+            await shoppingListsService.getDefaultShoppingList(userId);
+          } catch (initError) {
+            console.error('Error initializing user settings:', initError);
+            // Don't block sign-in if initialization fails
+          }
+        }
+      }
+      
       navigate('/shop');
     } catch (err: any) {
       // Don't show error for user cancellation

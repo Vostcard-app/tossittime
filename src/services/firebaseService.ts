@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -419,7 +420,8 @@ export const userSettingsService = {
     if (docSnap.exists()) {
       await updateDoc(docRef, settings as any);
     } else {
-      await addDoc(collection(db, 'userSettings'), settings);
+      // Use setDoc to create with userId as document ID
+      await setDoc(docRef, settings);
     }
   },
 
