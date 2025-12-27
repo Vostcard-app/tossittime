@@ -413,21 +413,38 @@ const EditItems: React.FC = () => {
                     </>
                   )}
                   {item.type === 'shoppingListItem' && (
-                    <button
-                      onClick={() => handleDelete(item)}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '0.875rem',
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Delete
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#002B4D',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
