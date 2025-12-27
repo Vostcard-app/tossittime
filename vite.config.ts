@@ -11,7 +11,7 @@ export default defineConfig({
       devOptions: {
         enabled: false, // Disable service worker in dev mode to prevent caching issues
       },
-      includeAssets: ['icons/*.png', 'vite.svg'],
+      includeAssets: ['icons/*.png', 'vite.svg', 'logo.png'],
       manifest: {
         name: 'TossItTime - Food Expiration Tracker',
         short_name: 'TossItTime',
