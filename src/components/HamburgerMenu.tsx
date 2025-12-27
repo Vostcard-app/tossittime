@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
+import { adminService } from '../services/adminService';
 
 interface HamburgerMenuProps {
   isOpen: boolean;
@@ -10,6 +12,19 @@ interface HamburgerMenuProps {
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const [user] = useAuthState(auth);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user) {
+        const adminStatus = await adminService.isAdmin(user.uid, user.email || null);
+        setIsAdmin(adminStatus);
+      }
+    };
+    checkAdmin();
+  }, [user]);
 
   // Close menu on escape key
   useEffect(() => {
@@ -267,6 +282,44 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
           >
             Edit categories
           </Link>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              onClick={() => handleLinkClick('/admin')}
+              style={{
+                display: 'flex',
+                padding: '1rem 1.5rem',
+                color: '#1f2937',
+                textDecoration: 'none',
+                fontSize: '1rem',
+                fontWeight: '500',
+                transition: 'background-color 0.2s',
+                borderLeft: '3px solid transparent',
+                minHeight: '44px',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.borderLeftColor = '#002B4D';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderLeftColor = 'transparent';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.borderLeftColor = '#002B4D';
+              }}
+              onTouchEnd={(e) => {
+                setTimeout(() => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderLeftColor = 'transparent';
+                }, 200);
+              }}
+            >
+              Admin
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             style={{

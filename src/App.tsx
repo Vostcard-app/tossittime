@@ -12,6 +12,7 @@ import Shop from './pages/Shop';
 import EditLists from './pages/EditLists';
 import EditItems from './pages/EditItems';
 import EditCategories from './pages/EditCategories';
+import Admin from './pages/Admin';
 import Login from './pages/Login';
 import { notificationService } from './services/notificationService';
 import { useFoodItems } from './hooks/useFoodItems';
@@ -85,6 +86,7 @@ function App() {
                   <Route path="/edit-lists" element={<EditLists />} />
                   <Route path="/edit-items" element={<EditItems />} />
                   <Route path="/edit-categories" element={<EditCategories />} />
+                  <Route path="/admin" element={<Admin />} />
                   <Route path="*" element={<Navigate to="/shop" replace />} />
                 </Routes>
               </Layout>
