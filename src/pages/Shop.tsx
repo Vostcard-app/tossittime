@@ -223,6 +223,48 @@ const Shop: React.FC = () => {
       });
   }, [userItems, shoppingListItems, selectedListId]);
 
+  // Merge crossed-off items and previously used items into one unified list
+  type MergedItem = {
+    id: string;
+    name: string;
+    isCrossedOff: boolean;
+    type: 'shoppingListItem' | 'userItem';
+    expirationLength?: number;
+    shoppingListItemId?: string;
+    shoppingListItem?: ShoppingListItem;
+    userItem?: any;
+  };
+
+  const mergedItems = useMemo(() => {
+    const merged: MergedItem[] = [];
+    
+    // Add crossed-off items first
+    crossedOffItems.forEach(item => {
+      merged.push({
+        id: item.id,
+        name: item.name,
+        isCrossedOff: true,
+        type: 'shoppingListItem',
+        shoppingListItemId: item.id,
+        shoppingListItem: item
+      });
+    });
+    
+    // Add previously used items
+    previouslyUsedItems.forEach(item => {
+      merged.push({
+        id: item.id,
+        name: item.name,
+        isCrossedOff: false,
+        type: 'userItem',
+        expirationLength: item.expirationLength,
+        userItem: item
+      });
+    });
+    
+    return merged;
+  }, [crossedOffItems, previouslyUsedItems]);
+
   // Handle adding previously used item to current list
   const handleAddPreviouslyUsedItem = async (itemName: string) => {
     if (!user || !selectedListId) {
@@ -735,21 +777,26 @@ const Shop: React.FC = () => {
                 </div>
               )}
 
-              {/* Crossed Off Items */}
-              {crossedOffItems.length > 0 && (
+              {/* Merged List: Crossed Off and Previously Used Items */}
+              {mergedItems.length > 0 && (
                 <div style={{ marginTop: '1.5rem' }}>
                   <h3 style={{ 
                     fontSize: '1.125rem', 
                     fontWeight: '600', 
-                    color: '#6b7280', 
+                    color: '#1f2937', 
                     marginBottom: '1rem' 
                   }}>
-                    Crossed off
+                    Previously Used
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {crossedOffItems.map((item) => (
+                    {mergedItems.map((mergedItem) => (
                       <div
-                        key={item.id}
+                        key={mergedItem.id}
+                        onClick={() => {
+                          if (mergedItem.type === 'userItem') {
+                            handleAddPreviouslyUsedItem(mergedItem.name);
+                          }
+                        }}
                         style={{
                           padding: '0.5rem 1rem',
                           border: '1px solid #e5e7eb',
@@ -757,40 +804,57 @@ const Shop: React.FC = () => {
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
+                          cursor: mergedItem.type === 'userItem' ? 'pointer' : 'default',
                           backgroundColor: '#f9fafb',
                           transition: 'background-color 0.2s',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                          opacity: 0.6
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (mergedItem.type === 'userItem') {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (mergedItem.type === 'userItem') {
+                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                          }
                         }}
                       >
                         <div style={{ 
                           fontSize: '1rem', 
                           fontWeight: '500', 
-                          color: '#6b7280',
-                          textDecoration: 'line-through'
+                          color: mergedItem.isCrossedOff ? '#1f2937' : '#1f2937',
+                          textDecoration: mergedItem.isCrossedOff ? 'line-through' : 'none'
                         }}>
-                          {item.name}
+                          {mergedItem.name}
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddCrossedOffItem(item);
-                            }}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#002B4D',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '6px',
-                              fontSize: '0.875rem',
-                              fontWeight: '500',
-                              cursor: 'pointer'
-                            }}
-                            aria-label="Add item"
-                          >
-                            Add
-                          </button>
+                          {mergedItem.isCrossedOff && mergedItem.shoppingListItem && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddCrossedOffItem(mergedItem.shoppingListItem!);
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#002B4D',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                              }}
+                              aria-label="Add item"
+                            >
+                              Add
+                            </button>
+                          )}
+                          {!mergedItem.isCrossedOff && mergedItem.expirationLength !== undefined && (
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                              {mergedItem.expirationLength} days
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -801,55 +865,6 @@ const Shop: React.FC = () => {
             </>
           )}
         </div>
-
-        {/* Previously Used Items */}
-        {previouslyUsedItems.length > 0 && (
-          <div style={{ marginTop: '2rem' }}>
-            <h3 style={{ 
-              fontSize: '1.125rem', 
-              fontWeight: '600', 
-              color: '#1f2937', 
-              marginBottom: '1rem' 
-            }}>
-              Previously Used
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {previouslyUsedItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleAddPreviouslyUsedItem(item.name)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: '#f9fafb',
-                    transition: 'background-color 0.2s',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f3f4f6';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f9fafb';
-                  }}
-                >
-                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
-                    {item.name}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                      {item.expirationLength} days
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Toast-style popup for creating first list */}

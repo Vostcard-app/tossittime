@@ -2,15 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../firebase/firebaseConfig';
-import { userItemsService, userCategoriesService } from '../services/firebaseService';
+import { userItemsService, userCategoriesService, shoppingListService, shoppingListsService } from '../services/firebaseService';
 import { collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
-import type { UserItem, UserItemData, UserCategory, UserCategoryData } from '../types';
+import type { UserItem, UserItemData, UserCategory, UserCategoryData, ShoppingListItem, ShoppingList } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
+
+type MergedEditItem = {
+  id: string;
+  name: string;
+  isCrossedOff: boolean;
+  type: 'shoppingListItem' | 'userItem';
+  expirationLength?: number;
+  shoppingListItemId?: string;
+  shoppingListItem?: ShoppingListItem;
+  userItem?: UserItem;
+};
 
 const EditItems: React.FC = () => {
   const [user] = useAuthState(auth);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
-  const [editingItem, setEditingItem] = useState<UserItem | null>(null);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [crossedOffItems, setCrossedOffItems] = useState<ShoppingListItem[]>([]);
+  const [mergedItems, setMergedItems] = useState<MergedEditItem[]>([]);
+  const [editingItem, setEditingItem] = useState<MergedEditItem | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +43,6 @@ const EditItems: React.FC = () => {
       (items) => {
         console.log('📦 EditItems: Received user items:', items.length, items);
         setUserItems(items);
-        setLoading(false);
       }
     );
 
@@ -39,7 +52,96 @@ const EditItems: React.FC = () => {
     };
   }, [user]);
 
-  const handleEdit = (item: UserItem) => {
+  // Load shopping lists
+  useEffect(() => {
+    if (!user) {
+      setShoppingLists([]);
+      return;
+    }
+
+    const unsubscribe = shoppingListsService.subscribeToShoppingLists(
+      user.uid,
+      (lists: ShoppingList[]) => {
+        setShoppingLists(lists);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Load crossed-off items from all shopping lists
+  useEffect(() => {
+    if (!user || shoppingLists.length === 0) {
+      setCrossedOffItems([]);
+      return;
+    }
+
+    const unsubscribes: (() => void)[] = [];
+    const itemsByList: Map<string, ShoppingListItem[]> = new Map();
+
+    shoppingLists.forEach(list => {
+      const unsubscribe = shoppingListService.subscribeToShoppingList(
+        user.uid,
+        list.id,
+        (items) => {
+          // Filter for crossed-off items
+          const crossedOff = items.filter(item => item.crossedOff === true);
+          itemsByList.set(list.id, crossedOff);
+          
+          // Combine all crossed-off items from all lists
+          const allCrossedOff: ShoppingListItem[] = [];
+          itemsByList.forEach(listItems => {
+            listItems.forEach(item => {
+              if (!allCrossedOff.find(existing => existing.id === item.id)) {
+                allCrossedOff.push(item);
+              }
+            });
+          });
+          
+          setCrossedOffItems(allCrossedOff);
+        }
+      );
+      unsubscribes.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [user, shoppingLists]);
+
+  // Merge userItems and crossed-off items
+  useEffect(() => {
+    const merged: MergedEditItem[] = [];
+    
+    // Add crossed-off items first
+    crossedOffItems.forEach(item => {
+      merged.push({
+        id: item.id,
+        name: item.name,
+        isCrossedOff: true,
+        type: 'shoppingListItem',
+        shoppingListItemId: item.id,
+        shoppingListItem: item
+      });
+    });
+    
+    // Add userItems (previously used items)
+    userItems.forEach(item => {
+      merged.push({
+        id: item.id,
+        name: item.name,
+        isCrossedOff: false,
+        type: 'userItem',
+        expirationLength: item.expirationLength,
+        userItem: item
+      });
+    });
+    
+    setMergedItems(merged);
+    setLoading(false);
+  }, [userItems, crossedOffItems]);
+
+  const handleEdit = (item: MergedEditItem) => {
     setEditingItem(item);
   };
 
@@ -48,12 +150,34 @@ const EditItems: React.FC = () => {
 
     try {
       setError(null);
-      // Update all items with the same name
-      await userItemsService.updateAllUserItemsByName(
-        user.uid,
-        editingItem.name,
-        updatedData
-      );
+      
+      if (editingItem.type === 'userItem') {
+        // Update all userItems with the same name
+        await userItemsService.updateAllUserItemsByName(
+          user.uid,
+          editingItem.name,
+          updatedData
+        );
+      } else if (editingItem.type === 'shoppingListItem' && editingItem.shoppingListItemId) {
+        // For shopping list items, we can update the name
+        // Note: Shopping list items don't have expirationLength, so we'll need to handle this differently
+        // For now, we'll just update the name in the shopping list item
+        await shoppingListService.updateShoppingListItemName(
+          editingItem.shoppingListItemId,
+          updatedData.name
+        );
+        
+        // If there's a corresponding userItem, update it too
+        const matchingUserItem = userItems.find(ui => ui.name.toLowerCase() === editingItem.name.toLowerCase());
+        if (matchingUserItem) {
+          await userItemsService.updateAllUserItemsByName(
+            user.uid,
+            editingItem.name,
+            updatedData
+          );
+        }
+      }
+      
       setEditingItem(null);
     } catch (err) {
       console.error('Error updating item:', err);
@@ -61,7 +185,7 @@ const EditItems: React.FC = () => {
     }
   };
 
-  const handleDelete = async (item: UserItem) => {
+  const handleDelete = async (item: MergedEditItem) => {
     if (!user) return;
 
     const confirmed = window.confirm(
@@ -71,15 +195,20 @@ const EditItems: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      // Delete all items with this name
-      const q = query(
-        collection(db, 'userItems'),
-        where('userId', '==', user.uid),
-        where('name', '==', item.name)
-      );
-      const querySnapshot = await getDocs(q);
-      const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+      if (item.type === 'userItem') {
+        // Delete all userItems with this name
+        const q = query(
+          collection(db, 'userItems'),
+          where('userId', '==', user.uid),
+          where('name', '==', item.name)
+        );
+        const querySnapshot = await getDocs(q);
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+      } else if (item.type === 'shoppingListItem' && item.shoppingListItemId) {
+        // Delete the shopping list item
+        await shoppingListService.deleteShoppingListItem(item.shoppingListItemId);
+      }
     } catch (err) {
       console.error('Error deleting item:', err);
       alert('Failed to delete item. Please try again.');
@@ -200,7 +329,7 @@ const EditItems: React.FC = () => {
           </div>
         )}
 
-        {userItems.length === 0 ? (
+        {mergedItems.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
             <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
               No items yet.
@@ -211,7 +340,7 @@ const EditItems: React.FC = () => {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {userItems.map((item) => (
+            {mergedItems.map((item) => (
               <div
                 key={item.id}
                 style={{
@@ -227,45 +356,79 @@ const EditItems: React.FC = () => {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
+                  <div style={{ 
+                    fontSize: '1rem', 
+                    fontWeight: '600', 
+                    color: '#1f2937', 
+                    marginBottom: '0.25rem',
+                    textDecoration: item.isCrossedOff ? 'line-through' : 'none'
+                  }}>
                     {item.name}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    Expiration: {item.expirationLength} days
-                    {item.category && ` • Category: ${item.category}`}
+                    {item.type === 'userItem' && item.expirationLength !== undefined && (
+                      <>
+                        Expiration: {item.expirationLength} days
+                        {item.userItem?.category && ` • Category: ${item.userItem.category}`}
+                      </>
+                    )}
+                    {item.type === 'shoppingListItem' && (
+                      <>Crossed off item</>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => handleEdit(item)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: '#002B4D',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Delete
-                  </button>
+                  {item.type === 'userItem' && (
+                    <>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#002B4D',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  {item.type === 'shoppingListItem' && (
+                    <button
+                      onClick={() => handleDelete(item)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -290,7 +453,7 @@ const EditItems: React.FC = () => {
 
 // Edit Item Modal Component
 interface EditItemModalProps {
-  item: UserItem;
+  item: MergedEditItem;
   onClose: () => void;
   onSave: (data: UserItemData) => void;
 }
@@ -298,16 +461,16 @@ interface EditItemModalProps {
 const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onSave }) => {
   const [user] = useAuthState(auth);
   const [name, setName] = useState(item.name);
-  const [expirationLength, setExpirationLength] = useState(item.expirationLength);
-  const [category, setCategory] = useState(item.category || '');
+  const [expirationLength, setExpirationLength] = useState(item.expirationLength || 0);
+  const [category, setCategory] = useState(item.userItem?.category || '');
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   useEffect(() => {
     setName(item.name);
-    setExpirationLength(item.expirationLength);
-    setCategory(item.category || '');
+    setExpirationLength(item.expirationLength || 0);
+    setCategory(item.userItem?.category || '');
   }, [item]);
 
   // Load categories
@@ -356,16 +519,25 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onSave }) 
       return;
     }
 
-    if (expirationLength < 1) {
+    if (item.type === 'userItem' && expirationLength < 1) {
       setError('Expiration length must be at least 1 day.');
       return;
     }
 
-    onSave({
-      name: name.trim(),
-      expirationLength,
-      category: category.trim() || undefined
-    });
+    if (item.type === 'userItem') {
+      onSave({
+        name: name.trim(),
+        expirationLength,
+        category: category.trim() || undefined
+      });
+    } else {
+      // For shopping list items, only save the name
+      onSave({
+        name: name.trim(),
+        expirationLength: 0,
+        category: undefined
+      });
+    }
   };
 
   return (
@@ -428,54 +600,64 @@ const EditItemModal: React.FC<EditItemModalProps> = ({ item, onClose, onSave }) 
             />
           </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
-              Suggested Expiration (days)
-            </label>
-            <input
-              type="number"
-              value={expirationLength}
-              onChange={(e) => setExpirationLength(parseInt(e.target.value) || 1)}
-              min="1"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-              required
-            />
-          </div>
+          {item.type === 'userItem' && (
+            <>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+                  Suggested Expiration (days)
+                </label>
+                <input
+                  type="number"
+                  value={expirationLength}
+                  onChange={(e) => setExpirationLength(parseInt(e.target.value) || 1)}
+                  min="1"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    outline: 'none'
+                  }}
+                  required
+                />
+              </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
-              Category (optional)
-            </label>
-            <select
-              value={category}
-              onChange={handleCategoryChange}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                outline: 'none',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">None</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-              <option value="__add_category__">Add Category</option>
-            </select>
-          </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+                  Category (optional)
+                </label>
+                <select
+                  value={category}
+                  onChange={handleCategoryChange}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    backgroundColor: '#ffffff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">None</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                  <option value="__add_category__">Add Category</option>
+                </select>
+              </div>
+            </>
+          )}
+          
+          {item.type === 'shoppingListItem' && (
+            <div style={{ marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '6px', fontSize: '0.875rem', color: '#6b7280' }}>
+              This is a crossed-off shopping list item. Only the name can be edited.
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
             <button

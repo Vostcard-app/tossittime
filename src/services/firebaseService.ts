@@ -254,6 +254,13 @@ export const shoppingListService = {
     });
   },
 
+  // Update name of a shopping list item
+  async updateShoppingListItemName(itemId: string, name: string): Promise<void> {
+    await updateDoc(doc(db, 'shoppingList', itemId), {
+      name
+    });
+  },
+
   // Delete item from shopping list
   async deleteShoppingListItem(itemId: string): Promise<void> {
     await deleteDoc(doc(db, 'shoppingList', itemId));
