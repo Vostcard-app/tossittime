@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail
 } from 'firebase/auth';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { auth } from '../firebase/firebaseConfig';
 import { userSettingsService, shoppingListsService } from '../services/firebaseService';
 
@@ -52,6 +53,7 @@ const Login: React.FC = () => {
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   // Check for API key errors on mount
   useEffect(() => {
@@ -77,6 +79,29 @@ const Login: React.FC = () => {
 
     try {
       if (isSignUp) {
+        // Verify reCAPTCHA before registration
+        if (!executeRecaptcha) {
+          setError('reCAPTCHA is not available. Please refresh the page and try again.');
+          setLoading(false);
+          return;
+        }
+
+        let recaptchaToken: string | null = null;
+        try {
+          recaptchaToken = await executeRecaptcha('register');
+          if (!recaptchaToken) {
+            setError('reCAPTCHA verification failed. Please try again.');
+            setLoading(false);
+            return;
+          }
+        } catch (recaptchaError: any) {
+          console.error('reCAPTCHA error:', recaptchaError);
+          setError('reCAPTCHA verification failed. Please refresh the page and try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Proceed with registration
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
         // New user - initialize default settings

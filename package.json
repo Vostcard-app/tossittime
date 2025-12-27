@@ -19,6 +19,7 @@
     "react-big-calendar": "^1.19.4",
     "react-dom": "^19.2.0",
     "react-firebase-hooks": "^5.1.1",
+    "react-google-recaptcha-v3": "^1.11.0",
     "react-router-dom": "^7.10.1",
     "vite-plugin-pwa": "^1.2.0"
   },

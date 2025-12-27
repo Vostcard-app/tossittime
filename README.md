@@ -50,9 +50,18 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_RECAPTCHA_SITE_KEY=your_recaptcha_site_key_here
 ```
 
-4. Set up Firestore Security Rules:
+4. Set up Google reCAPTCHA v3 (for registration protection):
+   - Go to [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
+   - Click "Create" to create a new site
+   - Select reCAPTCHA v3
+   - Add your domain (e.g., `localhost` for development, your production domain for production)
+   - Copy the Site Key and add it to your `.env` file as `VITE_RECAPTCHA_SITE_KEY`
+   - Note: The Secret Key is for backend verification (optional for basic protection)
+
+5. Set up Firestore Security Rules:
 ```javascript
 rules_version = '2';
 service cloud.firestore {
@@ -71,7 +80,7 @@ service cloud.firestore {
 }
 ```
 
-5. Set up Storage Security Rules:
+6. Set up Storage Security Rules:
 ```javascript
 rules_version = '2';
 service firebase.storage {
@@ -83,12 +92,12 @@ service firebase.storage {
 }
 ```
 
-6. Run the development server:
+7. Run the development server:
 ```bash
 npm run dev
 ```
 
-7. Build for production:
+8. Build for production:
 ```bash
 npm run build
 ```
