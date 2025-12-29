@@ -14,6 +14,8 @@ import EditItems from './pages/EditItems';
 import EditCategories from './pages/EditCategories';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import { notificationService } from './services/notificationService';
 import { useFoodItems } from './hooks/useFoodItems';
 
@@ -70,6 +72,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/shop" replace />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route
           path="/*"
           element={

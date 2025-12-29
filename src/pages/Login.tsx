@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  RecaptchaVerifier
 } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { userSettingsService, shoppingListsService } from '../services/firebaseService';
@@ -53,7 +54,10 @@ const Login: React.FC = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   // Check for API key errors on mount
   useEffect(() => {
@@ -72,6 +76,38 @@ const Login: React.FC = () => {
     };
   }, []);
 
+  // Initialize reCAPTCHA verifier
+  useEffect(() => {
+    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current && isSignUp) {
+      try {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+          size: 'normal',
+          theme: 'light',
+          callback: () => {
+            console.log('✅ reCAPTCHA verified');
+          },
+          'expired-callback': () => {
+            console.warn('⚠️ reCAPTCHA expired');
+            setError('Security verification expired. Please try again.');
+          }
+        });
+      } catch (error) {
+        console.error('Failed to initialize reCAPTCHA:', error);
+      }
+    }
+    
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch (e) {
+          console.warn('Error clearing reCAPTCHA:', e);
+        }
+        recaptchaVerifierRef.current = null;
+      }
+    };
+  }, [isSignUp]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -84,6 +120,30 @@ const Login: React.FC = () => {
           setError('Passwords do not match. Please try again.');
           setLoading(false);
           return;
+        }
+
+        // Validate terms acceptance
+        if (!acceptedTerms) {
+          setError('You must agree to the Terms and Conditions and Privacy Policy.');
+          setLoading(false);
+          return;
+        }
+
+        // Verify reCAPTCHA
+        if (recaptchaVerifierRef.current) {
+          try {
+            await recaptchaVerifierRef.current.verify();
+            console.log('✅ reCAPTCHA verified');
+          } catch (recaptchaError: any) {
+            console.error('reCAPTCHA verification failed:', recaptchaError);
+            setError('Please complete the security verification.');
+            setLoading(false);
+            return;
+          }
+        } else {
+          console.warn('⚠️ reCAPTCHA verifier not initialized');
+          // Allow registration to proceed if reCAPTCHA fails to initialize
+          // This is a fallback for cases where reCAPTCHA might not load
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -398,20 +458,82 @@ const Login: React.FC = () => {
             </div>
           )}
 
+          {isSignUp && (
+            <>
+              <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+                <a 
+                  href="/terms" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ 
+                    color: '#002B4D', 
+                    fontWeight: '600',
+                    textDecoration: 'underline',
+                    marginRight: '0.5rem'
+                  }}
+                >
+                  Terms and Conditions
+                </a>
+                <span style={{ color: '#6b7280' }}>and</span>
+                <a 
+                  href="/privacy" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ 
+                    color: '#002B4D', 
+                    fontWeight: '600',
+                    textDecoration: 'underline',
+                    marginLeft: '0.5rem'
+                  }}
+                >
+                  Privacy Policy
+                </a>
+              </div>
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'flex-start', 
+                gap: '0.5rem', 
+                marginBottom: '1rem',
+                fontSize: '0.875rem',
+                color: '#374151'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  style={{ marginTop: '0.25rem', cursor: 'pointer' }}
+                />
+                <span>
+                  I agree to the Terms and Conditions and Privacy Policy
+                </span>
+              </label>
+              <div 
+                ref={recaptchaContainerRef}
+                id="recaptcha-container"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  marginBottom: '1rem',
+                  minHeight: '78px'
+                }}
+              />
+            </>
+          )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isSignUp && !acceptedTerms)}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                backgroundColor: '#002B4D',
+                backgroundColor: (isSignUp && !acceptedTerms) ? '#9ca3af' : '#002B4D',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '1rem',
                 fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
+                cursor: (loading || (isSignUp && !acceptedTerms)) ? 'not-allowed' : 'pointer',
+                opacity: (loading || (isSignUp && !acceptedTerms)) ? 0.6 : 1,
                 marginBottom: '1rem'
               }}
             >
@@ -426,6 +548,7 @@ const Login: React.FC = () => {
                   setError(null);
                   setResetEmailSent(false);
                   setConfirmPassword('');
+                  setAcceptedTerms(false);
                 }}
                 style={{
                   background: 'none',
