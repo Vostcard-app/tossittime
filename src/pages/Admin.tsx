@@ -11,7 +11,6 @@ interface UserInfo {
   uid: string;
   email?: string;
   foodItemsCount: number;
-  shoppingListsCount: number;
   userItemsCount: number;
 }
 
@@ -127,6 +126,13 @@ const Admin: React.FC = () => {
             }
           }
         });
+        
+        // Also try to get email from current user's auth if available
+        if (user && user.email && user.uid) {
+          if (!userEmails.has(user.uid)) {
+            userEmails.set(user.uid, user.email);
+          }
+        }
       } catch (settingsError: any) {
         console.error('Error loading userSettings:', settingsError);
         errors.push('Failed to load user settings collection');
@@ -150,7 +156,6 @@ const Admin: React.FC = () => {
             uid,
             email: userEmails.get(uid),
             foodItemsCount: 0,
-            shoppingListsCount: 0,
             userItemsCount: 0,
           });
         }
@@ -402,7 +407,7 @@ const Admin: React.FC = () => {
             }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
+                gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr',
                 gap: '1rem',
                 padding: '1rem',
                 backgroundColor: '#f9fafb',
@@ -414,7 +419,6 @@ const Admin: React.FC = () => {
                 <div>User ID</div>
                 <div>Email</div>
                 <div style={{ textAlign: 'center' }}>Food Items</div>
-                <div style={{ textAlign: 'center' }}>Shopping Lists</div>
                 <div style={{ textAlign: 'center' }}>User Items</div>
                 <div style={{ textAlign: 'center' }}>Actions</div>
               </div>
@@ -423,7 +427,7 @@ const Admin: React.FC = () => {
                   key={userInfo.uid}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr',
+                    gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr',
                     gap: '1rem',
                     padding: '1rem',
                     borderBottom: '1px solid #e5e7eb',
@@ -437,7 +441,6 @@ const Admin: React.FC = () => {
                     {userInfo.email || 'N/A'}
                   </div>
                   <div style={{ textAlign: 'center', color: '#6b7280' }}>{userInfo.foodItemsCount}</div>
-                  <div style={{ textAlign: 'center', color: '#6b7280' }}>{userInfo.shoppingListsCount}</div>
                   <div style={{ textAlign: 'center', color: '#6b7280' }}>{userInfo.userItemsCount}</div>
                   <div style={{ textAlign: 'center' }}>
                     <button

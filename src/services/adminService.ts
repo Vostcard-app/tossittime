@@ -54,18 +54,15 @@ export const adminService = {
   // Get user statistics
   async getUserStats(userId: string): Promise<{
     foodItemsCount: number;
-    shoppingListsCount: number;
     userItemsCount: number;
   }> {
-    const [foodItems, shoppingLists, userItems] = await Promise.all([
+    const [foodItems, userItems] = await Promise.all([
       getDocs(query(collection(db, 'foodItems'), where('userId', '==', userId))),
-      getDocs(query(collection(db, 'shoppingLists'), where('userId', '==', userId))),
       getDocs(query(collection(db, 'userItems'), where('userId', '==', userId))),
     ]);
     
     return {
       foodItemsCount: foodItems.size,
-      shoppingListsCount: shoppingLists.size,
       userItemsCount: userItems.size,
     };
   },
