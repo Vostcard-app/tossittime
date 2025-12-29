@@ -155,15 +155,6 @@ const Login: React.FC = () => {
         width: '100%',
         maxWidth: '400px'
       }}>
-        <h1 style={{ 
-          margin: '0 0 1.5rem 0', 
-          fontSize: '1.875rem', 
-          fontWeight: '700', 
-          color: '#1f2937',
-          textAlign: 'center'
-        }}>
-          TossItTime
-        </h1>
         <div style={{
           display: 'flex',
           justifyContent: 'center',
