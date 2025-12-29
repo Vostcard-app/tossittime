@@ -29,6 +29,8 @@ const Admin: React.FC = () => {
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Check admin status
   useEffect(() => {
@@ -51,48 +53,120 @@ const Admin: React.FC = () => {
   }, [user, navigate]);
 
   // Load users and stats
-  useEffect(() => {
-    if (!isAdmin) return;
+  const loadData = async () => {
+    setError(null);
+    setLoadingUsers(true);
+    const errors: string[] = [];
 
-    const loadData = async () => {
+    try {
+      // Get system stats with error handling
       try {
-        // Get system stats
         const stats = await adminService.getSystemStats();
         setSystemStats(stats);
+      } catch (statsError: any) {
+        console.error('Error loading system stats:', statsError);
+        errors.push('Failed to load system statistics');
+      }
 
-        // Get all unique user IDs from collections
-        const [foodItems, shoppingLists, userItems, userSettings] = await Promise.all([
-          getDocs(collection(db, 'foodItems')),
-          getDocs(collection(db, 'shoppingLists')),
-          getDocs(collection(db, 'userItems')),
-          getDocs(collection(db, 'userSettings')),
-        ]);
+      // Get all unique user IDs from collections with individual error handling
+      const userIds = new Set<string>();
+      
+      // Load foodItems
+      try {
+        const foodItems = await getDocs(collection(db, 'foodItems'));
+        foodItems.forEach(doc => {
+          const userId = doc.data()?.userId;
+          if (userId && typeof userId === 'string') {
+            userIds.add(userId);
+          }
+        });
+      } catch (foodError: any) {
+        console.error('Error loading foodItems:', foodError);
+        errors.push('Failed to load food items collection');
+      }
 
-        const userIds = new Set<string>();
-        foodItems.forEach(doc => userIds.add(doc.data().userId));
-        shoppingLists.forEach(doc => userIds.add(doc.data().userId));
-        userItems.forEach(doc => userIds.add(doc.data().userId));
-        userSettings.forEach(doc => userIds.add(doc.id));
+      // Load shoppingLists
+      try {
+        const shoppingLists = await getDocs(collection(db, 'shoppingLists'));
+        shoppingLists.forEach(doc => {
+          const userId = doc.data()?.userId;
+          if (userId && typeof userId === 'string') {
+            userIds.add(userId);
+          }
+        });
+      } catch (shoppingError: any) {
+        console.error('Error loading shoppingLists:', shoppingError);
+        errors.push('Failed to load shopping lists collection');
+      }
 
-        // Get stats for each user
-        const userInfos: UserInfo[] = [];
-        for (const uid of userIds) {
+      // Load userItems
+      try {
+        const userItems = await getDocs(collection(db, 'userItems'));
+        userItems.forEach(doc => {
+          const userId = doc.data()?.userId;
+          if (userId && typeof userId === 'string') {
+            userIds.add(userId);
+          }
+        });
+      } catch (userItemsError: any) {
+        console.error('Error loading userItems:', userItemsError);
+        errors.push('Failed to load user items collection');
+      }
+
+      // Load userSettings
+      try {
+        const userSettings = await getDocs(collection(db, 'userSettings'));
+        userSettings.forEach(doc => {
+          const userId = doc.id;
+          if (userId && typeof userId === 'string') {
+            userIds.add(userId);
+          }
+        });
+      } catch (settingsError: any) {
+        console.error('Error loading userSettings:', settingsError);
+        errors.push('Failed to load user settings collection');
+      }
+
+      // Get stats for each user with error handling
+      const userInfos: UserInfo[] = [];
+      for (const uid of userIds) {
+        try {
           const stats = await adminService.getUserStats(uid);
           userInfos.push({
             uid,
             ...stats,
           });
+        } catch (userStatsError: any) {
+          console.error(`Error loading stats for user ${uid}:`, userStatsError);
+          // Skip this user but continue with others
+          // Optionally add user with zero stats
+          userInfos.push({
+            uid,
+            foodItemsCount: 0,
+            shoppingListsCount: 0,
+            userItemsCount: 0,
+          });
         }
-
-        // Sort by food items count (descending)
-        userInfos.sort((a, b) => b.foodItemsCount - a.foodItemsCount);
-        setUsers(userInfos);
-      } catch (error) {
-        console.error('Error loading admin data:', error);
-        alert('Failed to load admin data');
       }
-    };
 
+      // Sort by food items count (descending)
+      userInfos.sort((a, b) => b.foodItemsCount - a.foodItemsCount);
+      setUsers(userInfos);
+
+      // Set error message if any errors occurred
+      if (errors.length > 0) {
+        setError(`Some data failed to load: ${errors.join(', ')}. Partial data is shown below.`);
+      }
+    } catch (error: any) {
+      console.error('Unexpected error loading admin data:', error);
+      setError(`Failed to load admin data: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAdmin) return;
     loadData();
   }, [isAdmin]);
 
@@ -107,12 +181,18 @@ const Admin: React.FC = () => {
       // Remove from users list
       setUsers(users.filter(u => u.uid !== userId));
       // Update stats
-      const stats = await adminService.getSystemStats();
-      setSystemStats(stats);
-      alert('User data deleted successfully');
-    } catch (error) {
+      try {
+        const stats = await adminService.getSystemStats();
+        setSystemStats(stats);
+      } catch (statsError: any) {
+        console.error('Error updating stats after deletion:', statsError);
+        // Don't show error for stats update failure
+      }
+      // Remove error message if deletion was successful
+      setError(null);
+    } catch (error: any) {
       console.error('Error deleting user:', error);
-      alert('Failed to delete user data');
+      setError(`Failed to delete user data: ${error.message || 'Unknown error'}`);
     } finally {
       setDeletingUserId(null);
     }
@@ -208,6 +288,36 @@ const Admin: React.FC = () => {
 
       {/* Main Content */}
       <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#fee2e2',
+            border: '1px solid #ef4444',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            color: '#991b1b'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{error}</span>
+              <button
+                onClick={() => loadData()}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#991b1b',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontSize: '0.875rem',
+                  marginLeft: '1rem'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Statistics Section */}
         <div style={{ marginBottom: '2rem' }}>
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
@@ -267,7 +377,11 @@ const Admin: React.FC = () => {
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
             User Management
           </h2>
-          {users.length === 0 ? (
+          {loadingUsers ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+              <p>Loading users...</p>
+            </div>
+          ) : users.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
               <p>No users found.</p>
             </div>
