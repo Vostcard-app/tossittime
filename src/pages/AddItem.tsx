@@ -315,8 +315,8 @@ const AddItem: React.FC = () => {
       setEditingItem(null);
       setSearchQuery('');
     }
-    // Always navigate to dashboard page when back button is clicked
-    navigate('/dashboard');
+    // Navigate to shop page when back button is clicked
+    navigate('/shop');
   };
 
   const handleToss = async () => {

@@ -556,7 +556,7 @@ const Shop: React.FC = () => {
             color: '#ffffff',
             border: 'none',
             borderRadius: '6px',
-            fontSize: '1rem',
+            fontSize: '1.25rem',
             fontWeight: '600',
             cursor: 'pointer',
             minHeight: '44px',
@@ -644,7 +644,7 @@ const Shop: React.FC = () => {
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                fontSize: '1rem',
+                fontSize: '1.25rem',
                 fontWeight: '500',
                 cursor: 'pointer',
                 minHeight: '44px',
@@ -765,9 +765,10 @@ const Shop: React.FC = () => {
           </form>
           <div style={{ 
             marginTop: '0.5rem', 
-            fontSize: '0.875rem', 
-            color: '#6b7280',
-            textAlign: 'center'
+            fontSize: '1.25rem', 
+            color: '#1f2937',
+            textAlign: 'center',
+            fontStyle: 'italic'
           }}>
             Swipe to remove
           </div>

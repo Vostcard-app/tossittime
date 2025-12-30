@@ -438,11 +438,11 @@ export const shoppingListsService = {
         return querySnapshot.docs[0].id;
       }
 
-      // Try to find list named "shop list"
+      // Try to find list named "Shop list"
       const nameQuery = query(
         collection(db, 'shoppingLists'),
         where('userId', '==', userId),
-        where('name', '==', 'shop list')
+        where('name', '==', 'Shop list')
       );
       const nameSnapshot = await getDocs(nameQuery);
       
@@ -453,8 +453,8 @@ export const shoppingListsService = {
         return listId;
       }
 
-      // Create default "shop list"
-      return await this.createShoppingList(userId, 'shop list', true);
+      // Create default "Shop list"
+      return await this.createShoppingList(userId, 'Shop list', true);
     } catch (error) {
       console.error('Error getting default shopping list:', error);
       throw error;
