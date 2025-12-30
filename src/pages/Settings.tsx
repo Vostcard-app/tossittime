@@ -167,7 +167,12 @@ const Settings: React.FC = () => {
           </div>
           {!notificationService.isSupported() && (
             <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
-              Your browser does not support notifications.
+              Your browser does not support notifications. Please use a modern browser like Chrome, Firefox, Safari, or Edge.
+            </p>
+          )}
+          {notificationService.isSupported() && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && (
+            <p style={{ color: '#f59e0b', fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
+              Notifications require a secure connection (HTTPS). Please access this site over HTTPS to enable notifications.
             </p>
           )}
           {notificationService.isSupported() && Notification.permission !== 'granted' && (

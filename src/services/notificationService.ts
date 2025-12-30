@@ -23,6 +23,8 @@ export const notificationService = {
 
   // Check if notifications are supported
   isSupported(): boolean {
+    // Check if Notification API exists
+    // Note: Even on HTTP, the API exists but won't work - we'll handle that in the UI
     return 'Notification' in window;
   },
 
