@@ -290,6 +290,25 @@ const Shop: React.FC = () => {
     }
   };
 
+  // Handle marking item as crossed off (swipe action)
+  const handleMarkAsCrossedOff = async (item: ShoppingListItem) => {
+    if (!user) return;
+    
+    try {
+      await shoppingListService.updateShoppingListItemCrossedOff(item.id, true);
+      // Track engagement
+      if (user) {
+        await analyticsService.trackEngagement(user.uid, 'shopping_list_item_crossed_off', {
+          action: 'swipe_to_cross_off',
+          itemName: item.name,
+        });
+      }
+    } catch (error) {
+      console.error('Error marking item as crossed off:', error);
+      alert('Failed to update item. Please try again.');
+    }
+  };
+
   // Handle adding crossed-off item directly to active list
   const handleAddCrossedOffItem = async (item: ShoppingListItem) => {
     if (!user) {
@@ -759,47 +778,162 @@ const Shop: React.FC = () => {
                 {/* Regular Items */}
                 {regularItems.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                    {regularItems.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: '#ffffff',
-                      transition: 'background-color 0.2s',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                    }}
-                  >
-                    <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
-                      {item.name}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleItemClick(item);
-                        }}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          backgroundColor: '#002B4D',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '0.875rem',
-                          fontWeight: '500',
-                          cursor: 'pointer'
-                        }}
-                        aria-label="Add to calendar"
-                      >
-                        + Cal
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    {regularItems.map((item) => {
+                      const SwipeableActiveItem = () => {
+                        const [translateX, setTranslateX] = useState(0);
+                        const [isDragging, setIsDragging] = useState(false);
+                        const [startX, setStartX] = useState(0);
+                        const itemRef = useRef<HTMLDivElement>(null);
+                        const SWIPE_THRESHOLD = 100;
+
+                        const handleTouchStart = (e: React.TouchEvent) => {
+                          setStartX(e.touches[0].clientX);
+                          setIsDragging(true);
+                        };
+
+                        const handleTouchMove = (e: React.TouchEvent) => {
+                          if (!isDragging) return;
+                          const currentX = e.touches[0].clientX;
+                          const diff = currentX - startX;
+                          // Only allow swiping right (positive diff)
+                          if (diff > 0) {
+                            setTranslateX(Math.min(diff, SWIPE_THRESHOLD * 2));
+                          }
+                        };
+
+                        const handleTouchEnd = () => {
+                          setIsDragging(false);
+                          if (translateX >= SWIPE_THRESHOLD) {
+                            handleMarkAsCrossedOff(item);
+                            setTranslateX(0);
+                            return;
+                          } else {
+                            setTranslateX(0);
+                          }
+                        };
+
+                        const handleMouseDown = (e: React.MouseEvent) => {
+                          setStartX(e.clientX);
+                          setIsDragging(true);
+                        };
+
+                        useEffect(() => {
+                          if (isDragging) {
+                            const handleGlobalMouseMove = (e: MouseEvent) => {
+                              const diff = e.clientX - startX;
+                              if (diff > 0) {
+                                setTranslateX(Math.min(diff, SWIPE_THRESHOLD * 2));
+                              }
+                            };
+
+                            const handleGlobalMouseUp = () => {
+                              setIsDragging(false);
+                              if (translateX >= SWIPE_THRESHOLD) {
+                                handleMarkAsCrossedOff(item);
+                                setTranslateX(0);
+                                return;
+                              } else {
+                                setTranslateX(0);
+                              }
+                            };
+
+                            document.addEventListener('mousemove', handleGlobalMouseMove);
+                            document.addEventListener('mouseup', handleGlobalMouseUp);
+
+                            return () => {
+                              document.removeEventListener('mousemove', handleGlobalMouseMove);
+                              document.removeEventListener('mouseup', handleGlobalMouseUp);
+                            };
+                          }
+                        }, [isDragging, startX, translateX, item]);
+
+                        const swipeOpacity = Math.min(translateX / SWIPE_THRESHOLD, 1);
+
+                        return (
+                          <div
+                            ref={itemRef}
+                            style={{
+                              position: 'relative',
+                              overflow: 'hidden',
+                              borderRadius: '8px',
+                              backgroundColor: '#ffffff',
+                              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                            }}
+                          >
+                            {/* Swipe background indicator */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: `${Math.min(translateX, SWIPE_THRESHOLD)}px`,
+                                backgroundColor: '#10b981',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start',
+                                paddingLeft: '1rem',
+                                color: 'white',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                opacity: swipeOpacity,
+                                transition: isDragging ? 'none' : 'opacity 0.2s'
+                              }}
+                            >
+                              {translateX >= SWIPE_THRESHOLD ? '✓ Added' : '→ Swipe'}
+                            </div>
+                            
+                            {/* Item content */}
+                            <div
+                              onTouchStart={handleTouchStart}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              onMouseDown={handleMouseDown}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                backgroundColor: '#ffffff',
+                                transform: `translateX(${translateX}px)`,
+                                transition: isDragging ? 'none' : 'transform 0.2s',
+                                cursor: 'grab',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                                {item.name}
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleItemClick(item);
+                                  }}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: '#002B4D',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                  }}
+                                  aria-label="Add to calendar"
+                                >
+                                  + Cal
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return <SwipeableActiveItem key={item.id} />;
+                    })}
                   </div>
                 )}
 
