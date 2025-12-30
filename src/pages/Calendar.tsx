@@ -599,7 +599,12 @@ const Calendar: React.FC = () => {
                       return (
                         <div
                           key={colIndex}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/add', { state: { editingItem: item } });
+                          }}
+                          onTouchEnd={(e) => {
+                            e.stopPropagation();
                             navigate('/add', { state: { editingItem: item } });
                           }}
                           style={{
@@ -618,7 +623,8 @@ const Calendar: React.FC = () => {
                             position: 'relative',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            touchAction: 'manipulation'
                           }}
                         >
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center', fontSize: '0.875rem' }}>
@@ -718,7 +724,12 @@ const Calendar: React.FC = () => {
                     return (
                       <div
                         key={colIndex}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/add', { state: { editingItem: item } });
+                        }}
+                        onTouchEnd={(e) => {
+                          e.stopPropagation();
                           navigate('/add', { state: { editingItem: item } });
                         }}
                         style={{
@@ -737,7 +748,8 @@ const Calendar: React.FC = () => {
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          touchAction: 'manipulation'
                         }}
                       >
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
@@ -771,6 +783,15 @@ const Calendar: React.FC = () => {
 
   // Custom event component
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      handleSelectEvent(event);
+    };
+    
+    const handleTouchEnd = (e: React.TouchEvent) => {
+      e.stopPropagation();
+      handleSelectEvent(event);
+    };
     // Check if this is a thaw date event
     const isThawEvent = event.resource.isThawDate;
     const itemName = isThawEvent ? (event.title as string).replace('\n(Thaw)', '') : (event.title as string);
@@ -784,6 +805,8 @@ const Calendar: React.FC = () => {
       }
       return (
         <div
+          onClick={handleClick}
+          onTouchEnd={handleTouchEnd}
           style={{
             backgroundColor: color,
             color: '#ffffff',
@@ -798,7 +821,8 @@ const Calendar: React.FC = () => {
             maxWidth: '100%',
             display: 'flex',
             flexDirection: 'column',
-            lineHeight: '1.2'
+            lineHeight: '1.2',
+            touchAction: 'manipulation'
           }}
           title={event.title as string}
         >
@@ -820,7 +844,16 @@ const Calendar: React.FC = () => {
       const dateLabel = item?.isFrozen ? 'Thaws' : 'Expires';
       
       return (
-        <div style={{ padding: '2px 4px', fontSize: '0.875rem' }}>
+        <div 
+          onClick={handleClick}
+          onTouchEnd={handleTouchEnd}
+          style={{ 
+            padding: '2px 4px', 
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            touchAction: 'manipulation'
+          }}
+        >
           <div style={{ fontWeight: '500' }}>{itemName}</div>
           {isThawEvent && <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>(Thaw)</div>}
           {formattedDate && (
@@ -840,13 +873,39 @@ const Calendar: React.FC = () => {
     // For thaw events, show name and (Thaw) on separate lines
     if (isThawEvent) {
       return (
-        <div style={{ padding: '2px 4px', display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+        <div 
+          onClick={handleClick}
+          onTouchEnd={handleTouchEnd}
+          style={{ 
+            padding: '2px 4px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            lineHeight: '1.2',
+            cursor: 'pointer',
+            touchAction: 'manipulation'
+          }}
+        >
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</span>
           <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>(Thaw)</span>
         </div>
       );
     }
-    return <div style={{ padding: '2px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</div>;
+    return (
+      <div 
+        onClick={handleClick}
+        onTouchEnd={handleTouchEnd}
+        style={{ 
+          padding: '2px 4px', 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis',
+          cursor: 'pointer',
+          touchAction: 'manipulation'
+        }}
+      >
+        {event.title}
+      </div>
+    );
   };
 
   // Add custom CSS for month view and day view
@@ -861,6 +920,7 @@ const Calendar: React.FC = () => {
         padding: 2px 0 !important;
         margin: 1px 0 !important;
         height: auto !important;
+        touch-action: manipulation !important;
         min-height: 0 !important;
         display: flex;
         align-items: flex-start;
@@ -908,6 +968,8 @@ const Calendar: React.FC = () => {
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        touch-action: manipulation !important;
+        cursor: pointer !important;
       }
       .rbc-time-view .rbc-event-content {
         width: 100% !important;
@@ -1175,16 +1237,39 @@ const Calendar: React.FC = () => {
       <div 
         style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}
         onTouchStart={(e) => {
+          // Don't capture touch if it's on an interactive element
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.closest('.rbc-event') || target.closest('[role="button"]') || target.closest('a')) {
+            return;
+          }
           const touch = e.touches[0];
           setTouchStart({ x: touch.clientX, y: touch.clientY });
           setTouchEnd(null);
         }}
         onTouchMove={(e) => {
+          // Don't capture touch if it's on an interactive element
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.closest('.rbc-event') || target.closest('[role="button"]') || target.closest('a')) {
+            return;
+          }
+          if (!touchStart) return;
           const touch = e.touches[0];
           setTouchEnd({ x: touch.clientX, y: touch.clientY });
         }}
-        onTouchEnd={() => {
-          if (!touchStart || !touchEnd) return;
+        onTouchEnd={(e) => {
+          // Don't capture touch if it's on an interactive element
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.closest('.rbc-event') || target.closest('[role="button"]') || target.closest('a')) {
+            setTouchStart(null);
+            setTouchEnd(null);
+            return;
+          }
+          
+          if (!touchStart || !touchEnd) {
+            setTouchStart(null);
+            setTouchEnd(null);
+            return;
+          }
           
           const distanceX = touchStart.x - touchEnd.x;
           const distanceY = Math.abs(touchStart.y - touchEnd.y);
@@ -1233,6 +1318,10 @@ const Calendar: React.FC = () => {
           {/* Left chevrons - navigate backward */}
           <button
             onClick={navigateBackward}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              navigateBackward();
+            }}
             style={{
               padding: '0.5rem 0.75rem',
               backgroundColor: '#f3f4f6',
@@ -1246,7 +1335,8 @@ const Calendar: React.FC = () => {
               minHeight: '44px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              touchAction: 'manipulation'
             }}
             aria-label="Navigate backward"
           >
@@ -1258,6 +1348,10 @@ const Calendar: React.FC = () => {
             <button
               key={view}
               onClick={() => setCurrentView(view as View)}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                setCurrentView(view as View);
+              }}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: currentView === view ? '#002B4D' : '#f3f4f6',
@@ -1267,7 +1361,8 @@ const Calendar: React.FC = () => {
                 cursor: 'pointer',
                 fontSize: '0.875rem',
                 textTransform: 'capitalize',
-                minHeight: '44px'
+                minHeight: '44px',
+                touchAction: 'manipulation'
               }}
             >
               {view}
@@ -1277,6 +1372,10 @@ const Calendar: React.FC = () => {
           {/* Right chevrons - navigate forward */}
           <button
             onClick={navigateForward}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              navigateForward();
+            }}
             style={{
               padding: '0.5rem 0.75rem',
               backgroundColor: '#f3f4f6',
@@ -1290,7 +1389,8 @@ const Calendar: React.FC = () => {
               minHeight: '44px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              touchAction: 'manipulation'
             }}
             aria-label="Navigate forward"
           >
