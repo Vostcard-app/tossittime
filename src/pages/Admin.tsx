@@ -6,6 +6,7 @@ import { adminService } from '../services/adminService';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
+import Banner from '../components/layout/Banner';
 import { analyticsAggregationService } from '../services/analyticsAggregationService';
 import type { DashboardOverview, RetentionMetrics, FunnelMetrics, EngagementMetrics } from '../types/analytics';
 import { getErrorInfo } from '../types';
@@ -280,79 +281,7 @@ const Admin: React.FC = () => {
 
   return (
     <>
-      {/* Banner Header */}
-      <div style={{
-        backgroundColor: '#002B4D',
-        color: '#ffffff',
-        padding: '1rem',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button
-              onClick={() => navigate('/shop')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#ffffff',
-                cursor: 'pointer',
-                padding: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              aria-label="Go back"
-            >
-              ←
-            </button>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
-              Admin Panel
-            </h1>
-          </div>
-          <button
-            onClick={() => setMenuOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              padding: '0.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '44px',
-              height: '44px',
-              minWidth: '44px',
-              minHeight: '44px',
-              borderRadius: '4px',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            aria-label="Open menu"
-          >
-            <div style={{ width: '24px', height: '3px', backgroundColor: '#ffffff', borderRadius: '2px' }}></div>
-            <div style={{ width: '24px', height: '3px', backgroundColor: '#ffffff', borderRadius: '2px' }}></div>
-            <div style={{ width: '24px', height: '3px', backgroundColor: '#ffffff', borderRadius: '2px' }}></div>
-          </button>
-        </div>
-      </div>
+      <Banner onMenuClick={() => setMenuOpen(true)} />
 
       {/* Main Content */}
       <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>

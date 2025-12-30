@@ -6,6 +6,8 @@ import { auth } from '../firebase/firebaseConfig';
 import { userSettingsService } from '../services';
 import { notificationService } from '../services/notificationService';
 import type { UserSettings } from '../types';
+import HamburgerMenu from '../components/layout/HamburgerMenu';
+import Banner from '../components/layout/Banner';
 
 const Settings: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -17,6 +19,7 @@ const Settings: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -117,49 +120,7 @@ const Settings: React.FC = () => {
 
   return (
     <>
-      {/* Banner Header */}
-      <div style={{
-        backgroundColor: '#002B4D',
-        color: '#ffffff',
-        padding: '1rem',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-      <button
-        onClick={() => navigate('/dashboard')}
-        style={{
-              background: 'none',
-              border: 'none',
-              color: '#ffffff',
-          cursor: 'pointer',
-              padding: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '44px', // Touch target size for mobile
-              height: '44px',
-              minWidth: '44px',
-              minHeight: '44px',
-              borderRadius: '4px',
-              transition: 'background-color 0.2s',
-              fontSize: '1.5rem',
-              lineHeight: 1
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            aria-label="Go to home"
-          >
-            ⌂
-      </button>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff', flex: 1 }}>
-        Settings
-      </h1>
-        </div>
-      </div>
+      <Banner onMenuClick={() => setMenuOpen(true)} />
 
       {/* Main Content */}
       <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
@@ -280,6 +241,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
     </div>
+    <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 };

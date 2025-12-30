@@ -6,6 +6,7 @@ import { shoppingListService, shoppingListsService, userSettingsService, userIte
 import { findFoodItems } from '../services/foodkeeperService';
 import type { ShoppingListItem, ShoppingList, UserItem } from '../types';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
+import Banner from '../components/layout/Banner';
 import { useFoodItems } from '../hooks/useFoodItems';
 import { analyticsService } from '../services/analyticsService';
 
@@ -499,41 +500,7 @@ const Shop: React.FC = () => {
 
   return (
     <>
-      {/* Banner Header */}
-      <div style={{
-        backgroundColor: '#002B4D',
-        color: '#ffffff',
-        padding: '1rem',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
-            TossItTime
-          </h1>
-          <button
-            onClick={() => setMenuOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              padding: '0.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '44px',
-              minHeight: '44px'
-            }}
-            aria-label="Open menu"
-          >
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
-          </button>
-        </div>
-      </div>
+      <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
 
       {/* Shop, List, and Calendar Buttons */}
       <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>

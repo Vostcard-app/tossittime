@@ -1,40 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Banner from '../components/layout/Banner';
+import HamburgerMenu from '../components/layout/HamburgerMenu';
 
 const UserGuide: React.FC = () => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '2rem 1rem',
-      minHeight: '100vh',
-      backgroundColor: '#f9fafb'
-    }}>
+    <>
+      <Banner onMenuClick={() => setMenuOpen(true)} />
       <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        padding: '2rem',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        maxWidth: '800px',
+        margin: '0 auto',
+        padding: '2rem 1rem',
+        minHeight: '100vh',
+        backgroundColor: '#f9fafb'
       }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#002B4D',
-            fontSize: '1rem',
-            cursor: 'pointer',
-            marginBottom: '1.5rem',
-            padding: '0.5rem 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
-        >
-          ← Back
-        </button>
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          padding: '2rem',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
 
         <h1 style={{
           fontSize: '2rem',
@@ -312,7 +300,8 @@ const UserGuide: React.FC = () => {
           </section>
         </div>
       </div>
-    </div>
+      <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+    </>
   );
 };
 
