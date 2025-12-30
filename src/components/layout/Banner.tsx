@@ -76,7 +76,7 @@ const Banner: React.FC<BannerProps> = ({
               </svg>
             </Link>
           )}
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
+          <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '700', color: '#ffffff' }}>
             TossItTime
           </h1>
         </div>
