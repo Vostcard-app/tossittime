@@ -284,13 +284,13 @@ const EditItems: React.FC = () => {
               padding: '0.5rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
+              gap: '8px',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '44px',
-              height: '44px',
-              minWidth: '44px',
-              minHeight: '44px',
+              width: '88px',
+              height: '88px',
+              minWidth: '88px',
+              minHeight: '88px',
               borderRadius: '4px',
               transition: 'background-color 0.2s'
             }}
@@ -302,9 +302,9 @@ const EditItems: React.FC = () => {
             }}
             aria-label="Open menu"
           >
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
-            <span style={{ width: '24px', height: '2px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+            <span style={{ width: '48px', height: '4px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+            <span style={{ width: '48px', height: '4px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
+            <span style={{ width: '48px', height: '4px', backgroundColor: '#ffffff', display: 'block', borderRadius: '1px' }} />
           </button>
         </div>
       </div>
