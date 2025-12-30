@@ -14,7 +14,9 @@ import {
 } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
-import type { ShoppingList, ErrorWithCode } from '../types';
+import type { ShoppingList } from '../types';
+import { handleSubscriptionError, transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceError } from './baseService';
+import { toServiceError } from './errors';
 
 /**
  * Shopping Lists Service
@@ -55,28 +57,17 @@ export const shoppingListsService = {
     const unsubscribe = onSnapshot(
       q,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const lists = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt.toDate()
-        })) as ShoppingList[];
+        const lists = transformSnapshot<ShoppingList>(snapshot, ['createdAt']);
         callback(lists);
       },
-      (error: Error) => {
-        // Check if it's an index error
-        const errWithCode = error as ErrorWithCode;
-        if (errWithCode?.code === 'failed-precondition' && error?.message?.includes('index')) {
-          console.warn('⚠️ Firestore index required for shopping lists query.');
-          if (error.message.includes('create_composite')) {
-            const indexUrl = error.message.match(/https:\/\/[^\s]+/)?.[0];
-            if (indexUrl) {
-              console.warn('📋 Create the index here:', indexUrl);
-            }
-          }
-          console.warn('💡 The app will work, but shopping lists won\'t load until the index is created.');
-        } else {
-          console.error('Error in shopping lists subscription:', error);
-        }
+      (error) => {
+        handleSubscriptionError(
+          error,
+          'shoppingLists',
+          userId,
+          undefined,
+          undefined
+        );
         callback([]);
       }
     );
@@ -87,18 +78,20 @@ export const shoppingListsService = {
    * Create a new shopping list
    */
   async createShoppingList(userId: string, name: string, isDefault: boolean = false): Promise<string> {
-    const cleanData: Record<string, unknown> = {
-      userId,
-      name,
-      createdAt: Timestamp.now(),
-      isDefault
-    };
+    logServiceOperation('createShoppingList', 'shoppingLists', { userId, name, isDefault });
+    
     try {
+      const cleanData = cleanFirestoreData({
+        userId,
+        name,
+        createdAt: Timestamp.now(),
+        isDefault
+      });
       const docRef = await addDoc(collection(db, 'shoppingLists'), cleanData);
       return docRef.id;
     } catch (error) {
-      console.error('Error creating shopping list:', error);
-      throw error;
+      logServiceError('createShoppingList', 'shoppingLists', error, { userId, name });
+      throw toServiceError(error, 'shoppingLists');
     }
   },
 
@@ -106,15 +99,18 @@ export const shoppingListsService = {
    * Update shopping list
    */
   async updateShoppingList(listId: string, data: Partial<ShoppingList>): Promise<void> {
+    logServiceOperation('updateShoppingList', 'shoppingLists', { listId });
+    
     try {
       const docRef = doc(db, 'shoppingLists', listId);
-      const updateData: Record<string, unknown> = {};
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
+      const updateData = cleanFirestoreData({
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.isDefault !== undefined && { isDefault: data.isDefault })
+      });
       await updateDoc(docRef, updateData);
     } catch (error) {
-      console.error('Error updating shopping list:', error);
-      throw error;
+      logServiceError('updateShoppingList', 'shoppingLists', error, { listId });
+      throw toServiceError(error, 'shoppingLists');
     }
   },
 
@@ -122,11 +118,13 @@ export const shoppingListsService = {
    * Delete shopping list
    */
   async deleteShoppingList(listId: string): Promise<void> {
+    logServiceOperation('deleteShoppingList', 'shoppingLists', { listId });
+    
     try {
       await deleteDoc(doc(db, 'shoppingLists', listId));
     } catch (error) {
-      console.error('Error deleting shopping list:', error);
-      throw error;
+      logServiceError('deleteShoppingList', 'shoppingLists', error, { listId });
+      throw toServiceError(error, 'shoppingLists');
     }
   },
 

@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import type { UserItem, UserItemData, ErrorWithCode } from '../types';
+import { cleanFirestoreData, logServiceOperation, logServiceError } from './baseService';
+import { toServiceError } from './errors';
 
 /**
  * User Items Service
@@ -100,14 +102,21 @@ export const userItemsService = {
    * Update user item by ID
    */
   async updateUserItem(itemId: string, data: Partial<UserItemData>): Promise<void> {
-    const docRef = doc(db, 'userItems', itemId);
-    const updateData: Record<string, unknown> = {};
+    logServiceOperation('updateUserItem', 'userItems', { itemId });
     
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.expirationLength !== undefined) updateData.expirationLength = data.expirationLength;
-    if (data.category !== undefined) updateData.category = data.category || null;
-    
-    await updateDoc(docRef, updateData);
+    try {
+      const docRef = doc(db, 'userItems', itemId);
+      const updateData = cleanFirestoreData({
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.expirationLength !== undefined && { expirationLength: data.expirationLength }),
+        ...(data.category !== undefined && { category: data.category || null })
+      });
+      
+      await updateDoc(docRef, updateData);
+    } catch (error) {
+      logServiceError('updateUserItem', 'userItems', error, { itemId });
+      throw toServiceError(error, 'userItems');
+    }
   },
 
   /**
@@ -122,10 +131,11 @@ export const userItemsService = {
     
     const querySnapshot = await getDocs(q);
     const updatePromises = querySnapshot.docs.map(doc => {
-      const updateData: Record<string, unknown> = {};
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.expirationLength !== undefined) updateData.expirationLength = data.expirationLength;
-      if (data.category !== undefined) updateData.category = data.category || null;
+      const updateData = cleanFirestoreData({
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.expirationLength !== undefined && { expirationLength: data.expirationLength }),
+        ...(data.category !== undefined && { category: data.category || null })
+      });
       return updateDoc(doc.ref, updateData);
     });
     

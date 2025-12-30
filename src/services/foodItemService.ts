@@ -17,6 +17,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
 import type { FoodItem, FoodItemData } from '../types';
 import { analyticsService } from './analyticsService';
+import { handleSubscriptionError, cleanFirestoreData, logServiceOperation, logServiceError } from './baseService';
+import { toServiceError } from './errors';
 
 /**
  * Food Items Service
@@ -67,42 +69,19 @@ export const foodItemService = {
             expirationDate: data.expirationDate ? data.expirationDate.toDate() : undefined,
             thawDate: data.thawDate ? data.thawDate.toDate() : undefined,
             addedDate: data.addedDate.toDate()
-          };
-        }) as FoodItem[];
+          } as FoodItem;
+        });
         callback(items);
       },
       (error) => {
-        // Handle Firestore errors gracefully
-        console.error('❌ Firestore query error:', error);
-        console.error('Error code:', error.code);
-        console.error('Error message:', error.message);
-        console.error('Full error object:', JSON.stringify(error, null, 2));
-        
-        // Track sync failure
-        if (userId) {
-          analyticsService.trackQuality(userId, 'sync_failed', {
-            errorType: error.code || 'unknown',
-            errorMessage: error.message || 'Unknown Firestore error',
-            action: 'subscribe_food_items',
-          });
-        }
-        
-        // If index is missing or still building
-        if (error.code === 'failed-precondition') {
-          // Only log once to reduce console noise
-          if (!window.__firestoreIndexWarningShown) {
-            console.warn('⚠️ Firestore index required for food items query.');
-            console.warn('📋 Create the index here:', error.message.match(/https:\/\/[^\s]+/)?.[0] || 'Firebase Console → Firestore → Indexes');
-            console.warn('💡 The app will work, but food items won\'t load until the index is created and enabled.');
-            console.warn('💡 If you just created the index, wait 2-5 minutes for it to build, then refresh.');
-            window.__firestoreIndexWarningShown = true;
-          }
-          callback([]); // Return empty array so app doesn't break
-        } else {
-          // For other errors, log them normally
-          console.error('Error in food items subscription:', error);
-          callback([]); // Still return empty array to prevent app crash
-        }
+        handleSubscriptionError(
+          error,
+          'foodItems',
+          userId,
+          undefined,
+          undefined
+        );
+        callback([]); // Return empty array so app doesn't break
       }
     );
 
@@ -187,43 +166,58 @@ export const foodItemService = {
    * Update a food item
    */
   async updateFoodItem(itemId: string, updates: Partial<FoodItemData & { status?: 'fresh' | 'expiring_soon' | 'expired'; reminderSent?: boolean }>): Promise<void> {
-    const docRef = doc(db, 'foodItems', itemId);
+    logServiceOperation('updateFoodItem', 'foodItems', { itemId });
     
-    // Filter out undefined values (Firestore doesn't allow undefined)
-    const updateData: Record<string, unknown> = {};
-    Object.keys(updates).forEach(key => {
-      const value = updates[key as keyof typeof updates];
-      if (value !== undefined) {
-        updateData[key] = value;
+    try {
+      const docRef = doc(db, 'foodItems', itemId);
+      
+      // Filter out undefined values (Firestore doesn't allow undefined)
+      const updateData = cleanFirestoreData(updates as Record<string, unknown>);
+      
+      // Convert Date objects to Firestore Timestamps
+      if (updateData.expirationDate && updateData.expirationDate instanceof Date) {
+        updateData.expirationDate = Timestamp.fromDate(updateData.expirationDate);
       }
-    });
-    
-    // Convert Date objects to Firestore Timestamps
-    if (updateData.expirationDate && updateData.expirationDate instanceof Date) {
-      updateData.expirationDate = Timestamp.fromDate(updateData.expirationDate);
+      if (updateData.thawDate && updateData.thawDate instanceof Date) {
+        updateData.thawDate = Timestamp.fromDate(updateData.thawDate);
+      }
+      
+      await updateDoc(docRef, updateData);
+    } catch (error) {
+      logServiceError('updateFoodItem', 'foodItems', error, { itemId });
+      throw toServiceError(error, 'foodItems');
     }
-    if (updateData.thawDate && updateData.thawDate instanceof Date) {
-      updateData.thawDate = Timestamp.fromDate(updateData.thawDate);
-    }
-    
-    await updateDoc(docRef, updateData);
   },
 
   /**
    * Delete a food item
    */
   async deleteFoodItem(itemId: string): Promise<void> {
-    await deleteDoc(doc(db, 'foodItems', itemId));
+    logServiceOperation('deleteFoodItem', 'foodItems', { itemId });
+    
+    try {
+      await deleteDoc(doc(db, 'foodItems', itemId));
+    } catch (error) {
+      logServiceError('deleteFoodItem', 'foodItems', error, { itemId });
+      throw toServiceError(error, 'foodItems');
+    }
   },
 
   /**
    * Upload photo for a food item
    */
   async uploadPhoto(userId: string, file: File): Promise<string> {
-    const storageRef = ref(storage, `foodItems/${userId}/${Date.now()}_${file.name}`);
-    await uploadBytes(storageRef, file);
-    const photoUrl = await getDownloadURL(storageRef);
-    return photoUrl;
+    logServiceOperation('uploadPhoto', 'foodItems', { userId, fileName: file.name });
+    
+    try {
+      const storageRef = ref(storage, `foodItems/${userId}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const photoUrl = await getDownloadURL(storageRef);
+      return photoUrl;
+    } catch (error) {
+      logServiceError('uploadPhoto', 'foodItems', error, { userId, fileName: file.name });
+      throw toServiceError(error, 'foodItems');
+    }
   }
 };
 

@@ -15,6 +15,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import type { UserCategory, UserCategoryData, ErrorWithCode } from '../types';
+import { cleanFirestoreData, logServiceOperation, logServiceError } from './baseService';
+import { toServiceError } from './errors';
 
 /**
  * User Categories Service
@@ -84,32 +86,46 @@ export const userCategoriesService = {
    * Update category
    */
   async updateCategory(categoryId: string, data: Partial<UserCategoryData>): Promise<void> {
-    const docRef = doc(db, 'userCategories', categoryId);
-    const updateData: Record<string, unknown> = {};
+    logServiceOperation('updateCategory', 'userCategories', { categoryId });
     
-    if (data.name !== undefined) {
-      // Check if another category with this name exists
-      const categoryDoc = await getDoc(docRef);
-      if (!categoryDoc.exists()) {
-        throw new Error('Category not found');
+    try {
+      const docRef = doc(db, 'userCategories', categoryId);
+      const updateData: Record<string, unknown> = {};
+      
+      if (data.name !== undefined) {
+        // Check if another category with this name exists
+        const categoryDoc = await getDoc(docRef);
+        if (!categoryDoc.exists()) {
+          throw new Error('Category not found');
+        }
+        const userId = categoryDoc.data().userId;
+        const existing = await this.getUserCategoryByName(userId, data.name);
+        if (existing && existing.id !== categoryId) {
+          throw new Error('Category with this name already exists');
+        }
+        updateData.name = data.name;
       }
-      const userId = categoryDoc.data().userId;
-      const existing = await this.getUserCategoryByName(userId, data.name);
-      if (existing && existing.id !== categoryId) {
-        throw new Error('Category with this name already exists');
-      }
-      updateData.name = data.name;
+      
+      await updateDoc(docRef, cleanFirestoreData(updateData));
+    } catch (error) {
+      logServiceError('updateCategory', 'userCategories', error, { categoryId });
+      throw toServiceError(error, 'userCategories');
     }
-    
-    await updateDoc(docRef, updateData);
   },
 
   /**
    * Delete category
    */
   async deleteCategory(categoryId: string): Promise<void> {
-    const docRef = doc(db, 'userCategories', categoryId);
-    await deleteDoc(docRef);
+    logServiceOperation('deleteCategory', 'userCategories', { categoryId });
+    
+    try {
+      const docRef = doc(db, 'userCategories', categoryId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      logServiceError('deleteCategory', 'userCategories', error, { categoryId });
+      throw toServiceError(error, 'userCategories');
+    }
   },
 
   /**
