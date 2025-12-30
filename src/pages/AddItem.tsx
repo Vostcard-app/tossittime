@@ -325,8 +325,8 @@ const AddItem: React.FC = () => {
       setEditingItem(null);
       setSearchQuery('');
     }
-    // Navigate to shop page when back button is clicked
-    navigate('/shop');
+    // Navigate back to the previous page
+    navigate(-1);
   };
 
   const handleToss = async () => {
