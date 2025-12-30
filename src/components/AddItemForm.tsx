@@ -381,7 +381,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       {!isFrozen && (
         <div style={{ marginBottom: '1.5rem' }}>
           <label htmlFor="expirationDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
-            Expiration Date *
+            Expiration Date * (Dates are suggestions not guarantees)
           </label>
           <input
             ref={dateInputRef}
