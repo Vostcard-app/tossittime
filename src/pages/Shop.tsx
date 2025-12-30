@@ -751,6 +751,14 @@ const Shop: React.FC = () => {
               Add Item
             </button>
           </form>
+          <div style={{ 
+            marginTop: '0.5rem', 
+            fontSize: '0.875rem', 
+            color: '#6b7280',
+            textAlign: 'left'
+          }}>
+            Swipe to remove
+          </div>
         </div>
 
         {/* Shopping List Items */}
