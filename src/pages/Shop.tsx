@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { shoppingListService, shoppingListsService, userSettingsService, userItemsService, foodItemService } from '../services/firebaseService';
+import { shoppingListService, shoppingListsService, userSettingsService, userItemsService } from '../services/firebaseService';
 import { findFoodItems } from '../services/foodkeeperService';
 import type { ShoppingListItem, ShoppingList } from '../types';
 import HamburgerMenu from '../components/HamburgerMenu';
@@ -319,48 +319,6 @@ const Shop: React.FC = () => {
     }
   };
 
-  // Handle adding crossed-off item directly to active list
-  const handleAddCrossedOffItem = async (item: ShoppingListItem) => {
-    if (!user) {
-      alert('Please log in first');
-      return;
-    }
-
-    try {
-      // Set crossedOff to false to make the item active again
-      await shoppingListService.updateShoppingListItemCrossedOff(item.id, false);
-      
-      // Track engagement: shopping_list_item_crossed_off (uncrossed)
-      await analyticsService.trackEngagement(user.uid, 'shopping_list_item_crossed_off', {
-        itemName: item.name,
-        action: 'uncrossed',
-      });
-
-      // Find the matching food item from dashboard (case-insensitive) and delete it if it exists
-      const itemNameLower = item.name.trim().toLowerCase();
-      const matchingFoodItem = foodItems.find(
-        fi => fi.name.trim().toLowerCase() === itemNameLower
-      );
-
-      if (matchingFoodItem) {
-        // Delete the food item from dashboard
-        await foodItemService.deleteFoodItem(matchingFoodItem.id);
-      }
-
-      // Update lastUsed for the userItem if it exists
-      const userItem = userItems.find(ui => ui.name.toLowerCase() === itemNameLower);
-      if (userItem) {
-        await userItemsService.createOrUpdateUserItem(user.uid, {
-          name: userItem.name,
-          expirationLength: userItem.expirationLength,
-          category: userItem.category
-        });
-      }
-    } catch (error) {
-      console.error('Error handling crossed-off item:', error);
-      alert('Failed to update item. Please try again.');
-    }
-  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -626,6 +584,9 @@ const Shop: React.FC = () => {
                 border: '1px solid #d1d5db',
                 borderRadius: '6px',
                 fontSize: '1.25rem',
+                fontWeight: '500',
+                fontFamily: 'inherit',
+                color: '#1f2937',
                 outline: 'none',
                 backgroundColor: '#ffffff',
                 cursor: 'pointer'
@@ -637,10 +598,13 @@ const Shop: React.FC = () => {
                 <>
                   {!selectedListId && <option value="">Select a list</option>}
                   {shoppingLists.map((list) => {
-                    // Capitalize the list name for display
-                    const displayName = list.name === 'shop list' ? 'Shop list' : list.name;
+                    // Capitalize the list name for display (first letter of each word)
+                    const displayName = list.name
+                      .split(/\s+/)
+                      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                      .join(' ');
                     return (
-                      <option key={list.id} value={list.id}>
+                      <option key={list.id} value={list.id} style={{ fontSize: '1.25rem' }}>
                         {displayName}
                       </option>
                     );
@@ -831,15 +795,14 @@ const Shop: React.FC = () => {
                           if (!isDragging) return;
                           const currentX = e.touches[0].clientX;
                           const diff = currentX - startX;
-                          // Only allow swiping right (positive diff)
-                          if (diff > 0) {
-                            setTranslateX(Math.min(diff, SWIPE_THRESHOLD * 2));
-                          }
+                          // Allow swiping both left and right
+                          const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
+                          setTranslateX(clampedDiff);
                         };
 
                         const handleTouchEnd = () => {
                           setIsDragging(false);
-                          if (translateX >= SWIPE_THRESHOLD) {
+                          if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
                             handleMarkAsCrossedOff(item);
                             setTranslateX(0);
                             return;
@@ -857,14 +820,14 @@ const Shop: React.FC = () => {
                           if (isDragging) {
                             const handleGlobalMouseMove = (e: MouseEvent) => {
                               const diff = e.clientX - startX;
-                              if (diff > 0) {
-                                setTranslateX(Math.min(diff, SWIPE_THRESHOLD * 2));
-                              }
+                              // Allow swiping both left and right
+                              const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
+                              setTranslateX(clampedDiff);
                             };
 
                             const handleGlobalMouseUp = () => {
                               setIsDragging(false);
-                              if (translateX >= SWIPE_THRESHOLD) {
+                              if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
                                 handleMarkAsCrossedOff(item);
                                 setTranslateX(0);
                                 return;
@@ -883,7 +846,9 @@ const Shop: React.FC = () => {
                           }
                         }, [isDragging, startX, translateX, item]);
 
-                        const swipeOpacity = Math.min(translateX / SWIPE_THRESHOLD, 1);
+                        const swipeOpacity = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1);
+                        const isSwiped = Math.abs(translateX) >= SWIPE_THRESHOLD;
+                        const isLeftSwipe = translateX < 0;
 
                         return (
                           <div
@@ -896,28 +861,30 @@ const Shop: React.FC = () => {
                               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                             }}
                           >
-                            {/* Swipe background indicator */}
-                            <div
-                              style={{
-                                position: 'absolute',
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: `${Math.min(translateX, SWIPE_THRESHOLD)}px`,
-                                backgroundColor: '#10b981',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-start',
-                                paddingLeft: '1rem',
-                                color: 'white',
-                                fontSize: '0.875rem',
-                                fontWeight: '500',
-                                opacity: swipeOpacity,
-                                transition: isDragging ? 'none' : 'opacity 0.2s'
-                              }}
-                            >
-                              {translateX >= SWIPE_THRESHOLD ? '✓ Added' : '→ Swipe'}
-                            </div>
+                            {/* Swipe background indicator - shows on left for left swipe, right for right swipe */}
+                            {translateX !== 0 && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  ...(isLeftSwipe ? { right: 0 } : { left: 0 }),
+                                  top: 0,
+                                  bottom: 0,
+                                  width: `${Math.min(Math.abs(translateX), SWIPE_THRESHOLD)}px`,
+                                  backgroundColor: '#10b981',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: isLeftSwipe ? 'flex-end' : 'flex-start',
+                                  ...(isLeftSwipe ? { paddingRight: '1rem' } : { paddingLeft: '1rem' }),
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  fontWeight: '500',
+                                  opacity: swipeOpacity,
+                                  transition: isDragging ? 'none' : 'opacity 0.2s'
+                                }}
+                              >
+                                {isSwiped ? '✓ Added' : (isLeftSwipe ? '← Swipe' : '→ Swipe')}
+                              </div>
+                            )}
                             
                             {/* Item content */}
                             <div
@@ -980,80 +947,196 @@ const Shop: React.FC = () => {
                       fontSize: '1.125rem', 
                       fontWeight: '600', 
                       color: '#1f2937', 
-                      marginBottom: '1rem' 
+                      marginBottom: '0.5rem' 
                     }}>
                       Previously Used
                     </h3>
+                    <div style={{ 
+                      marginBottom: '1rem',
+                      fontSize: '1.25rem', 
+                      color: '#1f2937',
+                      textAlign: 'center',
+                      fontStyle: 'italic'
+                    }}>
+                      Swipe to add
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {mergedItems.map((mergedItem) => (
-                        <div
-                          key={mergedItem.id}
-                          onClick={() => {
-                            if (mergedItem.type === 'userItem') {
-                              handleAddPreviouslyUsedItem(mergedItem.name);
-                            }
-                          }}
-                          style={{
-                            padding: '0.25rem 0.75rem',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            cursor: mergedItem.type === 'userItem' ? 'pointer' : 'default',
-                            backgroundColor: '#f9fafb',
-                            transition: 'background-color 0.2s',
-                            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (mergedItem.type === 'userItem') {
-                              e.currentTarget.style.backgroundColor = '#f3f4f6';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (mergedItem.type === 'userItem') {
-                              e.currentTarget.style.backgroundColor = '#f9fafb';
-                            }
-                          }}
-                        >
-                          <div style={{ 
-                            fontSize: '1.25rem', 
-                            fontWeight: '500', 
-                            color: mergedItem.isCrossedOff ? '#1f2937' : '#1f2937',
-                            textDecoration: mergedItem.isCrossedOff ? 'line-through' : 'none'
-                          }}>
-                            {mergedItem.name}
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            {mergedItem.isCrossedOff && mergedItem.shoppingListItem && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddCrossedOffItem(mergedItem.shoppingListItem!);
-                                }}
+                      {mergedItems.map((mergedItem) => {
+                        // Only make userItems swipeable (not crossed-off shopping list items)
+                        if (mergedItem.type === 'userItem') {
+                          const SwipeablePreviouslyUsedItem = () => {
+                            const [translateX, setTranslateX] = useState(0);
+                            const [isDragging, setIsDragging] = useState(false);
+                            const [startX, setStartX] = useState(0);
+                            const itemRef = useRef<HTMLDivElement>(null);
+                            const SWIPE_THRESHOLD = 100;
+
+                            const handleTouchStart = (e: React.TouchEvent) => {
+                              setStartX(e.touches[0].clientX);
+                              setIsDragging(true);
+                            };
+
+                            const handleTouchMove = (e: React.TouchEvent) => {
+                              if (!isDragging) return;
+                              const currentX = e.touches[0].clientX;
+                              const diff = currentX - startX;
+                              // Allow swiping both left and right
+                              const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
+                              setTranslateX(clampedDiff);
+                            };
+
+                            const handleTouchEnd = () => {
+                              setIsDragging(false);
+                              if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
+                                handleAddPreviouslyUsedItem(mergedItem.name);
+                                setTranslateX(0);
+                                return;
+                              } else {
+                                setTranslateX(0);
+                              }
+                            };
+
+                            const handleMouseDown = (e: React.MouseEvent) => {
+                              setStartX(e.clientX);
+                              setIsDragging(true);
+                            };
+
+                            useEffect(() => {
+                              if (isDragging) {
+                                const handleGlobalMouseMove = (e: MouseEvent) => {
+                                  const diff = e.clientX - startX;
+                                  // Allow swiping both left and right
+                                  const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
+                                  setTranslateX(clampedDiff);
+                                };
+
+                                const handleGlobalMouseUp = () => {
+                                  setIsDragging(false);
+                                  if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
+                                    handleAddPreviouslyUsedItem(mergedItem.name);
+                                    setTranslateX(0);
+                                    return;
+                                  } else {
+                                    setTranslateX(0);
+                                  }
+                                };
+
+                                document.addEventListener('mousemove', handleGlobalMouseMove);
+                                document.addEventListener('mouseup', handleGlobalMouseUp);
+
+                                return () => {
+                                  document.removeEventListener('mousemove', handleGlobalMouseMove);
+                                  document.removeEventListener('mouseup', handleGlobalMouseUp);
+                                };
+                              }
+                            }, [isDragging, startX, translateX, mergedItem]);
+
+                            const swipeOpacity = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1);
+                            const isSwiped = Math.abs(translateX) >= SWIPE_THRESHOLD;
+                            const isLeftSwipe = translateX < 0;
+
+                            return (
+                              <div
+                                ref={itemRef}
                                 style={{
-                                  padding: '0.5rem 1rem',
-                                  backgroundColor: '#002B4D',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '0.875rem',
-                                  fontWeight: '500',
-                                  cursor: 'pointer'
+                                  position: 'relative',
+                                  overflow: 'hidden',
+                                  borderRadius: '8px',
+                                  backgroundColor: '#ffffff',
+                                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                                 }}
-                                aria-label="Add item"
                               >
-                                Add
-                              </button>
-                            )}
-                            {!mergedItem.isCrossedOff && mergedItem.expirationLength !== undefined && (
-                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                {mergedItem.expirationLength} days
+                                {/* Swipe background indicator */}
+                                {translateX !== 0 && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      ...(isLeftSwipe ? { right: 0 } : { left: 0 }),
+                                      top: 0,
+                                      bottom: 0,
+                                      width: `${Math.min(Math.abs(translateX), SWIPE_THRESHOLD)}px`,
+                                      backgroundColor: '#10b981',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: isLeftSwipe ? 'flex-end' : 'flex-start',
+                                      ...(isLeftSwipe ? { paddingRight: '1rem' } : { paddingLeft: '1rem' }),
+                                      color: 'white',
+                                      fontSize: '0.875rem',
+                                      fontWeight: '500',
+                                      opacity: swipeOpacity,
+                                      transition: isDragging ? 'none' : 'opacity 0.2s'
+                                    }}
+                                  >
+                                    {isSwiped ? '✓ Added' : (isLeftSwipe ? '← Swipe' : '→ Swipe')}
+                                  </div>
+                                )}
+                                
+                                {/* Item content */}
+                                <div
+                                  onTouchStart={handleTouchStart}
+                                  onTouchMove={handleTouchMove}
+                                  onTouchEnd={handleTouchEnd}
+                                  onMouseDown={handleMouseDown}
+                                  style={{
+                                    padding: '0.25rem 0.75rem',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    backgroundColor: '#ffffff',
+                                    transform: `translateX(${translateX}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.2s',
+                                    cursor: 'grab',
+                                    userSelect: 'none'
+                                  }}
+                                >
+                                  <div style={{ 
+                                    fontSize: '1.25rem', 
+                                    fontWeight: '500', 
+                                    color: '#1f2937',
+                                    textDecoration: mergedItem.isCrossedOff ? 'line-through' : 'none'
+                                  }}>
+                                    {mergedItem.name}
+                                  </div>
+                                  {mergedItem.expirationLength !== undefined && (
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                      {mergedItem.expirationLength} days
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                            );
+                          };
+                          return <SwipeablePreviouslyUsedItem key={mergedItem.id} />;
+                        } else {
+                          // For crossed-off shopping list items, show without swipe functionality or add button
+                          return (
+                            <div
+                              key={mergedItem.id}
+                              style={{
+                                padding: '0.25rem 0.75rem',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                backgroundColor: '#ffffff',
+                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                              }}
+                            >
+                              <div style={{ 
+                                fontSize: '1.25rem', 
+                                fontWeight: '500', 
+                                color: '#1f2937',
+                                textDecoration: 'line-through'
+                              }}>
+                                {mergedItem.name}
+                              </div>
+                            </div>
+                          );
+                        }
+                      })}
                     </div>
                   </div>
                 )}
