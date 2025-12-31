@@ -7,7 +7,6 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -20,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
-import type { LeftoverMeal, FirestoreUpdateData } from '../types';
+import type { LeftoverMeal } from '../types';
 import { 
   handleSubscriptionError, 
   transformSnapshot, 

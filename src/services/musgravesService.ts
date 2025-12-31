@@ -30,10 +30,8 @@ export const musgravesService = {
         // Also add ingredients that aren't in inventory
         meal.suggestedIngredients.forEach(ingredient => {
           // Check if ingredient is already covered by expiring items
-          const isCovered = meal.usesExpiringItems.some(itemId => {
-            // This would need to check actual item names - simplified for now
-            return false;
-          });
+          // This would need to check actual item names - simplified for now
+          const isCovered = false;
           if (!isCovered) {
             shoppingItems.add(ingredient);
           }

@@ -14,12 +14,11 @@ import { db } from '../firebase/firebaseConfig';
 import type {
   MealProfile,
   MealSchedule,
-  ScheduleAmendment,
   FirestoreUpdateData
 } from '../types';
 import { logServiceOperation, logServiceError, cleanFirestoreData } from './baseService';
 import { toServiceError } from './errors';
-import { startOfDay, addDays, isSameDay } from 'date-fns';
+import { startOfDay, isSameDay } from 'date-fns';
 
 /**
  * Meal Profile Service

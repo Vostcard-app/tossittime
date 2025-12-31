@@ -6,7 +6,6 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   addDoc,
   updateDoc,
@@ -23,12 +22,10 @@ import type {
   MealSuggestion,
   PlannedMeal,
   UnplannedEvent,
-  FoodItem,
-  FirestoreUpdateData
+  FoodItem
 } from '../types';
 import {
   handleSubscriptionError,
-  transformSnapshot,
   cleanFirestoreData,
   logServiceOperation,
   logServiceError
@@ -38,7 +35,7 @@ import { generateMealSuggestions, replanMeals } from './openaiService';
 import { mealProfileService } from './mealProfileService';
 import { leftoverMealService } from './leftoverMealService';
 import { foodItemService } from './foodItemService';
-import { addDays, startOfWeek, format, parseISO, isSameDay } from 'date-fns';
+import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
 
 /**
  * Meal Planning Service
@@ -321,7 +318,7 @@ export const mealPlanningService = {
           ...meal,
           date: Timestamp.fromDate(meal.date)
         }))
-      } as FirestoreUpdateData<MealPlan>);
+      });
     } catch (error) {
       logServiceError('confirmDailyMeals', 'mealPlans', error, { userId });
       throw toServiceError(error, 'mealPlans');
@@ -493,7 +490,7 @@ export const mealPlanningService = {
           ...meal,
           date: Timestamp.fromDate(meal.date)
         }))
-      } as FirestoreUpdateData<MealPlan>);
+      });
 
       return {
         ...currentPlan,

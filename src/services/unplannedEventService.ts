@@ -94,9 +94,9 @@ export const unplannedEventService = {
    * This is a convenience method that calls mealPlanningService.replanMeals
    */
   async triggerReplanning(
-    userId: string,
+    _userId: string,
     event: UnplannedEvent,
-    mealPlanId: string
+    _mealPlanId: string
   ): Promise<void> {
     // This will be implemented in mealPlanningService
     // For now, just add the event

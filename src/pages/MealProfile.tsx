@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { mealProfileService } from '../services';
-import type { MealProfile, WeeklyScheduleDay, ScheduleAmendment } from '../types';
+import type { MealProfile } from '../types';
 import Banner from '../components/layout/Banner';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Input from '../components/ui/Input';
@@ -171,9 +171,10 @@ const MealProfile: React.FC = () => {
           <Button
             onClick={handleSave}
             disabled={saving}
-            style={{ width: '100%' }}
+            loading={saving}
+            fullWidth
           >
-            {saving ? 'Saving...' : 'Save Meal Profile'}
+            Save Meal Profile
           </Button>
         </div>
 
