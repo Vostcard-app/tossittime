@@ -43,6 +43,8 @@ export interface MealProfile {
   userId: string;
   dislikedFoods: string[];
   foodPreferences: string[]; // e.g., 'vegetarian', 'vegan', 'gluten-free'
+  favoriteMeals: string[]; // User's favorite meals
+  servingSize: number; // Number of people meals should feed
   mealDurationPreferences: {
     breakfast: number; // Time in minutes
     lunch: number;
@@ -153,6 +155,8 @@ export interface MealPlanningContext {
   userPreferences: {
     dislikedFoods: string[];
     foodPreferences: string[];
+    favoriteMeals: string[];
+    servingSize: number;
     mealDurationPreferences: {
       breakfast: number;
       lunch: number;

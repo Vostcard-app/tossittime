@@ -97,6 +97,8 @@ export const mealPlanningService = {
         userPreferences: {
           dislikedFoods: profile.dislikedFoods,
           foodPreferences: profile.foodPreferences,
+          favoriteMeals: profile.favoriteMeals || [],
+          servingSize: profile.servingSize || 2,
           mealDurationPreferences: profile.mealDurationPreferences
         },
         schedule,
@@ -389,6 +391,8 @@ export const mealPlanningService = {
         userPreferences: {
           dislikedFoods: profile?.dislikedFoods || [],
           foodPreferences: profile?.foodPreferences || [],
+          favoriteMeals: profile?.favoriteMeals || [],
+          servingSize: profile?.servingSize || 2,
           mealDurationPreferences: profile?.mealDurationPreferences || {
             breakfast: 20,
             lunch: 30,

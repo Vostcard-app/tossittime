@@ -149,6 +149,8 @@ ${leftoverMealsList || 'None'}
 USER PREFERENCES:
 - Disliked foods: ${context.userPreferences.dislikedFoods.join(', ') || 'None'}
 - Dietary preferences: ${context.userPreferences.foodPreferences.join(', ') || 'None'}
+- Favorite meals: ${context.userPreferences.favoriteMeals.join(', ') || 'None'}
+- Serving size: ${context.userPreferences.servingSize} people
 - Meal duration preferences: Breakfast ${context.userPreferences.mealDurationPreferences.breakfast} min, Lunch ${context.userPreferences.mealDurationPreferences.lunch} min, Dinner ${context.userPreferences.mealDurationPreferences.dinner} min
 
 SCHEDULE:
@@ -160,9 +162,11 @@ ${context.currentInventory.map(item => `- ${item.name}`).join('\n') || 'None'}
 Generate meal suggestions that:
 1. Prioritize using expiring items and leftovers
 2. Match user preferences and dietary restrictions
-3. Fit the schedule (consider meal duration preferences)
-4. Use items from current inventory when possible
-5. Suggest shopping list items only when necessary
+3. Include favorite meals when appropriate
+4. Plan for ${context.userPreferences.servingSize} servings per meal
+5. Fit the schedule (consider meal duration preferences)
+6. Use items from current inventory when possible
+7. Suggest shopping list items only when necessary
 
 Return a JSON object with this structure:
 {
