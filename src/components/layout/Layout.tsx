@@ -17,8 +17,8 @@ interface LayoutProps {
  */
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  // Hide Layout header on Dashboard, Calendar, Shop, EditLists, EditItems, EditCategories, Settings, Admin, and UserGuide since they have their own banners
-  const showHeader = location.pathname !== '/dashboard' && location.pathname !== '/calendar' && location.pathname !== '/shop' && location.pathname !== '/edit-lists' && location.pathname !== '/edit-items' && location.pathname !== '/edit-categories' && location.pathname !== '/settings' && location.pathname !== '/admin' && location.pathname !== '/user-guide';
+  // Hide Layout header on Dashboard, Calendar, Shop, EditLists, EditItems, EditCategories, Settings, Admin, UserGuide, MealPlanner, and MealProfile since they have their own banners
+  const showHeader = location.pathname !== '/dashboard' && location.pathname !== '/calendar' && location.pathname !== '/shop' && location.pathname !== '/edit-lists' && location.pathname !== '/edit-items' && location.pathname !== '/edit-categories' && location.pathname !== '/settings' && location.pathname !== '/admin' && location.pathname !== '/user-guide' && location.pathname !== '/meal-planner' && location.pathname !== '/meal-profile';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
