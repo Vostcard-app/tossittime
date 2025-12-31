@@ -26,6 +26,8 @@ const EditItems = lazy(() => import('./pages/EditItems'));
 const EditCategories = lazy(() => import('./pages/EditCategories'));
 const Admin = lazy(() => import('./pages/Admin'));
 const UserGuide = lazy(() => import('./pages/UserGuide'));
+const MealProfile = lazy(() => import('./pages/MealProfile'));
+const MealPlanner = lazy(() => import('./pages/MealPlanner'));
 
 function App() {
   const [user, loading] = useAuthState(auth);
@@ -113,6 +115,8 @@ function App() {
                     <Route path="/edit-categories" element={<EditCategories />} />
                     <Route path="/user-guide" element={<UserGuide />} />
                     <Route path="/admin" element={<Admin />} />
+                    <Route path="/meal-profile" element={<MealProfile />} />
+                    <Route path="/meal-planner" element={<MealPlanner />} />
                     <Route path="*" element={<Navigate to="/shop" replace />} />
                   </Routes>
                 </Suspense>

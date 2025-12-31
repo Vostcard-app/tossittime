@@ -45,3 +45,20 @@ export { getErrorInfo } from './common';
 
 // Component Types
 export type * from './components';
+
+// Meal Planning Types
+export type {
+  MealType,
+  MealPlanStatus,
+  WeeklyScheduleDay,
+  ScheduleAmendment,
+  MealProfile,
+  MealSchedule,
+  PlannedMeal,
+  MealPlan,
+  MealSuggestion,
+  UnplannedEvent,
+  LeftoverMeal,
+  MealPlanningContext,
+  ReplanningContext
+} from './mealPlan';

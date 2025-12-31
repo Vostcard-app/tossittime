@@ -79,6 +79,21 @@ export const notificationService = {
     for (const item of itemsToRemind) {
       await this.sendExpirationReminder(item, reminderDays);
     }
+  },
+
+  // Send a generic notification
+  async sendNotification(title: string, body: string): Promise<void> {
+    const hasPermission = await this.requestPermission();
+    if (!hasPermission) {
+      return;
+    }
+
+    new Notification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      requireInteraction: false
+    });
   }
 };
 

@@ -195,6 +195,78 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
             Settings
           </Link>
           <Link
+            to="/meal-planner"
+            onClick={() => handleLinkClick('/meal-planner')}
+            style={{
+              display: 'flex',
+              padding: '1rem 1.5rem',
+              color: '#1f2937',
+              textDecoration: 'none',
+              fontSize: '22px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s',
+              borderLeft: '3px solid transparent',
+              minHeight: '44px',
+              alignItems: 'center'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+              e.currentTarget.style.borderLeftColor = '#002B4D';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderLeftColor = 'transparent';
+            }}
+            onTouchStart={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+              e.currentTarget.style.borderLeftColor = '#002B4D';
+            }}
+            onTouchEnd={(e) => {
+              setTimeout(() => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderLeftColor = 'transparent';
+              }, 200);
+            }}
+          >
+            Meal Planner
+          </Link>
+          <Link
+            to="/meal-profile"
+            onClick={() => handleLinkClick('/meal-profile')}
+            style={{
+              display: 'flex',
+              padding: '1rem 1.5rem',
+              color: '#1f2937',
+              textDecoration: 'none',
+              fontSize: '22px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s',
+              borderLeft: '3px solid transparent',
+              minHeight: '44px',
+              alignItems: 'center'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+              e.currentTarget.style.borderLeftColor = '#002B4D';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderLeftColor = 'transparent';
+            }}
+            onTouchStart={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+              e.currentTarget.style.borderLeftColor = '#002B4D';
+            }}
+            onTouchEnd={(e) => {
+              setTimeout(() => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderLeftColor = 'transparent';
+              }, 200);
+            }}
+          >
+            Meal Profile
+          </Link>
+          <Link
             to="/edit-lists"
             onClick={() => handleLinkClick('/edit-lists')}
             style={{
