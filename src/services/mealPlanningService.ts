@@ -48,7 +48,8 @@ export const mealPlanningService = {
   async generateDailySuggestions(
     userId: string,
     date: Date,
-    mealType: MealType
+    mealType: MealType,
+    servingSize?: number // Optional day-specific serving size
   ): Promise<MealSuggestion[]> {
     logServiceOperation('generateDailySuggestions', 'mealPlans', { userId, date, mealType });
 
@@ -94,7 +95,7 @@ export const mealPlanningService = {
           dislikedFoods: profile.dislikedFoods,
           foodPreferences: profile.foodPreferences,
           favoriteMeals: profile.favoriteMeals || [],
-          servingSize: profile.servingSize || 2,
+          servingSize: servingSize || profile.servingSize || 2, // Use day-specific or profile default
           mealDurationPreferences: profile.mealDurationPreferences
         },
         schedule: [daySchedule],

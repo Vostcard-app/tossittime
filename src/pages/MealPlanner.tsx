@@ -11,6 +11,7 @@ import type { MealSuggestion, MealType } from '../types';
 import Banner from '../components/layout/Banner';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
 import { startOfWeek, addDays, format } from 'date-fns';
 
 interface DayPlan {
@@ -18,6 +19,7 @@ interface DayPlan {
   breakfast?: MealSuggestion;
   lunch?: MealSuggestion;
   dinner?: MealSuggestion;
+  servingSize?: number; // Number of people for this day (overrides profile default)
   skipped: boolean;
 }
 
@@ -75,7 +77,8 @@ const MealPlanner: React.FC = () => {
         const suggestions = await mealPlanningService.generateDailySuggestions(
           user.uid,
           currentDay.date,
-          currentMealType
+          currentMealType,
+          currentDay.servingSize // Pass day-specific serving size
         );
         setCurrentSuggestions(suggestions);
       } catch (error) {
@@ -266,9 +269,30 @@ const MealPlanner: React.FC = () => {
 
             {currentDay && (
               <div>
-                <h3 style={{ marginBottom: '1rem' }}>
-                  {format(currentDay.date, 'EEEE, MMMM d')}
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0 }}>
+                    {format(currentDay.date, 'EEEE, MMMM d')}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: '#666' }} htmlFor={`serving-size-${currentDayIndex}`}>
+                      Serving size:
+                    </label>
+                    <div style={{ width: '80px' }}>
+                      <Input
+                        id={`serving-size-${currentDayIndex}`}
+                        type="number"
+                        value={(currentDay.servingSize || '').toString()}
+                        onChange={(val) => {
+                          const newPlans = [...dayPlans];
+                          newPlans[currentDayIndex].servingSize = val ? parseInt(val) : undefined;
+                          setDayPlans(newPlans);
+                        }}
+                        placeholder="Default"
+                      />
+                    </div>
+                    <span style={{ fontSize: '0.875rem', color: '#666' }}>people</span>
+                  </div>
+                </div>
                 
                 {currentDay.skipped ? (
                   <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
