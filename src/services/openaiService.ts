@@ -205,8 +205,7 @@ function filterInventoryByDiet(
  */
 function isLeftoverCompliant(
   meal: { mealName: string; ingredients: string[] },
-  dietApproach?: string,
-  dietStrict?: boolean
+  dietApproach?: string
 ): boolean {
   if (!dietApproach) return true;
 
@@ -230,18 +229,6 @@ function isLeftoverCompliant(
  * Build meal planning prompt
  */
 function buildMealPlanningPrompt(context: MealPlanningContext, targetMealType?: MealType): string {
-  const expiringItemsList = context.expiringItems
-    .map(item => {
-      const date = item.expirationDate || item.thawDate;
-      const daysUntil = date ? Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 'unknown';
-      return `- ${item.name} (expires in ${daysUntil} days, category: ${item.category || 'unknown'})`;
-    })
-    .join('\n');
-
-  const leftoverMealsList = context.leftoverMeals
-    .map(meal => `- ${meal.mealName} (${meal.quantity}, ingredients: ${meal.ingredients.join(', ')})`)
-    .join('\n');
-
   const scheduleList = context.schedule
     .map(day => {
       const dateStr = day.date.toLocaleDateString();
@@ -282,7 +269,7 @@ ${compliantExpiringItems.length > 0 ? compliantExpiringItems.map(item => {
 
 AVAILABLE LEFTOVER MEALS:
 ${context.leftoverMeals
-  .filter(meal => isLeftoverCompliant(meal, context.userPreferences.dietApproach, context.userPreferences.dietStrict))
+  .filter(meal => isLeftoverCompliant(meal, context.userPreferences.dietApproach))
   .map(meal => `- ${meal.mealName} (${meal.quantity}, ingredients: ${meal.ingredients.join(', ')})`)
   .join('\n') || 'None'}
 
