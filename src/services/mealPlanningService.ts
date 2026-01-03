@@ -23,7 +23,8 @@ import type {
   PlannedMeal,
   UnplannedEvent,
   FoodItem,
-  MealType
+  MealType,
+  LeftoverMeal
 } from '../types';
 import {
   handleSubscriptionError,
@@ -71,12 +72,22 @@ export const mealPlanningService = {
         return expDate >= now && expDate <= twoWeeksFromNow;
       });
 
-      // Get leftover meals
-      const leftoverMeals = await leftoverMealService.getLeftoverMeals(
-        userId,
-        date,
-        date
-      );
+      // Get leftover meals (gracefully handle if index not created yet)
+      let leftoverMeals: LeftoverMeal[] = [];
+      try {
+        leftoverMeals = await leftoverMealService.getLeftoverMeals(
+          userId,
+          date,
+          date
+        );
+      } catch (error: any) {
+        // If index error, continue without leftover meals
+        if (error?.code === 'failed-precondition' && error?.message?.includes('index')) {
+          console.warn('Leftover meals index not created yet. Continuing without leftover meals.');
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
 
       // Get schedule for this day
       const daySchedule = await mealProfileService.getEffectiveSchedule(userId, date);
@@ -166,13 +177,23 @@ export const mealPlanningService = {
         return expDate >= now && expDate <= twoWeeksFromNow;
       });
 
-      // Get leftover meals
+      // Get leftover meals (gracefully handle if index not created yet)
       const weekEndDate = addDays(weekStartDate, 7);
-      const leftoverMeals = await leftoverMealService.getLeftoverMeals(
-        userId,
-        weekStartDate,
-        weekEndDate
-      );
+      let leftoverMeals: LeftoverMeal[] = [];
+      try {
+        leftoverMeals = await leftoverMealService.getLeftoverMeals(
+          userId,
+          weekStartDate,
+          weekEndDate
+        );
+      } catch (error: any) {
+        // If index error, continue without leftover meals
+        if (error?.code === 'failed-precondition' && error?.message?.includes('index')) {
+          console.warn('Leftover meals index not created yet. Continuing without leftover meals.');
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
 
       // Get schedule for each day of the week
       const schedule = [];
@@ -463,7 +484,18 @@ export const mealPlanningService = {
       const profile = await mealProfileService.getMealProfile(userId);
       const weekStart = startOfWeek(unplannedEvent.date, { weekStartsOn: 0 });
       const weekEnd = addDays(weekStart, 7);
-      const leftoverMeals = await leftoverMealService.getLeftoverMeals(userId, weekStart, weekEnd);
+      // Get leftover meals (gracefully handle if index not created yet)
+      let leftoverMeals: LeftoverMeal[] = [];
+      try {
+        leftoverMeals = await leftoverMealService.getLeftoverMeals(userId, weekStart, weekEnd);
+      } catch (error: any) {
+        // If index error, continue without leftover meals
+        if (error?.code === 'failed-precondition' && error?.message?.includes('index')) {
+          console.warn('Leftover meals index not created yet. Continuing without leftover meals.');
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
 
       // Get schedule
       const schedule = [];
