@@ -12,13 +12,16 @@ import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import type { FoodItem } from '../types';
 import { analyticsService } from '../services/analyticsService';
+import { findFoodItem } from '../services/foodkeeperService';
 
 type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
+type StorageTabType = 'perishable' | 'dryCanned';
 
 const Dashboard: React.FC = () => {
   const [user] = useAuthState(auth);
   const { foodItems, loading } = useFoodItems(user || null);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [storageTab, setStorageTab] = useState<StorageTabType>('perishable');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showIndexWarning, setShowIndexWarning] = useState(false);
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
@@ -43,10 +46,44 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Helper function to determine if an item is dry/canned or perishable
+  const isDryCannedItem = useCallback((item: FoodItem): boolean => {
+    const foodKeeperItem = findFoodItem(item.name);
+    if (!foodKeeperItem) {
+      // Default to perishable if not found in FoodKeeper data
+      return false;
+    }
+    // If item has pantryDays (even if also has refrigeratorDays), it's dry/canned
+    return foodKeeperItem.pantryDays !== null && foodKeeperItem.pantryDays !== undefined;
+  }, []);
+
+  // Filter items by storage type (perishable vs dry/canned)
+  const itemsByStorageType = useMemo(() => {
+    const perishableItems: FoodItem[] = [];
+    const dryCannedItems: FoodItem[] = [];
+    
+    foodItems.forEach(item => {
+      if (isDryCannedItem(item)) {
+        dryCannedItems.push(item);
+      } else {
+        perishableItems.push(item);
+      }
+    });
+    
+    return { perishableItems, dryCannedItems };
+  }, [foodItems, isDryCannedItem]);
+
+  // Combine storage tab filter with status filter
   const filteredItems = useMemo(() => {
-    if (filter === 'all') return foodItems;
-    return foodItems.filter(item => item.status === filter);
-  }, [foodItems, filter]);
+    // First filter by storage type
+    const storageFiltered = storageTab === 'perishable' 
+      ? itemsByStorageType.perishableItems 
+      : itemsByStorageType.dryCannedItems;
+    
+    // Then filter by status
+    if (filter === 'all') return storageFiltered;
+    return storageFiltered.filter(item => item.status === filter);
+  }, [storageTab, itemsByStorageType, filter]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     // Track engagement: core_action_used (toss)
@@ -285,7 +322,7 @@ const Dashboard: React.FC = () => {
         )}
 
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {(['all', 'fresh', 'expiring_soon', 'expired'] as FilterType[]).map((filterType) => (
           <button
             key={filterType}
@@ -305,24 +342,6 @@ const Dashboard: React.FC = () => {
             {filterType.replace('_', ' ')} ({filterType === 'all' ? foodItems.length : foodItems.filter(i => i.status === filterType).length})
           </button>
         ))}
-        {filter === 'all' && (
-          <button
-            onClick={() => navigate('/add')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#002B4D',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              marginLeft: 'auto'
-            }}
-          >
-            Add
-          </button>
-        )}
       </div>
 
       {/* Today's Date */}
@@ -332,17 +351,83 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Storage Type Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setStorageTab('perishable')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: storageTab === 'perishable' ? '#002B4D' : '#f3f4f6',
+            color: storageTab === 'perishable' ? 'white' : '#1f2937',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            flex: 1,
+            minWidth: '150px'
+          }}
+        >
+          Perishable ({itemsByStorageType.perishableItems.length})
+        </button>
+        <button
+          onClick={() => setStorageTab('dryCanned')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: storageTab === 'dryCanned' ? '#002B4D' : '#f3f4f6',
+            color: storageTab === 'dryCanned' ? 'white' : '#1f2937',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            flex: 1,
+            minWidth: '150px'
+          }}
+        >
+          Dry/Canned Goods ({itemsByStorageType.dryCannedItems.length})
+        </button>
+        <button
+          onClick={() => navigate('/add', { 
+            state: { 
+              storageType: storageTab === 'perishable' ? 'refrigerator' : 'pantry' 
+            } 
+          })}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#002B4D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            marginLeft: 'auto'
+          }}
+        >
+          Add
+        </button>
+      </div>
+
       {filteredItems.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-            {filter === 'all' ? 'No food items yet.' : `No ${filter.replace('_', ' ')} items.`}
+            {filter === 'all' 
+              ? `No ${storageTab === 'perishable' ? 'perishable' : 'dry/canned'} items yet.`
+              : `No ${filter.replace('_', ' ')} ${storageTab === 'perishable' ? 'perishable' : 'dry/canned'} items.`}
           </p>
           <p style={{ marginBottom: '1.5rem' }}>
-            {filter === 'all' ? 'Add your first food item to start tracking expiration dates!' : 'Try a different filter.'}
+            {filter === 'all' 
+              ? `Add your first ${storageTab === 'perishable' ? 'perishable' : 'dry/canned'} item to start tracking expiration dates!`
+              : 'Try a different filter.'}
           </p>
           {filter === 'all' && (
             <button
-              onClick={() => navigate('/add')}
+              onClick={() => navigate('/add', { 
+                state: { 
+                  storageType: storageTab === 'perishable' ? 'refrigerator' : 'pantry' 
+                } 
+              })}
               style={{
                 padding: '0.75rem 1.5rem',
                 backgroundColor: '#002B4D',
