@@ -1,6 +1,6 @@
 /**
  * Meal Planner Page
- * Day-by-day meal planning session
+ * Day-by-day meal planning session with checkboxes for meal types
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,6 +21,8 @@ interface DayPlan {
   dinner?: MealSuggestion;
   servingSize?: number; // Number of people for this day (overrides profile default)
   skipped: boolean;
+  selectedMealTypes: Set<MealType>; // Which meal types are checked for suggestions
+  suggestions: Map<MealType, MealSuggestion[]>; // Suggestions grouped by meal type
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -38,9 +40,7 @@ const MealPlanner: React.FC = () => {
   // Planning session state
   const [isPlanning, setIsPlanning] = useState(false);
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
-  const [currentMealTypeIndex, setCurrentMealTypeIndex] = useState(0);
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([]);
-  const [currentSuggestions, setCurrentSuggestions] = useState<MealSuggestion[]>([]);
   
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
 
@@ -51,101 +51,121 @@ const MealPlanner: React.FC = () => {
       for (let i = 0; i < 7; i++) {
         plans.push({
           date: addDays(weekStart, i),
-          skipped: false
+          skipped: false,
+          selectedMealTypes: new Set(),
+          suggestions: new Map()
         });
       }
       setDayPlans(plans);
     }
   }, [isPlanning, weekStart, dayPlans.length]);
 
-  // Load suggestions when day/meal changes
-  useEffect(() => {
-    if (!isPlanning || !user || dayPlans.length === 0) return;
-
-    const loadSuggestions = async () => {
-      const currentDay = dayPlans[currentDayIndex];
-      const currentMealType = MEAL_TYPES[currentMealTypeIndex].value;
-      
-      // Check if already planned
-      if (currentDay[currentMealType] || currentDay.skipped) {
-        setCurrentSuggestions([]);
-        return;
-      }
-
-      setGenerating(true);
-      try {
-        const suggestions = await mealPlanningService.generateDailySuggestions(
-          user.uid,
-          currentDay.date,
-          currentMealType,
-          currentDay.servingSize // Pass day-specific serving size
-        );
-        setCurrentSuggestions(suggestions);
-      } catch (error) {
-        console.error('Error generating suggestions:', error);
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : 'Failed to generate meal suggestions. Please make sure you have set up your meal profile and have an OpenAI API key configured.';
-        alert(`Failed to generate meal suggestions.\n\n${errorMessage}`);
-        setCurrentSuggestions([]);
-      } finally {
-        setGenerating(false);
-      }
-    };
-
-    loadSuggestions();
-  }, [isPlanning, currentDayIndex, currentMealTypeIndex, user, dayPlans]);
-
   const handleStartPlanning = () => {
     setIsPlanning(true);
     setCurrentDayIndex(0);
-    setCurrentMealTypeIndex(0);
   };
 
-  const handleSelectMeal = (suggestion: MealSuggestion) => {
+  const handleToggleMealType = (mealType: MealType) => {
     const newDayPlans = [...dayPlans];
     const currentDay = newDayPlans[currentDayIndex];
-    const currentMealType = MEAL_TYPES[currentMealTypeIndex].value;
+    const newSelected = new Set(currentDay.selectedMealTypes);
     
-    currentDay[currentMealType] = suggestion;
+    if (newSelected.has(mealType)) {
+      newSelected.delete(mealType);
+      // Clear suggestions for this meal type
+      const newSuggestions = new Map(currentDay.suggestions);
+      newSuggestions.delete(mealType);
+      currentDay.suggestions = newSuggestions;
+    } else {
+      newSelected.add(mealType);
+    }
+    
+    currentDay.selectedMealTypes = newSelected;
+    setDayPlans(newDayPlans);
+  };
+
+  const handleGenerateSuggestions = async () => {
+    if (!user || dayPlans.length === 0) return;
+    
+    const currentDay = dayPlans[currentDayIndex];
+    const selectedTypes = Array.from(currentDay.selectedMealTypes);
+    
+    if (selectedTypes.length === 0) {
+      alert('Please select at least one meal type (Breakfast, Lunch, or Dinner) to generate suggestions.');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const newSuggestions = new Map<MealType, MealSuggestion[]>();
+      
+      // Generate suggestions for each selected meal type
+      for (const mealType of selectedTypes) {
+        try {
+          const suggestions = await mealPlanningService.generateDailySuggestions(
+            user.uid,
+            currentDay.date,
+            mealType,
+            currentDay.servingSize
+          );
+          newSuggestions.set(mealType, suggestions);
+        } catch (error) {
+          console.error(`Error generating suggestions for ${mealType}:`, error);
+          // Continue with other meal types even if one fails
+        }
+      }
+      
+      // Update day plan with suggestions
+      const newDayPlans = [...dayPlans];
+      newDayPlans[currentDayIndex].suggestions = newSuggestions;
+      setDayPlans(newDayPlans);
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to generate meal suggestions. Please make sure you have set up your meal profile and have an OpenAI API key configured.';
+      alert(`Failed to generate meal suggestions.\n\n${errorMessage}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSelectMeal = (mealType: MealType, suggestion: MealSuggestion) => {
+    const newDayPlans = [...dayPlans];
+    const currentDay = newDayPlans[currentDayIndex];
+    
+    currentDay[mealType] = suggestion;
     currentDay.skipped = false;
     
     setDayPlans(newDayPlans);
-    setCurrentSuggestions([]);
-    
-    // Move to next meal type or next day
-    moveToNext();
+  };
+
+  const handleChangeMeal = (mealType: MealType) => {
+    const newDayPlans = [...dayPlans];
+    delete newDayPlans[currentDayIndex][mealType];
+    setDayPlans(newDayPlans);
   };
 
   const handleSkipDay = () => {
     const newDayPlans = [...dayPlans];
     newDayPlans[currentDayIndex].skipped = true;
     setDayPlans(newDayPlans);
-    setCurrentSuggestions([]);
     
     // Move to next day
     if (currentDayIndex < 6) {
       setCurrentDayIndex(currentDayIndex + 1);
-      setCurrentMealTypeIndex(0);
     } else {
       // All days done, finish planning
       handleFinishPlanning();
     }
   };
 
-  const moveToNext = () => {
-    // Move to next meal type
-    if (currentMealTypeIndex < MEAL_TYPES.length - 1) {
-      setCurrentMealTypeIndex(currentMealTypeIndex + 1);
+  const handleNextDay = () => {
+    if (currentDayIndex < 6) {
+      setCurrentDayIndex(currentDayIndex + 1);
     } else {
-      // Move to next day
-      if (currentDayIndex < 6) {
-        setCurrentDayIndex(currentDayIndex + 1);
-        setCurrentMealTypeIndex(0);
-      } else {
-        // All days done, finish planning
-        handleFinishPlanning();
-      }
+      // All days done, finish planning
+      handleFinishPlanning();
     }
   };
 
@@ -183,7 +203,6 @@ const MealPlanner: React.FC = () => {
       setIsPlanning(false);
       setDayPlans([]);
       setCurrentDayIndex(0);
-      setCurrentMealTypeIndex(0);
     } catch (error) {
       console.error('Error finishing planning:', error);
       alert('Failed to create meal plan. Please try again.');
@@ -207,6 +226,7 @@ const MealPlanner: React.FC = () => {
         total++;
       } else {
         total++;
+        // Day is considered planned if at least one meal is selected
         if (day.breakfast || day.lunch || day.dinner) {
           planned++;
         }
@@ -214,6 +234,15 @@ const MealPlanner: React.FC = () => {
     });
     
     return { planned, total };
+  };
+
+  const isDayComplete = (day: DayPlan) => {
+    if (day.skipped) return true;
+    const selectedTypes = Array.from(day.selectedMealTypes);
+    if (selectedTypes.length === 0) return false;
+    
+    // Check if all selected meal types have a meal chosen
+    return selectedTypes.every(mealType => day[mealType] !== undefined);
   };
 
   if (!user) {
@@ -226,6 +255,7 @@ const MealPlanner: React.FC = () => {
 
   const currentDay = getCurrentDay();
   const progress = getProgress();
+  const dayComplete = currentDay ? isDayComplete(currentDay) : false;
 
   return (
     <>
@@ -238,8 +268,7 @@ const MealPlanner: React.FC = () => {
         {!isPlanning ? (
           <div style={{ textAlign: 'center', padding: '3rem' }}>
             <p style={{ marginBottom: '2rem', color: '#666' }}>
-              Start a 7-day meal planning session. We'll guide you through each day, 
-              suggesting meals based on your expiring food items and preferences.
+              Start a 7-day meal planning session. Select which meals you want suggestions for each day.
             </p>
             <Button
               onClick={handleStartPlanning}
@@ -304,108 +333,144 @@ const MealPlanner: React.FC = () => {
                       const newPlans = [...dayPlans];
                       newPlans[currentDayIndex].skipped = false;
                       setDayPlans(newPlans);
-                      setCurrentMealTypeIndex(0);
                     }}>
                       Plan This Day
                     </Button>
                   </div>
                 ) : (
                   <div>
-                    <div style={{ marginBottom: '1.5rem' }}>
-                      <h4 style={{ marginBottom: '0.5rem' }}>
-                        {MEAL_TYPES[currentMealTypeIndex].label}
-                      </h4>
-                      
-                      {currentDay[MEAL_TYPES[currentMealTypeIndex].value] ? (
-                        <div style={{ padding: '1rem', backgroundColor: '#f0f8ff', border: '2px solid #002B4D', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <strong>{currentDay[MEAL_TYPES[currentMealTypeIndex].value]!.mealName}</strong>
-                              {currentDay[MEAL_TYPES[currentMealTypeIndex].value]!.reasoning && (
-                                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#666', fontStyle: 'italic' }}>
-                                  {currentDay[MEAL_TYPES[currentMealTypeIndex].value]!.reasoning}
-                                </p>
-                              )}
-                            </div>
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() => {
-                                const newPlans = [...dayPlans];
-                                delete newPlans[currentDayIndex][MEAL_TYPES[currentMealTypeIndex].value];
-                                setDayPlans(newPlans);
-                                setCurrentSuggestions([]);
+                    {/* Meal type checkboxes */}
+                    <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                      <h4 style={{ margin: '0 0 1rem 0', fontSize: '1rem' }}>Select meals to plan:</h4>
+                      <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                        {MEAL_TYPES.map(mealType => (
+                          <label
+                            key={mealType.value}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={currentDay.selectedMealTypes.has(mealType.value)}
+                              onChange={() => handleToggleMealType(mealType.value)}
+                              style={{
+                                width: '1.25rem',
+                                height: '1.25rem',
+                                cursor: 'pointer'
                               }}
-                            >
-                              Change
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          {generating ? (
-                            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                              <p>Generating suggestions...</p>
-                            </div>
-                          ) : currentSuggestions.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                              {currentSuggestions.map((suggestion, index) => (
-                                <div
-                                  key={index}
-                                  onClick={() => handleSelectMeal(suggestion)}
-                                  style={{
-                                    border: '2px solid #002B4D',
-                                    borderRadius: '8px',
-                                    padding: '1rem',
-                                    cursor: 'pointer',
-                                    backgroundColor: '#fff',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#f0f8ff';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fff';
-                                  }}
-                                >
-                                  <h4 style={{ margin: '0 0 0.5rem 0' }}>{suggestion.mealName}</h4>
-                                  {suggestion.reasoning && (
-                                    <p style={{ margin: '0.5rem 0', fontSize: '0.875rem', fontStyle: 'italic', color: '#666' }}>
-                                      {suggestion.reasoning}
-                                    </p>
-                                  )}
-                                  {suggestion.usesExpiringItems.length > 0 && (
-                                    <p style={{ margin: '0.5rem 0', fontSize: '0.875rem', color: '#d97706' }}>
-                                      Uses {suggestion.usesExpiringItems.length} expiring item(s)
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-                              <p style={{ color: '#666' }}>No suggestions available. You can skip this meal.</p>
-                            </div>
-                          )}
+                            />
+                            <span style={{ fontSize: '1rem', fontWeight: '500' }}>{mealType.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      
+                      {currentDay.selectedMealTypes.size > 0 && (
+                        <div style={{ marginTop: '1rem' }}>
+                          <Button
+                            onClick={handleGenerateSuggestions}
+                            disabled={generating}
+                            loading={generating}
+                            fullWidth
+                          >
+                            {generating ? 'Generating Suggestions...' : `Generate Suggestions for ${Array.from(currentDay.selectedMealTypes).map(mt => MEAL_TYPES.find(m => m.value === mt)?.label).join(', ')}`}
+                          </Button>
                         </div>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                      {!currentDay[MEAL_TYPES[currentMealTypeIndex].value] && (
+                    {/* Display suggestions and selected meals */}
+                    {Array.from(currentDay.selectedMealTypes).map(mealType => {
+                      const mealTypeLabel = MEAL_TYPES.find(m => m.value === mealType)?.label || mealType;
+                      const selectedMeal = currentDay[mealType];
+                      const suggestions = currentDay.suggestions.get(mealType) || [];
+                      
+                      return (
+                        <div key={mealType} style={{ marginBottom: '2rem' }}>
+                          <h4 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>{mealTypeLabel}</h4>
+                          
+                          {selectedMeal ? (
+                            <div style={{ padding: '1rem', backgroundColor: '#f0f8ff', border: '2px solid #002B4D', borderRadius: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <strong>{selectedMeal.mealName}</strong>
+                                  {selectedMeal.reasoning && (
+                                    <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#666', fontStyle: 'italic' }}>
+                                      {selectedMeal.reasoning}
+                                    </p>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={() => handleChangeMeal(mealType)}
+                                >
+                                  Change
+                                </Button>
+                              </div>
+                            </div>
+                          ) : suggestions.length > 0 ? (
+                            <div>
+                              <p style={{ marginBottom: '0.75rem', fontSize: '0.875rem', color: '#666' }}>
+                                Select one of the suggestions:
+                              </p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                                {suggestions.map((suggestion, index) => (
+                                  <div
+                                    key={index}
+                                    onClick={() => handleSelectMeal(mealType, suggestion)}
+                                    style={{
+                                      border: '2px solid #002B4D',
+                                      borderRadius: '8px',
+                                      padding: '1rem',
+                                      cursor: 'pointer',
+                                      backgroundColor: '#fff',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#f0f8ff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#fff';
+                                    }}
+                                  >
+                                    <h4 style={{ margin: '0 0 0.5rem 0' }}>{suggestion.mealName}</h4>
+                                    {suggestion.reasoning && (
+                                      <p style={{ margin: '0.5rem 0', fontSize: '0.875rem', fontStyle: 'italic', color: '#666' }}>
+                                        {suggestion.reasoning}
+                                      </p>
+                                    )}
+                                    {suggestion.usesExpiringItems.length > 0 && (
+                                      <p style={{ margin: '0.5rem 0', fontSize: '0.875rem', color: '#d97706' }}>
+                                        Uses {suggestion.usesExpiringItems.length} expiring item(s)
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                      <Button
+                        variant="secondary"
+                        onClick={handleSkipDay}
+                      >
+                        Skip This Day
+                      </Button>
+                      {dayComplete && (
                         <Button
-                          variant="text"
-                          onClick={moveToNext}
+                          onClick={handleNextDay}
                         >
-                          Skip This Meal
-                        </Button>
-                      )}
-                      {currentMealTypeIndex === MEAL_TYPES.length - 1 && (
-                        <Button
-                          variant="secondary"
-                          onClick={handleSkipDay}
-                        >
-                          Skip Entire Day
+                          {currentDayIndex < 6 ? 'Next Day' : 'Finish Planning'}
                         </Button>
                       )}
                     </div>
