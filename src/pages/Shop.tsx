@@ -182,14 +182,6 @@ const Shop: React.FC = () => {
     }
   }, [foodItems, user, shoppingListItems]);
 
-  // Get FoodKeeper suggestions based on search query
-  const foodKeeperSuggestions = useMemo(() => {
-    if (!newItemName.trim()) {
-      return [];
-    }
-    return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
-  }, [newItemName]);
-
   // Separate items into active and crossed off based on crossedOff field
   const { regularItems, crossedOffItems } = useMemo(() => {
     const regular: ShoppingListItem[] = [];
@@ -225,6 +217,29 @@ const Shop: React.FC = () => {
         return b.lastUsed.getTime() - a.lastUsed.getTime();
       });
   }, [userItems, shoppingListItems, selectedListId]);
+
+  // Filter previously used items based on search query
+  const filteredPreviouslyUsedItems = useMemo(() => {
+    if (!newItemName.trim()) {
+      return [];
+    }
+    const query = newItemName.toLowerCase();
+    return previouslyUsedItems
+      .filter(item => item.name.toLowerCase().includes(query))
+      .slice(0, 5); // Limit to 5 items
+  }, [previouslyUsedItems, newItemName]);
+
+  // Get FoodKeeper suggestions based on search query (only if no previously used items match)
+  const foodKeeperSuggestions = useMemo(() => {
+    if (!newItemName.trim()) {
+      return [];
+    }
+    // Only show FoodKeeper suggestions if there are no previously used items matching
+    if (filteredPreviouslyUsedItems.length > 0) {
+      return [];
+    }
+    return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
+  }, [newItemName, filteredPreviouslyUsedItems]);
 
   // Merge crossed-off items and previously used items into one unified list
   type MergedItem = {
@@ -652,8 +667,8 @@ const Shop: React.FC = () => {
                   outline: 'none'
                 }}
               />
-              {/* Dropdown with FoodKeeper suggestions */}
-              {showDropdown && (inputFocused || newItemName.trim()) && foodKeeperSuggestions.length > 0 && (
+              {/* Dropdown with previously used items and FoodKeeper suggestions */}
+              {showDropdown && (inputFocused || newItemName.trim()) && (filteredPreviouslyUsedItems.length > 0 || foodKeeperSuggestions.length > 0) && (
                 <div
                   style={{
                     position: 'absolute',
@@ -673,13 +688,14 @@ const Shop: React.FC = () => {
                     e.preventDefault();
                   }}
                 >
-                  {foodKeeperSuggestions.map((suggestion, index) => (
+                  {/* Previously used items */}
+                  {filteredPreviouslyUsedItems.map((item) => (
                     <div
-                      key={`foodkeeper-${suggestion.name}-${index}`}
+                      key={item.id}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setNewItemName(suggestion.name);
+                        setNewItemName(item.name);
                         setShowDropdown(false);
                         setInputFocused(false);
                       }}
@@ -691,23 +707,76 @@ const Shop: React.FC = () => {
                         borderBottom: '1px solid #f3f4f6',
                         cursor: 'pointer',
                         transition: 'background-color 0.2s',
-                        backgroundColor: '#fef3c7' // Light yellow to distinguish
+                        backgroundColor: '#ffffff'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#fde68a';
+                        e.currentTarget.style.backgroundColor = '#f9fafb';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#fef3c7';
+                        e.currentTarget.style.backgroundColor = '#ffffff';
                       }}
                     >
                       <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
-                        {suggestion.name}
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                        {suggestion.category}
+                        {item.name}
                       </div>
                     </div>
                   ))}
+                  
+                  {/* FoodKeeper suggestions (only shown if no previously used items) */}
+                  {foodKeeperSuggestions.length > 0 && (
+                    <>
+                      {filteredPreviouslyUsedItems.length > 0 && (
+                        <div style={{ 
+                          padding: '0.5rem 1rem', 
+                          backgroundColor: '#f9fafb', 
+                          borderTop: '1px solid #e5e7eb',
+                          borderBottom: '1px solid #e5e7eb',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Suggested Items
+                        </div>
+                      )}
+                      {foodKeeperSuggestions.map((suggestion, index) => (
+                        <div
+                          key={`foodkeeper-${suggestion.name}-${index}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setNewItemName(suggestion.name);
+                            setShowDropdown(false);
+                            setInputFocused(false);
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                          }}
+                          style={{
+                            padding: '0.75rem 1rem',
+                            borderBottom: '1px solid #f3f4f6',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                            backgroundColor: '#fef3c7' // Light yellow to distinguish
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#fde68a';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#fef3c7';
+                          }}
+                        >
+                          <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                            {suggestion.name}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                            {suggestion.category}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>
