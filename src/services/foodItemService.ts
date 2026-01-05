@@ -147,6 +147,7 @@ export const foodItemService = {
     if (data.notes) cleanData.notes = data.notes;
     if (data.isFrozen !== undefined) cleanData.isFrozen = data.isFrozen;
     if (data.freezeCategory) cleanData.freezeCategory = data.freezeCategory;
+    if (data.isDryCanned !== undefined) cleanData.isDryCanned = data.isDryCanned;
     
     const docRef = await addDoc(collection(db, 'foodItems'), cleanData);
     

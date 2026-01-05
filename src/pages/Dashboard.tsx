@@ -12,7 +12,7 @@ import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import type { FoodItem } from '../types';
 import { analyticsService } from '../services/analyticsService';
-import { findFoodItem } from '../services/foodkeeperService';
+import { isDryCannedItem } from '../utils/storageUtils';
 
 type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
 type StorageTabType = 'perishable' | 'dryCanned';
@@ -46,16 +46,6 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper function to determine if an item is dry/canned or perishable
-  const isDryCannedItem = useCallback((item: FoodItem): boolean => {
-    const foodKeeperItem = findFoodItem(item.name);
-    if (!foodKeeperItem) {
-      // Default to perishable if not found in FoodKeeper data
-      return false;
-    }
-    // If item has pantryDays (even if also has refrigeratorDays), it's dry/canned
-    return foodKeeperItem.pantryDays !== null && foodKeeperItem.pantryDays !== undefined;
-  }, []);
 
   // Filter items by storage type (perishable vs dry/canned)
   const itemsByStorageType = useMemo(() => {

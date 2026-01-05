@@ -18,6 +18,7 @@ export interface FoodItem {
   notes?: string;
   isFrozen?: boolean;
   freezeCategory?: string;
+  isDryCanned?: boolean; // Explicitly mark as dry/canned goods
 }
 
 export interface FoodItemData {
@@ -31,6 +32,7 @@ export interface FoodItemData {
   notes?: string;
   isFrozen?: boolean;
   freezeCategory?: string;
+  isDryCanned?: boolean; // Explicitly mark as dry/canned goods
 }
 
 export type FoodItemStatus = 'fresh' | 'expiring_soon' | 'expired';

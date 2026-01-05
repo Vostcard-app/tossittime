@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
 import type { FoodItemData, FoodItem, UserItem } from '../../types';
-import { getSuggestedExpirationDate } from '../../services/foodkeeperService';
+import { getSuggestedExpirationDate, findFoodItems } from '../../services/foodkeeperService';
 import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../../data/freezeGuidelines';
 import { userItemsService } from '../../services';
 import { addMonths, addDays } from 'date-fns';
@@ -20,9 +20,11 @@ interface AddItemFormProps {
   forceFreeze?: boolean;
   externalIsFrozen?: boolean;
   onIsFrozenChange?: (isFrozen: boolean) => void;
+  initialIsDryCanned?: boolean; // Pre-set isDryCanned based on storage type
+  foodItems?: FoodItem[]; // List of previously added items for search/autocomplete
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, forceFreeze, externalIsFrozen, onIsFrozenChange }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, forceFreeze, externalIsFrozen, onIsFrozenChange, initialIsDryCanned, foodItems = [] }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',
@@ -33,7 +35,8 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     category: initialItem?.category || '',
     notes: initialItem?.notes || '',
     isFrozen: initialItem?.isFrozen || false,
-    freezeCategory: initialItem?.freezeCategory as FreezeCategory | undefined
+    freezeCategory: initialItem?.freezeCategory as FreezeCategory | undefined,
+    isDryCanned: initialItem?.isDryCanned ?? initialIsDryCanned
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialItem?.photoUrl || null);
@@ -56,8 +59,11 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [hasManuallyChangedDate, setHasManuallyChangedDate] = useState(false);
   const [userItems, setUserItems] = useState<UserItem[]>([]);
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
+  const [showNameDropdown, setShowNameDropdown] = useState(false);
+  const [nameInputFocused, setNameInputFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Load userItems
   useEffect(() => {
@@ -120,6 +126,26 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       setIsFrozenState(true);
     }
   }, [forceFreeze, initialItem]);
+
+  // Filter food items for dropdown based on name input
+  const filteredFoodItems = React.useMemo(() => {
+    if (!formData.name.trim() || !showNameDropdown) {
+      return [];
+    }
+    const query = formData.name.toLowerCase();
+    return foodItems.filter(item => 
+      item.name.toLowerCase().includes(query) && 
+      item.name.toLowerCase() !== query // Don't show exact match
+    ).slice(0, 5); // Limit to 5 items
+  }, [formData.name, foodItems, showNameDropdown]);
+
+  // Get FoodKeeper suggestions for dropdown
+  const foodKeeperSuggestions = React.useMemo(() => {
+    if (!formData.name.trim() || !showNameDropdown) {
+      return [];
+    }
+    return findFoodItems(formData.name.trim(), 3); // Limit to 3 suggestions
+  }, [formData.name, showNameDropdown]);
 
   // Watch formData.name and isFrozen to calculate suggested expiration date and auto-apply it
   useEffect(() => {
@@ -201,6 +227,10 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       ...prev,
       [name]: name === 'quantity' ? parseInt(value) || 1 : value
     }));
+    // Show dropdown when typing in name field
+    if (name === 'name') {
+      setShowNameDropdown(true);
+    }
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +261,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, isDryCannedOverride?: boolean) => {
     e.preventDefault();
     
     if (!formData.name.trim()) {
@@ -259,6 +289,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     setIsSubmitting(true);
     try {
       // Build dataToSubmit: frozen items have thawDate (no expirationDate), non-frozen have expirationDate (no thawDate)
+      // Use isDryCannedOverride if provided (from button click), otherwise use formData.isDryCanned
       const dataToSubmit: FoodItemData = {
         name: formData.name,
         barcode: formData.barcode,
@@ -267,6 +298,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         notes: formData.notes,
         isFrozen: isFrozen,
         freezeCategory: freezeCategory || undefined,
+        isDryCanned: isDryCannedOverride !== undefined ? isDryCannedOverride : formData.isDryCanned,
         // For frozen items: include thawDate, exclude expirationDate
         // For non-frozen items: include expirationDate, exclude thawDate
         ...(isFrozen 
@@ -307,7 +339,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <form onSubmit={(e) => { e.preventDefault(); }} style={{ maxWidth: '600px', margin: '0 auto' }}>
       {/* Back button and Toss button at top */}
       {(onCancel || onToss) && (
         <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -355,16 +387,30 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       )}
       
       {/* 1. Item Name Field */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
         <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1rem' }}>
           Item Name *
         </label>
         <input
+          ref={nameInputRef}
           type="text"
           id="name"
           name="name"
           value={formData.name}
           onChange={handleInputChange}
+          onFocus={() => {
+            setNameInputFocused(true);
+            if (formData.name.trim()) {
+              setShowNameDropdown(true);
+            }
+          }}
+          onBlur={() => {
+            setNameInputFocused(false);
+            // Delay hiding dropdown to allow item clicks
+            setTimeout(() => {
+              setShowNameDropdown(false);
+            }, 200);
+          }}
           required
           placeholder="Enter item name"
           style={{
@@ -375,6 +421,106 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
             fontSize: '1rem'
           }}
         />
+        {/* Dropdown for previously added items and suggestions */}
+        {showNameDropdown && (nameInputFocused || formData.name.trim()) && (filteredFoodItems.length > 0 || foodKeeperSuggestions.length > 0) && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              marginTop: '4px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              zIndex: 1000
+            }}
+            onMouseDown={(e) => {
+              // Prevent blur when clicking inside dropdown
+              e.preventDefault();
+            }}
+          >
+            {/* Previously added items */}
+            {filteredFoodItems.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, name: item.name }));
+                  setShowNameDropdown(false);
+                }}
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderBottom: '1px solid #f3f4f6',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                }}
+              >
+                <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                  {item.name}
+                </div>
+              </div>
+            ))}
+            
+            {/* FoodKeeper suggestions */}
+            {foodKeeperSuggestions.length > 0 && (
+              <>
+                {filteredFoodItems.length > 0 && (
+                  <div style={{ 
+                    padding: '0.5rem 1rem', 
+                    backgroundColor: '#f9fafb', 
+                    borderTop: '1px solid #e5e7eb',
+                    borderBottom: '1px solid #e5e7eb',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Suggested Items
+                  </div>
+                )}
+                {foodKeeperSuggestions.map((suggestion, index) => (
+                  <div
+                    key={`foodkeeper-${suggestion.name}-${index}`}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, name: suggestion.name }));
+                      setShowNameDropdown(false);
+                    }}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderBottom: '1px solid #f3f4f6',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s',
+                      backgroundColor: '#fef3c7' // Light yellow to distinguish from previous items
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#fde68a';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#fef3c7';
+                    }}
+                  >
+                    <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
+                      {suggestion.name}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      {suggestion.category}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 2. Expiration Date / Thaw Date Field */}
@@ -484,6 +630,30 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </label>
       </div>
 
+      {/* 2.6. Dry/Canned Goods Checkbox */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={formData.isDryCanned || false}
+            onChange={(e) => {
+              setFormData(prev => ({ ...prev, isDryCanned: e.target.checked }));
+            }}
+            style={{
+              width: '1.25rem',
+              height: '1.25rem',
+              cursor: 'pointer'
+            }}
+          />
+          <span style={{ fontSize: '1rem', fontWeight: '500' }}>
+            Dry/Canned Goods
+          </span>
+        </label>
+        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+          Check if this item should appear in the Dry/Canned Goods tab
+        </p>
+      </div>
+
       {/* Freeze Category Dropdown (appears when freeze is checked) */}
       {isFrozen && (
         <div style={{ marginBottom: '1.5rem' }}>
@@ -549,10 +719,11 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </div>
       )}
 
-      {/* 4. Save Button */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      {/* 4. Save Buttons */}
+      <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
         <button
-          type="submit"
+          type="button"
+          onClick={(e) => handleSubmit(e, false)}
           disabled={isSubmitting}
           style={{
             width: '100%',
@@ -568,7 +739,27 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
             minHeight: '44px' // Touch target size for mobile
           }}
         >
-          {isSubmitting ? 'Saving...' : 'Save to Calendar'}
+          {isSubmitting ? 'Saving...' : 'Save Perishable'}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => handleSubmit(e, true)}
+          disabled={isSubmitting}
+          style={{
+            width: '100%',
+            padding: '0.875rem 1.5rem',
+            backgroundColor: '#002B4D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            opacity: isSubmitting ? 0.6 : 1,
+            minHeight: '44px' // Touch target size for mobile
+          }}
+        >
+          {isSubmitting ? 'Saving...' : 'Save Dry/Canned Goods'}
         </button>
       </div>
 

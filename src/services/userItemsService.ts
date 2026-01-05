@@ -73,11 +73,15 @@ export const userItemsService = {
     if (existing) {
       // Update existing item
       const docRef = doc(db, 'userItems', existing.id);
-      await updateDoc(docRef, {
+      const updateData: Record<string, unknown> = {
         expirationLength: data.expirationLength,
         category: data.category || null,
         lastUsed: Timestamp.now()
-      });
+      };
+      if (data.isDryCanned !== undefined) {
+        updateData.isDryCanned = data.isDryCanned;
+      }
+      await updateDoc(docRef, updateData);
       return existing.id;
     } else {
       // Create new item
@@ -91,6 +95,9 @@ export const userItemsService = {
       
       if (data.category) {
         cleanData.category = data.category;
+      }
+      if (data.isDryCanned !== undefined) {
+        cleanData.isDryCanned = data.isDryCanned;
       }
       
       const docRef = await addDoc(collection(db, 'userItems'), cleanData);

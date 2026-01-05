@@ -19,12 +19,14 @@ export interface UserItem {
   category?: string;
   createdAt: Date;
   lastUsed?: Date; // Track when last added to a list
+  isDryCanned?: boolean; // Explicitly mark as dry/canned goods
 }
 
 export interface UserItemData {
   name: string;
   expirationLength: number;
   category?: string;
+  isDryCanned?: boolean; // Explicitly mark as dry/canned goods
 }
 
 export interface UserCategory {

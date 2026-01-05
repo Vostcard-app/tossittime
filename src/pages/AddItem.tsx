@@ -6,15 +6,15 @@ import type { FoodItemData, FoodItem, AddItemLocationState } from '../types';
 import { foodItemService, shoppingListService, userItemsService } from '../services';
 import { getFoodItemStatus } from '../utils/statusUtils';
 import { useFoodItems } from '../hooks/useFoodItems';
-import { formatDate } from '../utils/dateUtils';
 import AddItemForm from '../components/forms/AddItemForm';
 import BarcodeScanner from '../components/features/BarcodeScanner';
 import type { BarcodeScanResult } from '../services/barcodeService';
-import { findFoodItems } from '../services/foodkeeperService';
+import { findFoodItems, getSuggestedExpirationDate } from '../services/foodkeeperService';
 import { differenceInDays } from 'date-fns';
 import { analyticsService } from '../services/analyticsService';
 
 import { capitalizeItemName } from '../utils/formatting';
+import { isDryCannedItem } from '../utils/storageUtils';
 
 const AddItem: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -42,6 +42,7 @@ const AddItem: React.FC = () => {
   // Check if coming from Dashboard with item to edit
   const dashboardEditingItem = locationState?.editingItem;
   const forceFreeze = locationState?.forceFreeze;
+  const storageType = locationState?.storageType; // 'pantry' | 'refrigerator'
 
   // Initialize isFrozen from forceFreeze if provided
   React.useEffect(() => {
@@ -69,6 +70,14 @@ const AddItem: React.FC = () => {
     }
   }, [dashboardEditingItem]);
 
+  // If coming from Dashboard with storageType (but no editingItem), show form immediately
+  React.useEffect(() => {
+    if (storageType && !dashboardEditingItem && !fromShoppingList) {
+      setShowForm(true);
+      setSearchQuery('');
+    }
+  }, [storageType, dashboardEditingItem, fromShoppingList]);
+
   // Sync isFrozen state when editingItem changes
   React.useEffect(() => {
     if (editingItem) {
@@ -88,16 +97,28 @@ const AddItem: React.FC = () => {
     });
   }, [foodItems]);
 
-  // Filter items based on search query
+  // Filter items based on search query and storage type
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return sortedItems;
+    let items = sortedItems;
+    
+    // Filter by storage type if provided
+    if (storageType) {
+      items = items.filter(item => {
+        const isDryCanned = isDryCannedItem(item);
+        return storageType === 'pantry' ? isDryCanned : !isDryCanned;
+      });
     }
-    const query = searchQuery.toLowerCase();
-    return sortedItems.filter(item => 
-      item.name.toLowerCase().includes(query)
-    );
-  }, [sortedItems, searchQuery]);
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(item => 
+        item.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return items;
+  }, [sortedItems, searchQuery, storageType]);
 
   // Get FoodKeeper suggestions based on search query
   const foodKeeperSuggestions = useMemo(() => {
@@ -236,7 +257,8 @@ const AddItem: React.FC = () => {
             await userItemsService.createOrUpdateUserItem(user.uid, {
               name: capitalizedName,
               expirationLength: Math.max(1, expirationLength), // Ensure at least 1 day
-              category: category
+              category: category,
+              isDryCanned: data.isDryCanned
             });
           } catch (error) {
             console.error('Error saving to userItems:', error);
@@ -288,8 +310,37 @@ const AddItem: React.FC = () => {
     }
   };
 
-  const handleItemSelect = (item: FoodItem) => {
-    setEditingItem(item);
+  const handleItemSelect = async (item: FoodItem) => {
+    // Calculate expiration date based on current date and storage type
+    let calculatedExpirationDate: Date | undefined = undefined;
+    
+    if (!item.isFrozen) {
+      // Determine storage type for calculation
+      const isDryCanned = isDryCannedItem(item);
+      const calcStorageType = isDryCanned ? 'pantry' : 'refrigerator';
+      
+      // Try to get expiration date from FoodKeeper data
+      const suggestedDate = getSuggestedExpirationDate(item.name, calcStorageType);
+      
+      if (suggestedDate) {
+        calculatedExpirationDate = suggestedDate;
+      } else {
+        // Fall back to userItems expirationLength if available
+        // Note: We'd need to look up userItems here, but for now use FoodKeeper
+        // If no FoodKeeper data, use a default (7 days for perishable, 30 for dry/canned)
+        const defaultDays = isDryCanned ? 30 : 7;
+        calculatedExpirationDate = new Date();
+        calculatedExpirationDate.setDate(calculatedExpirationDate.getDate() + defaultDays);
+      }
+    }
+    
+    // Create item with calculated expiration date
+    const itemWithDate: FoodItem = {
+      ...item,
+      expirationDate: calculatedExpirationDate || item.expirationDate
+    };
+    
+    setEditingItem(itemWithDate);
     setShowForm(true);
     setSearchQuery('');
   };
@@ -393,6 +444,8 @@ const AddItem: React.FC = () => {
           forceFreeze={forceFreeze}
           externalIsFrozen={isFrozen}
           onIsFrozenChange={setIsFrozen}
+          initialIsDryCanned={storageType === 'pantry' ? true : (storageType === 'refrigerator' ? false : editingItem?.isDryCanned)}
+          foodItems={foodItems}
         />
       </div>
     );
@@ -508,16 +561,8 @@ const AddItem: React.FC = () => {
                     e.currentTarget.style.backgroundColor = '#ffffff';
                   }}
                 >
-                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937', marginBottom: '0.25rem' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
                     {item.name}
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    {item.isFrozen && item.thawDate 
-                      ? `Thaws: ${formatDate(item.thawDate)}`
-                      : item.expirationDate 
-                        ? `Expiration: ${formatDate(item.expirationDate)}`
-                        : 'No date'
-                    }
                   </div>
                 </div>
               ))}
@@ -611,16 +656,8 @@ const AddItem: React.FC = () => {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937', marginBottom: '0.25rem' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
                     {item.name}
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    {item.isFrozen && item.thawDate 
-                      ? `Thaws: ${formatDate(item.thawDate)}`
-                      : item.expirationDate 
-                        ? `Expiration: ${formatDate(item.expirationDate)}`
-                        : 'No date'
-                    }
                   </div>
                 </div>
                 <button
