@@ -210,6 +210,7 @@ const AddItem: React.FC = () => {
       if (photoUrl) itemData.photoUrl = photoUrl;
       if (data.isFrozen !== undefined) itemData.isFrozen = data.isFrozen;
       if (data.freezeCategory) itemData.freezeCategory = data.freezeCategory;
+      if (data.isDryCanned !== undefined) itemData.isDryCanned = data.isDryCanned;
 
       if (editingItem) {
         // Update existing item

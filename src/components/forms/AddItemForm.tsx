@@ -335,6 +335,12 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
 
   const handleSubmit = async (e: React.FormEvent, isDryCannedOverride?: boolean) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
+    
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
     
     if (!formData.name.trim()) {
       alert('Please enter a food item name');
@@ -362,6 +368,9 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     try {
       // Build dataToSubmit: frozen items have thawDate (no expirationDate), non-frozen have expirationDate (no thawDate)
       // Use isDryCannedOverride if provided (from button click), otherwise use formData.isDryCanned
+      // IMPORTANT: isDryCannedOverride takes precedence - it's explicitly set by the button clicked
+      const finalIsDryCanned = isDryCannedOverride !== undefined ? isDryCannedOverride : (formData.isDryCanned || false);
+      
       const dataToSubmit: FoodItemData = {
         name: formData.name,
         barcode: formData.barcode,
@@ -370,7 +379,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         notes: formData.notes,
         isFrozen: isFrozen,
         freezeCategory: freezeCategory || undefined,
-        isDryCanned: isDryCannedOverride !== undefined ? isDryCannedOverride : formData.isDryCanned,
+        isDryCanned: finalIsDryCanned,
         // For frozen items: include thawDate, exclude expirationDate
         // For non-frozen items: include expirationDate, exclude thawDate
         ...(isFrozen 
@@ -379,6 +388,8 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         )
         // Don't include photoUrl here - it will be set after upload
       };
+      
+      console.log('💾 Submitting item with isDryCanned:', finalIsDryCanned, 'override:', isDryCannedOverride);
       await onSubmit(dataToSubmit, photoFile || undefined);
       
       // Reset form only if not editing
@@ -802,7 +813,11 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
         <button
           type="button"
-          onClick={(e) => handleSubmit(e, false)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSubmit(e, false);
+          }}
           disabled={isSubmitting}
           style={{
             width: '100%',
@@ -822,7 +837,11 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         </button>
         <button
           type="button"
-          onClick={(e) => handleSubmit(e, true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSubmit(e, true);
+          }}
           disabled={isSubmitting}
           style={{
             width: '100%',
