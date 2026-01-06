@@ -377,6 +377,16 @@ const Dashboard: React.FC = () => {
         >
           Dry/Canned Goods ({itemsByStorageType.dryCannedItems.length})
         </button>
+        <span style={{ 
+          fontSize: '0.875rem', 
+          color: '#6b7280', 
+          marginRight: '0.75rem',
+          alignSelf: 'center',
+          fontWeight: '700',
+          fontStyle: 'italic'
+        }}>
+          Tap items to edit
+        </span>
         <button
           onClick={() => navigate('/add', { 
             state: { 
@@ -397,14 +407,6 @@ const Dashboard: React.FC = () => {
         >
           Add
         </button>
-        <span style={{ 
-          fontSize: '0.875rem', 
-          color: '#6b7280', 
-          marginLeft: '0.75rem',
-          alignSelf: 'center'
-        }}>
-          Tap items to edit
-        </span>
       </div>
 
       {filteredItems.length === 0 ? (
