@@ -12,7 +12,7 @@ import { getExpirationSuggestion } from '../../services/expirationHelperService'
 import { hasAvailableCredits } from '../../services/expirationCreditService';
 import { showToast } from '../Toast';
 
-// Quantity unit options for dry/canned goods
+// Quantity unit options for all items
 const QUANTITY_UNITS = [
   { value: 'cans', label: 'Cans' },
   { value: 'packages', label: 'Packages' },
@@ -21,6 +21,7 @@ const QUANTITY_UNITS = [
   { value: 'bags', label: 'Bags' },
   { value: 'bottles', label: 'Bottles' },
   { value: 'jars', label: 'Jars' },
+  { value: 'servings', label: 'Servings' },
   { value: 'units', label: 'Units' }
 ] as const;
 
@@ -387,7 +388,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         name: formData.name,
         barcode: formData.barcode,
         quantity: formData.quantity || 1, // Always include quantity
-        quantityUnit: finalIsDryCanned ? (formData.quantityUnit || 'units') : undefined, // Only include unit for dry/canned goods
+        quantityUnit: formData.quantityUnit || 'units', // Always include unit for all items
         category: formData.category,
         notes: formData.notes,
         isFrozen: isFrozen,
@@ -666,30 +667,28 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
               fontSize: '1rem'
             }}
           />
-          {/* Show unit dropdown only for dry/canned goods */}
-          {formData.isDryCanned && (
-            <select
-              id="quantityUnit"
-              name="quantityUnit"
-              value={formData.quantityUnit || 'units'}
-              onChange={handleInputChange}
-              style={{
-                flex: '1',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer'
-              }}
-            >
-              {QUANTITY_UNITS.map(unit => (
-                <option key={unit.value} value={unit.value}>
-                  {unit.label}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* Show unit dropdown for all items */}
+          <select
+            id="quantityUnit"
+            name="quantityUnit"
+            value={formData.quantityUnit || 'units'}
+            onChange={handleInputChange}
+            style={{
+              flex: '1',
+              padding: '0.75rem',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              backgroundColor: '#ffffff',
+              cursor: 'pointer'
+            }}
+          >
+            {QUANTITY_UNITS.map(unit => (
+              <option key={unit.value} value={unit.value}>
+                {unit.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       
