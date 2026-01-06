@@ -378,7 +378,7 @@ const AddItem: React.FC = () => {
   const handleToss = async () => {
     if (!editingItem) return;
     
-    if (!window.confirm('Are you sure you want to toss this item?')) {
+    if (!window.confirm('Are you sure you want to remove this item?')) {
       return;
     }
 

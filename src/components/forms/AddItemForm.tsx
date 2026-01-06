@@ -474,9 +474,9 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
                   minWidth: '60px',
                   minHeight: '36px'
                 }}
-                aria-label="Toss item"
+                aria-label="Remove item"
               >
-                Toss
+                Remove
               </button>
             )}
           </div>

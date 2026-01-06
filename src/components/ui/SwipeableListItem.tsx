@@ -56,8 +56,8 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
   const handleTouchEnd = () => {
     setIsDragging(false);
     if (translateX >= SWIPE_THRESHOLD) {
-      // Show confirmation before tossing
-      const confirmed = window.confirm('Are you sure you want to toss this item?');
+      // Show confirmation before removing
+      const confirmed = window.confirm('Are you sure you want to remove this item?');
       if (confirmed) {
         onDelete();
       }
@@ -153,7 +153,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
         }}
       >
         <span style={{ color: 'white', fontWeight: '600', fontSize: '0.875rem' }}>
-          Toss
+          Remove
         </span>
       </div>
 
@@ -163,7 +163,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
           // Only trigger onClick if not dragging/swiping and buttons weren't clicked
           // Also prevent if we just deleted (to avoid navigation after toss)
           const target = e.target as HTMLElement;
-          const isTossButton = target.closest('button[aria-label="Toss item"]');
+          const isTossButton = target.closest('button[aria-label="Remove item"]');
           const isFreezeButton = target.closest('button[aria-label="Freeze item"]');
           const isAnyButton = target.closest('button');
           
@@ -266,7 +266,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
                 // Use setTimeout to ensure flag is set before any other handlers run
                 setTimeout(() => {
                   // Show confirmation before deleting
-                  const confirmed = window.confirm('Are you sure you want to toss this item?');
+                  const confirmed = window.confirm('Are you sure you want to remove this item?');
                   if (confirmed) {
                     // Reset any state that might trigger navigation
                     setTranslateX(0);
@@ -319,10 +319,10 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
                 minWidth: '60px',
                 minHeight: '36px'
               }}
-              aria-label="Toss item"
+              aria-label="Remove item"
               type="button"
             >
-              Toss
+              Remove
             </button>
           </div>
         </div>
