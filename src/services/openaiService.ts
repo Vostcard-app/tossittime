@@ -381,6 +381,26 @@ function buildExpirationDatePrompt(
     ? 'The item is stored in the pantry (room temperature, dry storage).'
     : 'The item is stored in the refrigerator.';
 
+  // Add specific guidance for pantry items (dry goods) which have much longer shelf lives
+  const pantryGuidance = storageType === 'pantry' 
+    ? `\nIMPORTANT - PANTRY/DRY GOODS SHELF LIFE:
+- Dry goods stored in pantry have MUCH longer shelf lives than perishable items
+- Uncooked pasta, rice, flour, grains: Typically 1-3 years from purchase date
+- Canned goods: Typically 2-5 years from purchase date
+- Dried beans, lentils: Typically 1-2 years
+- Spices: Typically 2-4 years
+- Sugar, salt: Indefinite (but suggest 2-3 years for best quality)
+- Boxed/canned items: Check for "best by" dates, but typically 1-3 years
+- For items like "uncooked spaghetti", "pasta", "rice", "flour" - suggest dates 1-3 years in the future, NOT days or weeks`
+    : '';
+
+  const leftoverGuidance = isLeftover
+    ? `\nIMPORTANT - LEFTOVER FOOD:
+- Leftovers have SHORT shelf lives (typically 3-7 days in refrigerator)
+- Cooked foods spoil much faster than fresh/uncooked items
+- For leftovers, suggest dates within 3-7 days, not weeks or months`
+    : '';
+
   return `Suggest a safe expiration date for the following food item:
 
 Item Name: ${itemName}
@@ -395,8 +415,15 @@ Consider:
 - USDA FoodKeeper guidelines
 - Food safety best practices
 - Storage conditions (${storageType})
-- Whether it's a leftover (shorter shelf life) or fresh item
+- Whether it's a leftover (shorter shelf life) or fresh/uncooked item
 - Typical spoilage patterns for this type of food
+${pantryGuidance}${leftoverGuidance}
+
+CRITICAL RULES:
+- Pantry items (dry goods): Suggest 1-3 YEARS in the future (e.g., uncooked pasta, rice, flour, canned goods)
+- Refrigerator items (perishable): Suggest DAYS to WEEKS in the future (e.g., fresh produce, dairy, meat)
+- Leftovers: Suggest 3-7 DAYS in the future
+- Frozen items: Not applicable (this is for non-frozen items only)
 
 Return a JSON object with this structure:
 {
