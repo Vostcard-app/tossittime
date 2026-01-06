@@ -397,6 +397,14 @@ const Dashboard: React.FC = () => {
         >
           Add
         </button>
+        <span style={{ 
+          fontSize: '0.875rem', 
+          color: '#6b7280', 
+          marginLeft: '0.75rem',
+          alignSelf: 'center'
+        }}>
+          Tap items to edit
+        </span>
       </div>
 
       {filteredItems.length === 0 ? (
