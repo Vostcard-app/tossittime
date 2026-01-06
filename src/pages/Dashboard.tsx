@@ -378,7 +378,7 @@ const Dashboard: React.FC = () => {
           Dry/Canned Goods ({itemsByStorageType.dryCannedItems.length})
         </button>
         <span style={{ 
-          fontSize: '0.875rem', 
+          fontSize: '1.25rem', 
           color: '#6b7280', 
           marginRight: '0.75rem',
           alignSelf: 'center',
