@@ -191,68 +191,86 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-      <Banner onMenuClick={() => setMenuOpen(true)} />
+      {/* Fixed Header: Banner and Navigation Buttons */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        backgroundColor: '#ffffff',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
+        <Banner onMenuClick={() => setMenuOpen(true)} />
 
-      {/* Shop, List and Calendar Buttons */}
-      <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-        <button
-          onClick={() => navigate('/shop')}
-          style={{
-            padding: '0.75rem 2rem',
-            backgroundColor: '#f3f4f6',
-            color: '#1f2937',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: '500',
-            cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
-          }}
-        >
-          Lists
-        </button>
-        <button
-          onClick={() => {
-            // Already on Dashboard, just scroll to top or do nothing
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          style={{
-            padding: '0.75rem 2rem',
-            backgroundColor: '#002B4D',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: '500',
-            cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
-          }}
-        >
-          Items
-        </button>
-        <button
-          onClick={() => navigate('/calendar', { state: { defaultView: 'week' } })}
-          style={{
-            padding: '0.75rem 2rem',
-            backgroundColor: '#f3f4f6',
-            color: '#1f2937',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: '500',
-            cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
-          }}
-        >
-          Calendar
-        </button>
+        {/* Shop, List and Calendar Buttons */}
+        <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button
+            onClick={() => navigate('/shop')}
+            style={{
+              padding: '0.75rem 2rem',
+              backgroundColor: '#f3f4f6',
+              color: '#1f2937',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              minHeight: '44px',
+              minWidth: '120px'
+            }}
+          >
+            Lists
+          </button>
+          <button
+            onClick={() => {
+              // Already on Dashboard, just scroll to top or do nothing
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            style={{
+              padding: '0.75rem 2rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              minHeight: '44px',
+              minWidth: '120px'
+            }}
+          >
+            Items
+          </button>
+          <button
+            onClick={() => navigate('/calendar', { state: { defaultView: 'week' } })}
+            style={{
+              padding: '0.75rem 2rem',
+              backgroundColor: '#f3f4f6',
+              color: '#1f2937',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              minHeight: '44px',
+              minWidth: '120px'
+            }}
+          >
+            Calendar
+          </button>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      {/* Scrollable Content Container */}
+      <div style={{
+        marginTop: '220px', // Approximate height of fixed header (Banner ~120px + Navigation ~80px + padding)
+        height: 'calc(100vh - 220px)',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}>
+        {/* Main Content */}
+        <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
         {/* Firestore Index Warning */}
         {showIndexWarning && (
           <div style={{
@@ -462,6 +480,7 @@ const Dashboard: React.FC = () => {
           ))}
         </div>
       )}
+        </div>
       </div>
 
       {/* Hamburger Menu */}

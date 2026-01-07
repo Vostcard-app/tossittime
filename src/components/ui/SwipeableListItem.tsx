@@ -34,78 +34,123 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [isHorizontalSwipe, setIsHorizontalSwipe] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
   const SWIPE_THRESHOLD = 100; // Minimum swipe distance to trigger delete
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setStartX(e.touches[0].clientX);
+    setStartY(e.touches[0].clientY);
     setIsDragging(true);
+    setIsHorizontalSwipe(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const currentX = e.touches[0].clientX;
-    const diff = currentX - startX;
-    // Allow swiping both left and right
-    const maxSwipe = SWIPE_THRESHOLD * 2;
-    if (Math.abs(diff) <= maxSwipe) {
-      setTranslateX(diff);
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - startX;
+    const diffY = currentY - startY;
+    
+    // Only handle swipe if horizontal movement is significantly greater than vertical
+    // This allows vertical scrolling to work normally
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      // This is a horizontal swipe - prevent default and handle it
+      if (!isHorizontalSwipe) {
+        setIsHorizontalSwipe(true);
+      }
+      e.preventDefault();
+      // Allow swiping both left and right
+      const maxSwipe = SWIPE_THRESHOLD * 2;
+      if (Math.abs(diffX) <= maxSwipe) {
+        setTranslateX(diffX);
+      } else {
+        setTranslateX(diffX > 0 ? maxSwipe : -maxSwipe);
+      }
     } else {
-      setTranslateX(diff > 0 ? maxSwipe : -maxSwipe);
+      // This is vertical scrolling - don't prevent default, allow normal scroll
+      // Reset translateX if we were previously swiping
+      if (isHorizontalSwipe) {
+        setTranslateX(0);
+        setIsHorizontalSwipe(false);
+        setIsDragging(false);
+      }
     }
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    // Check if swipe distance exceeds threshold in either direction
-    if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
+    // Only handle swipe if it was a horizontal swipe
+    if (isHorizontalSwipe && Math.abs(translateX) >= SWIPE_THRESHOLD) {
       // Show confirmation before removing
       const confirmed = window.confirm('Are you sure you want to remove this item?');
       if (confirmed) {
         onDelete();
       }
       setTranslateX(0);
+      setIsHorizontalSwipe(false);
       return;
     } else {
       // Snap back - do not trigger onClick, only Edit button should edit
       setTranslateX(0);
+      setIsHorizontalSwipe(false);
     }
   };
 
   // Handle mouse events for desktop testing
   const handleMouseDown = (e: React.MouseEvent) => {
     setStartX(e.clientX);
+    setStartY(e.clientY);
     setIsDragging(true);
+    setIsHorizontalSwipe(false);
   };
 
   // Add global mouse move/up listeners when dragging
   useEffect(() => {
     if (isDragging) {
       const handleGlobalMouseMove = (e: MouseEvent) => {
-        const diff = e.clientX - startX;
-        // Allow swiping both left and right
-        const maxSwipe = SWIPE_THRESHOLD * 2;
-        if (Math.abs(diff) <= maxSwipe) {
-          setTranslateX(diff);
+        const diffX = e.clientX - startX;
+        const diffY = e.clientY - startY;
+        
+        // Only handle swipe if horizontal movement is significantly greater than vertical
+        if (Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+          if (!isHorizontalSwipe) {
+            setIsHorizontalSwipe(true);
+          }
+          // Allow swiping both left and right
+          const maxSwipe = SWIPE_THRESHOLD * 2;
+          if (Math.abs(diffX) <= maxSwipe) {
+            setTranslateX(diffX);
+          } else {
+            setTranslateX(diffX > 0 ? maxSwipe : -maxSwipe);
+          }
         } else {
-          setTranslateX(diff > 0 ? maxSwipe : -maxSwipe);
+          // Vertical movement - reset if we were swiping
+          if (isHorizontalSwipe) {
+            setTranslateX(0);
+            setIsHorizontalSwipe(false);
+            setIsDragging(false);
+          }
         }
       };
 
       const handleGlobalMouseUp = () => {
         setIsDragging(false);
-        // Check if swipe distance exceeds threshold in either direction
-        if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
+        // Only handle swipe if it was a horizontal swipe
+        if (isHorizontalSwipe && Math.abs(translateX) >= SWIPE_THRESHOLD) {
           // Show confirmation before removing
           const confirmed = window.confirm('Are you sure you want to remove this item?');
           if (confirmed) {
             onDelete();
           }
           setTranslateX(0);
+          setIsHorizontalSwipe(false);
           return;
         } else {
           // Snap back - do not trigger onClick, only Edit button should edit
           setTranslateX(0);
+          setIsHorizontalSwipe(false);
         }
       };
 
@@ -115,9 +160,13 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
       return () => {
         document.removeEventListener('mousemove', handleGlobalMouseMove);
         document.removeEventListener('mouseup', handleGlobalMouseUp);
+        // Cleanup: ensure dragging state is reset
+        setIsDragging(false);
+        setTranslateX(0);
+        setIsHorizontalSwipe(false);
       };
     }
-  }, [isDragging, startX, translateX, onDelete]);
+  }, [isDragging, startX, startY, translateX, isHorizontalSwipe, onDelete]);
 
   const deleteOpacity = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1);
 
@@ -129,7 +178,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
         width: '100%',
         marginBottom: '0.5rem',
         overflow: 'hidden',
-        touchAction: 'pan-x'
+        touchAction: 'pan-y pan-x'
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
