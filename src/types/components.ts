@@ -3,7 +3,7 @@
  * Standardized prop interfaces and types for React components
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 
 /**
  * Base props for all components
@@ -23,6 +23,7 @@ export interface ButtonProps extends BaseComponentProps {
   variant?: 'primary' | 'secondary' | 'danger' | 'text';
   size?: 'small' | 'medium' | 'large';
   children: ReactNode;
+  style?: CSSProperties;
 }
 
 /**
