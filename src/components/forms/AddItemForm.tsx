@@ -339,6 +339,26 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
       expirationDate: new Date(e.target.value)
     }));
   };
+
+  // Handle quantity increment
+  const handleQuantityIncrement = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFormData(prev => ({
+      ...prev,
+      quantity: (prev.quantity || 1) + 1
+    }));
+  };
+
+  // Handle quantity decrement
+  const handleQuantityDecrement = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFormData(prev => ({
+      ...prev,
+      quantity: Math.max(1, (prev.quantity || 1) - 1)
+    }));
+  };
   
   // Note: Thaw date is calculated automatically from freeze category, so no manual change handler needed
 
