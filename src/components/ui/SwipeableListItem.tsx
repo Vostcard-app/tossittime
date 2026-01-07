@@ -62,14 +62,10 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
         onDelete();
       }
       setTranslateX(0);
-      return; // Don't trigger onClick after delete
+      return;
     } else {
-      // Snap back
+      // Snap back - do not trigger onClick, only Edit button should edit
       setTranslateX(0);
-      // If no swipe occurred and onClick is provided, trigger click
-      if (translateX < 10 && onClick) {
-        onClick();
-      }
     }
   };
 
@@ -92,19 +88,16 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
       const handleGlobalMouseUp = () => {
         setIsDragging(false);
         if (translateX >= SWIPE_THRESHOLD) {
-          // Show confirmation before tossing
-          const confirmed = window.confirm('Are you sure you want to toss this item?');
+          // Show confirmation before removing
+          const confirmed = window.confirm('Are you sure you want to remove this item?');
           if (confirmed) {
             onDelete();
           }
           setTranslateX(0);
-          return; // Don't trigger onClick after delete
+          return;
         } else {
+          // Snap back - do not trigger onClick, only Edit button should edit
           setTranslateX(0);
-          // If no swipe occurred and onClick is provided, trigger click
-          if (translateX < 10 && onClick) {
-            onClick();
-          }
         }
       };
 
