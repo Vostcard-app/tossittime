@@ -330,7 +330,7 @@ const Dashboard: React.FC = () => {
         )}
 
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '5px', marginBottom: '5px', flexWrap: 'wrap' }}>
         {(['all', 'expiring_soon', 'expired'] as FilterType[]).map((filterType) => (
           <button
             key={filterType}
@@ -353,7 +353,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Today's Date */}
-      <div style={{ marginBottom: '1rem', padding: '2px 0', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
+      <div style={{ marginBottom: '5px', padding: '2px 0', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
         <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
           {formatDate(new Date())}
         </div>
