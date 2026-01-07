@@ -347,15 +347,18 @@ const Dashboard: React.FC = () => {
           onClick={() => setStorageTab('perishable')}
           style={{
             padding: '0.75rem 1.5rem',
-            backgroundColor: storageTab === 'perishable' ? '#002B4D' : '#f3f4f6',
+            backgroundColor: storageTab === 'perishable' ? '#002B4D' : '#ffffff',
             color: storageTab === 'perishable' ? 'white' : '#1f2937',
-            border: 'none',
+            border: storageTab === 'perishable' ? '2px solid #002B4D' : '1px solid #d1d5db',
+            borderBottom: storageTab === 'perishable' ? '3px solid #002B4D' : '1px solid #d1d5db',
             borderRadius: '6px',
             fontSize: '1rem',
-            fontWeight: '500',
+            fontWeight: storageTab === 'perishable' ? '600' : '500',
             cursor: 'pointer',
             flex: 1,
-            minWidth: '150px'
+            minWidth: '150px',
+            boxShadow: storageTab === 'perishable' ? '0 2px 4px rgba(0, 43, 77, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s ease'
           }}
         >
           Perishable ({itemsByStorageType.perishableItems.length})
@@ -364,15 +367,18 @@ const Dashboard: React.FC = () => {
           onClick={() => setStorageTab('dryCanned')}
           style={{
             padding: '0.75rem 1.5rem',
-            backgroundColor: storageTab === 'dryCanned' ? '#002B4D' : '#f3f4f6',
+            backgroundColor: storageTab === 'dryCanned' ? '#002B4D' : '#ffffff',
             color: storageTab === 'dryCanned' ? 'white' : '#1f2937',
-            border: 'none',
+            border: storageTab === 'dryCanned' ? '2px solid #002B4D' : '1px solid #d1d5db',
+            borderBottom: storageTab === 'dryCanned' ? '3px solid #002B4D' : '1px solid #d1d5db',
             borderRadius: '6px',
             fontSize: '1rem',
-            fontWeight: '500',
+            fontWeight: storageTab === 'dryCanned' ? '600' : '500',
             cursor: 'pointer',
             flex: 1,
-            minWidth: '150px'
+            minWidth: '150px',
+            boxShadow: storageTab === 'dryCanned' ? '0 2px 4px rgba(0, 43, 77, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s ease'
           }}
         >
           Dry/Canned Goods ({itemsByStorageType.dryCannedItems.length})
