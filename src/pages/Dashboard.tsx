@@ -267,8 +267,8 @@ const Dashboard: React.FC = () => {
         marginTop: '160px', // Approximate height of fixed header (Banner ~80px + Navigation ~76px + padding)
         height: 'calc(100vh - 160px)',
         overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y' // Allow vertical scrolling but let children handle horizontal swipes
+        WebkitOverflowScrolling: 'touch'
+        // Removed touchAction: 'pan-y' - let children handle their own touch actions
       }}>
         {/* Main Content */}
         <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '5px', paddingBottom: '2rem' }}>

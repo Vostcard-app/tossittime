@@ -41,46 +41,53 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
   const SWIPE_THRESHOLD = 100; // Minimum swipe distance to trigger delete
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Don't stop propagation here - let parent handle scrolling if needed
-    setStartX(e.touches[0].clientX);
-    setStartY(e.touches[0].clientY);
+    // Capture touch start immediately
+    const touch = e.touches[0];
+    setStartX(touch.clientX);
+    setStartY(touch.clientY);
     setIsDragging(true);
     setIsHorizontalSwipe(false);
     translateXRef.current = 0; // Reset ref
+    // Don't stop propagation yet - wait to see if it's horizontal or vertical
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+    
+    const touch = e.touches[0];
+    const currentX = touch.clientX;
+    const currentY = touch.clientY;
     const diffX = currentX - startX;
     const diffY = currentY - startY;
     
-    // Only handle swipe if horizontal movement is significantly greater than vertical
-    // This allows vertical scrolling to work normally
-    // Lower threshold (1.2 instead of 1.5) and require minimum 10px horizontal movement
-    if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
-      // This is a horizontal swipe - prevent default and handle it
+    // Check if this is a horizontal swipe (horizontal movement > vertical movement)
+    // Use a lower threshold to make it more responsive
+    const isHorizontal = Math.abs(diffX) > Math.abs(diffY);
+    const hasMinimumHorizontalMovement = Math.abs(diffX) > 15; // Minimum 15px to start swipe
+    
+    if (isHorizontal && hasMinimumHorizontalMovement) {
+      // This is a horizontal swipe - handle it
       if (!isHorizontalSwipe) {
         setIsHorizontalSwipe(true);
-        // Once we determine it's a horizontal swipe, stop propagation to prevent parent scrolling
+        // Stop propagation to prevent parent from scrolling
         e.stopPropagation();
       }
-      e.preventDefault(); // Prevent default touch behavior
+      e.preventDefault(); // Prevent default touch behavior (scrolling)
+      
       // Allow swiping both left and right
       const maxSwipe = SWIPE_THRESHOLD * 2;
       const newTranslateX = Math.abs(diffX) <= maxSwipe ? diffX : (diffX > 0 ? maxSwipe : -maxSwipe);
       setTranslateX(newTranslateX);
       translateXRef.current = newTranslateX; // Update ref with current value
-    } else {
-      // This is vertical scrolling - don't prevent default, allow normal scroll
-      // Reset translateX if we were previously swiping
+    } else if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
+      // This is vertical scrolling - cancel any horizontal swipe
       if (isHorizontalSwipe) {
         setTranslateX(0);
         translateXRef.current = 0;
         setIsHorizontalSwipe(false);
         setIsDragging(false);
       }
+      // Don't prevent default - allow normal vertical scrolling
     }
   };
 
@@ -198,7 +205,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
         width: '100%',
         marginBottom: '0.5rem',
         overflow: 'hidden',
-        touchAction: 'pan-y pan-x'
+        touchAction: 'manipulation'
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
