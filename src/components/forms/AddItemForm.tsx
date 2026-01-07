@@ -39,9 +39,11 @@ interface AddItemFormProps {
   onIsFrozenChange?: (isFrozen: boolean) => void;
   initialIsDryCanned?: boolean; // Pre-set isDryCanned based on storage type
   foodItems?: FoodItem[]; // List of previously added items for search/autocomplete
+  fromShop?: boolean; // True when navigating from Shop screen
+  fromStorageTab?: 'perishable' | 'dryCanned' | null; // Which storage tab user came from
 }
 
-const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, forceFreeze, externalIsFrozen, onIsFrozenChange, initialIsDryCanned, foodItems = [] }) => {
+const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onScanBarcode, initialItem, onCancel, onToss, initialName, forceFreeze, externalIsFrozen, onIsFrozenChange, initialIsDryCanned, foodItems = [], fromShop = false, fromStorageTab = null }) => {
   const [user] = useAuthState(auth);
   const [formData, setFormData] = useState<FoodItemData>({
     name: initialItem?.name || initialName || '',

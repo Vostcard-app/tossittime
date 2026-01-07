@@ -43,6 +43,10 @@ const AddItem: React.FC = () => {
   const dashboardEditingItem = locationState?.editingItem;
   const forceFreeze = locationState?.forceFreeze;
   const storageType = locationState?.storageType; // 'pantry' | 'refrigerator'
+  
+  // Determine source for button rendering
+  const fromShop = fromShoppingList === true;
+  const fromStorageTab = storageType === 'refrigerator' ? 'perishable' : (storageType === 'pantry' ? 'dryCanned' : null);
 
   // Initialize isFrozen from forceFreeze if provided
   React.useEffect(() => {
@@ -453,6 +457,8 @@ const AddItem: React.FC = () => {
           onIsFrozenChange={setIsFrozen}
           initialIsDryCanned={storageType === 'pantry' ? true : (storageType === 'refrigerator' ? false : editingItem?.isDryCanned)}
           foodItems={foodItems}
+          fromShop={fromShop}
+          fromStorageTab={fromStorageTab}
         />
       </div>
     );
