@@ -14,7 +14,7 @@ import type { FoodItem } from '../types';
 import { analyticsService } from '../services/analyticsService';
 import { isDryCannedItem } from '../utils/storageUtils';
 
-type FilterType = 'all' | 'fresh' | 'expiring_soon' | 'expired';
+type FilterType = 'all' | 'expiring_soon' | 'expired';
 type StorageTabType = 'perishable' | 'dryCanned';
 
 const Dashboard: React.FC = () => {
@@ -313,7 +313,7 @@ const Dashboard: React.FC = () => {
 
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {(['all', 'fresh', 'expiring_soon', 'expired'] as FilterType[]).map((filterType) => (
+        {(['all', 'expiring_soon', 'expired'] as FilterType[]).map((filterType) => (
           <button
             key={filterType}
             onClick={() => setFilter(filterType)}
