@@ -677,21 +677,77 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
           Quantity
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
-          <input
-            type="number"
-            id="quantity"
-            name="quantity"
-            min="1"
-            value={formData.quantity || 1}
-            onChange={handleInputChange}
-            style={{
-              flex: formData.isDryCanned ? '1' : '1',
-              padding: '0.75rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '1rem'
-            }}
-          />
+          {/* Quantity input with spinner controls */}
+          <div style={{ position: 'relative', flex: formData.isDryCanned ? '1' : '1' }}>
+            <input
+              type="number"
+              id="quantity"
+              name="quantity"
+              min="1"
+              value={formData.quantity || 1}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '0.75rem 2.5rem 0.75rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem'
+              }}
+            />
+            {/* Up/Down arrow buttons */}
+            <div style={{
+              position: 'absolute',
+              right: '0.5rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.125rem'
+            }}>
+              <button
+                type="button"
+                onClick={handleQuantityIncrement}
+                style={{
+                  width: '1.25rem',
+                  height: '1.25rem',
+                  padding: 0,
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  color: '#6b7280',
+                  lineHeight: 1
+                }}
+                aria-label="Increase quantity"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={handleQuantityDecrement}
+                style={{
+                  width: '1.25rem',
+                  height: '1.25rem',
+                  padding: 0,
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  color: '#6b7280',
+                  lineHeight: 1
+                }}
+                aria-label="Decrease quantity"
+              >
+                ▼
+              </button>
+            </div>
+          </div>
           {/* Show unit dropdown for all items */}
           <select
             id="quantityUnit"
