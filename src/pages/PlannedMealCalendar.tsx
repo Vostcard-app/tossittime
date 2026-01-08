@@ -28,6 +28,8 @@ const PlannedMealCalendar: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showIngredientPicker, setShowIngredientPicker] = useState(false);
+  const [selectedMealForIngredients, setSelectedMealForIngredients] = useState<PlannedMeal | null>(null);
+  const [showIngredientListModal, setShowIngredientListModal] = useState(false);
 
   // Load meal plans for current month
   useEffect(() => {
@@ -264,28 +266,44 @@ const PlannedMealCalendar: React.FC = () => {
                         title={meal.mealName}
                       >
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
-                          <a
-                            href={meal.recipeSourceUrl || '#'}
-                            target={meal.recipeSourceUrl ? "_blank" : undefined}
-                            rel={meal.recipeSourceUrl ? "noopener noreferrer" : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!meal.recipeSourceUrl) {
-                                e.preventDefault();
-                              }
-                            }}
-                            style={{
-                              color: '#ffffff',
-                              textDecoration: 'underline',
-                              cursor: 'pointer',
-                              fontWeight: '600',
-                              display: 'block',
-                              width: '100%'
-                            }}
-                            title={meal.recipeSourceUrl ? `${meal.mealName} - View recipe` : meal.mealName}
-                          >
-                            {MEAL_TYPE_LABELS[meal.mealType]}
-                          </a>
+                          {meal.recipeSourceUrl ? (
+                            <a
+                              href={meal.recipeSourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                color: '#ffffff',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                display: 'block',
+                                width: '100%'
+                              }}
+                              title={`${meal.mealName} - View recipe`}
+                            >
+                              {MEAL_TYPE_LABELS[meal.mealType]}
+                            </a>
+                          ) : (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMealForIngredients(meal);
+                                setShowIngredientListModal(true);
+                              }}
+                              style={{
+                                color: '#ffffff',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                display: 'block',
+                                width: '100%'
+                              }}
+                              title={meal.mealName}
+                            >
+                              {MEAL_TYPE_LABELS[meal.mealType]}
+                            </span>
+                          )}
                         </span>
                       </div>
                     ))}
@@ -323,6 +341,110 @@ const PlannedMealCalendar: React.FC = () => {
           }}
           selectedDate={selectedDay}
         />
+      )}
+
+      {/* Ingredient List Modal for Custom Meals */}
+      {showIngredientListModal && selectedMealForIngredients && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1003,
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowIngredientListModal(false);
+              setSelectedMealForIngredients(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
+                {selectedMealForIngredients.mealName} - Ingredients
+              </h2>
+              <button
+                onClick={() => {
+                  setShowIngredientListModal(false);
+                  setSelectedMealForIngredients(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '0.25rem 0.5rem'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '1.5rem' }}>
+              {selectedMealForIngredients.recipeIngredients && selectedMealForIngredients.recipeIngredients.length > 0 ? (
+                <div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {selectedMealForIngredients.recipeIngredients.map((ingredient, index) => (
+                      <li
+                        key={index}
+                        style={{
+                          padding: '0.75rem',
+                          borderBottom: '1px solid #e5e7eb',
+                          fontSize: '1rem',
+                          color: '#1f2937'
+                        }}
+                      >
+                        {ingredient}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : selectedMealForIngredients.suggestedIngredients && selectedMealForIngredients.suggestedIngredients.length > 0 ? (
+                <div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {selectedMealForIngredients.suggestedIngredients.map((ingredient, index) => (
+                      <li
+                        key={index}
+                        style={{
+                          padding: '0.75rem',
+                          borderBottom: '1px solid #e5e7eb',
+                          fontSize: '1rem',
+                          color: '#1f2937'
+                        }}
+                      >
+                        {ingredient}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p style={{ textAlign: 'center', color: '#6b7280' }}>No ingredients listed for this meal.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

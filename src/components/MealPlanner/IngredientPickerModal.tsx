@@ -176,17 +176,12 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   };
 
   const handleCreate = () => {
-    if (selectedIngredients.size === 0) {
-      alert('Please select at least one ingredient');
-      return;
-    }
-    
     if (selectedIngredients.size > 3) {
       alert('Please select no more than 3 ingredients');
       return;
     }
 
-    // Copy selected ingredients to clipboard
+    // Copy selected ingredients to clipboard (if any)
     const selectedNames = Array.from(selectedIngredients)
       .map(id => {
         const ingredient = ingredients.find(ing => ing.id === id);
@@ -195,15 +190,15 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       .filter(Boolean)
       .join(', ');
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(selectedNames).then(() => {
-      // Show website selection modal
-      setShowWebsiteSelection(true);
-    }).catch(err => {
-      console.error('Failed to copy to clipboard:', err);
-      // Still show website selection even if copy fails
-      setShowWebsiteSelection(true);
-    });
+    // Copy to clipboard if there are ingredients
+    if (selectedNames) {
+      navigator.clipboard.writeText(selectedNames).catch(err => {
+        console.error('Failed to copy to clipboard:', err);
+      });
+    }
+
+    // Show website selection modal
+    setShowWebsiteSelection(true);
   };
 
   const getSourceLabel = (source: IngredientItem['source']): string => {
@@ -521,16 +516,15 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                       </button>
                       <button
                         onClick={handleCreate}
-                        disabled={selectedIngredients.size === 0}
                         style={{
                           padding: '0.75rem 1.5rem',
-                          backgroundColor: selectedIngredients.size === 0 ? '#9ca3af' : '#002B4D',
+                          backgroundColor: '#002B4D',
                           color: 'white',
                           border: 'none',
                           borderRadius: '6px',
                           fontSize: '1rem',
                           fontWeight: '500',
-                          cursor: selectedIngredients.size === 0 ? 'not-allowed' : 'pointer'
+                          cursor: 'pointer'
                         }}
                       >
                         Create ({selectedIngredients.size})

@@ -9,6 +9,7 @@ import { recipeSiteService } from '../../services';
 import type { RecipeSite } from '../../types/recipeImport';
 import type { MealType } from '../../types';
 import { RecipeImportScreen } from './RecipeImportScreen';
+import { CustomMealIngredientScreen } from './CustomMealIngredientScreen';
 import { showToast } from '../Toast';
 
 interface WebsiteSelectionModalProps {
@@ -29,8 +30,11 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
   const navigate = useNavigate();
   const [favoriteSites, setFavoriteSites] = useState<RecipeSite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'google' | 'favorites'>('google');
+  const [activeTab, setActiveTab] = useState<'google' | 'favorites' | 'createMyOwn'>('google');
   const [showRecipeImport, setShowRecipeImport] = useState(false);
+  const [showCustomMeal, setShowCustomMeal] = useState(false);
+  const [customIngredients, setCustomIngredients] = useState<string[]>([]);
+  const [newIngredientInput, setNewIngredientInput] = useState('');
 
   // Load recipe sites
   useEffect(() => {
@@ -53,6 +57,34 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
 
     loadSites();
   }, [isOpen]);
+
+  // Initialize custom ingredients from selected ingredients
+  useEffect(() => {
+    if (isOpen) {
+      setCustomIngredients([...selectedIngredients]);
+      setNewIngredientInput('');
+    }
+  }, [isOpen, selectedIngredients]);
+
+  const handleAddIngredient = () => {
+    const trimmed = newIngredientInput.trim();
+    if (trimmed && !customIngredients.includes(trimmed)) {
+      setCustomIngredients([...customIngredients, trimmed]);
+      setNewIngredientInput('');
+    }
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setCustomIngredients(customIngredients.filter((_, i) => i !== index));
+  };
+
+  const handleContinueToChecklist = () => {
+    if (customIngredients.length === 0) {
+      showToast('Please add at least one ingredient', 'error');
+      return;
+    }
+    setShowCustomMeal(true);
+  };
 
   const handleSearchSite = (site: RecipeSite) => {
     const query = selectedIngredients.join(' ');
@@ -87,6 +119,22 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
         selectedDate={selectedDate}
         selectedMealType={selectedMealType}
         selectedIngredients={selectedIngredients}
+      />
+    );
+  }
+
+  // If showing custom meal screen, render that instead
+  if (showCustomMeal) {
+    return (
+      <CustomMealIngredientScreen
+        isOpen={showCustomMeal}
+        onClose={() => {
+          setShowCustomMeal(false);
+          onClose();
+        }}
+        selectedDate={selectedDate}
+        selectedMealType={selectedMealType}
+        ingredients={customIngredients}
       />
     );
   }
@@ -128,7 +176,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
       >
         {/* Header */}
         <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>Select Recipe Website</h2>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>Select Recipe</h2>
           <button
             onClick={onClose}
             style={{
@@ -188,10 +236,140 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
             >
               Favorites
             </button>
+            <button
+              onClick={() => setActiveTab('createMyOwn')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'transparent',
+                color: activeTab === 'createMyOwn' ? '#002B4D' : '#6b7280',
+                border: 'none',
+                borderBottom: activeTab === 'createMyOwn' ? '2px solid #002B4D' : '2px solid transparent',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'createMyOwn' ? '600' : '500',
+                cursor: 'pointer'
+              }}
+            >
+              Create My Own
+            </button>
           </div>
 
-          {/* Website List */}
-          {activeTab === 'google' ? (
+          {/* Tab Content */}
+          {activeTab === 'createMyOwn' ? (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem', fontWeight: '600' }}>
+                Add Ingredients
+              </h3>
+              
+              {/* Selected Ingredients List */}
+              {customIngredients.length > 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: '#6b7280' }}>
+                    Ingredients ({customIngredients.length})
+                  </div>
+                  <div style={{ 
+                    border: '1px solid #e5e7eb', 
+                    borderRadius: '6px', 
+                    padding: '0.5rem',
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {customIngredients.map((ingredient, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.5rem',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '4px',
+                          marginBottom: '0.25rem'
+                        }}
+                      >
+                        <span style={{ flex: 1, fontSize: '0.875rem' }}>{ingredient}</span>
+                        <button
+                          onClick={() => handleRemoveIngredient(index)}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#fee2e2',
+                            color: '#dc2626',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            fontWeight: '500'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Ingredient Input */}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={newIngredientInput}
+                    onChange={(e) => setNewIngredientInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddIngredient();
+                      }
+                    }}
+                    placeholder="Enter ingredient name"
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <button
+                    onClick={handleAddIngredient}
+                    disabled={!newIngredientInput.trim()}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: newIngredientInput.trim() ? '#002B4D' : '#9ca3af',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      fontWeight: '500',
+                      cursor: newIngredientInput.trim() ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Continue Button */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleContinueToChecklist}
+                  disabled={customIngredients.length === 0}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: customIngredients.length === 0 ? '#9ca3af' : '#002B4D',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    fontWeight: '500',
+                    cursor: customIngredients.length === 0 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          ) : activeTab === 'google' ? (
             <div style={{ marginBottom: '1.5rem' }}>
               <button
                 onClick={handleGoogleSearch}
