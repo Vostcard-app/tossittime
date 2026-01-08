@@ -166,21 +166,37 @@ exports.handler = async (event) => {
     // Method 3: Fallback - Parse ingredients from HTML patterns
     if (!recipeData) {
       // Look for common ingredient list patterns
-      // Pattern 1: List items after "Ingredients" heading
-      const ingredientsSectionMatch = html.match(/<h[2-6][^>]*>.*?[Ii]ngredients?.*?<\/h[2-6]>(.*?)(?=<h[2-6]|<div[^>]*class|<section|$)/is);
+      // Pattern 1: List items after "Ingredients" heading (more flexible matching)
+      const ingredientsSectionMatch = html.match(/(?:<h[2-6][^>]*>.*?[Ii]ngredients?.*?<\/h[2-6]>|<h[2-6][^>]*>.*?[Ii]ngredients?.*?<\/h[2-6]>|<strong[^>]*>.*?[Ii]ngredients?.*?<\/strong>|<b[^>]*>.*?[Ii]ngredients?.*?<\/b>)(.*?)(?=<h[2-6]|<h3|<h4|<div[^>]*class[^>]*instructions|<div[^>]*class[^>]*directions|<section[^>]*class|<div[^>]*id[^>]*recipe|$)/is);
       
       if (ingredientsSectionMatch) {
         const ingredientsSection = ingredientsSectionMatch[1];
-        // Extract list items
-        const listItemMatches = ingredientsSection.match(/<li[^>]*>(.*?)<\/li>/gis);
+        // Extract list items (both <li> and <p> tags that look like ingredients)
+        const listItemMatches = ingredientsSection.match(/<li[^>]*>(.*?)<\/li>/gis) ||
+                                ingredientsSection.match(/<p[^>]*>(.*?)<\/p>/gis);
+        
         if (listItemMatches && listItemMatches.length > 0) {
           const ingredients = listItemMatches.map(match => {
             // Remove HTML tags and clean up
             let text = match.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            // Remove common prefixes like bullet points, numbers, etc.
-            text = text.replace(/^[\d\s•\-\*\.]+/, '').trim();
+            // Remove common prefixes like bullet points, numbers, etc. but keep the ingredient text
+            // Don't remove numbers at the start as they might be quantities
+            text = text.replace(/^[\s•\-\*\.]+/, '').trim();
             return text;
-          }).filter(ing => ing.length > 0 && ing.length < 200); // Filter out empty or too long items
+          }).filter(ing => {
+            // Filter out empty, too long, or non-ingredient items
+            const lower = ing.toLowerCase();
+            return ing.length > 0 && 
+                   ing.length < 200 && 
+                   !lower.includes('instructions') &&
+                   !lower.includes('directions') &&
+                   !lower.includes('method') &&
+                   !lower.includes('prep time') &&
+                   !lower.includes('cook time') &&
+                   !lower.includes('servings') &&
+                   !lower.includes('course') &&
+                   !lower.includes('cuisine');
+          });
 
           if (ingredients.length > 0) {
             // Try to extract title
@@ -213,9 +229,11 @@ exports.handler = async (event) => {
 
       // Pattern 2: Look for ingredients in common recipe card/list structures
       if (!recipeData) {
-        // Try to find ingredients in divs with common class names
-        const recipeCardMatch = html.match(/<div[^>]*class[^>]*recipe[^>]*ingredients?[^>]*>(.*?)<\/div>/is) ||
-                               html.match(/<section[^>]*class[^>]*ingredients?[^>]*>(.*?)<\/section>/is);
+        // Try to find ingredients in divs with common class names or IDs
+        const recipeCardMatch = html.match(/<div[^>]*(?:class|id)[^>]*recipe[^>]*ingredients?[^>]*>(.*?)<\/div>/is) ||
+                               html.match(/<section[^>]*(?:class|id)[^>]*ingredients?[^>]*>(.*?)<\/section>/is) ||
+                               html.match(/<ul[^>]*(?:class|id)[^>]*ingredients?[^>]*>(.*?)<\/ul>/is) ||
+                               html.match(/<ol[^>]*(?:class|id)[^>]*ingredients?[^>]*>(.*?)<\/ol>/is);
         
         if (recipeCardMatch) {
           const cardContent = recipeCardMatch[1];
@@ -225,7 +243,8 @@ exports.handler = async (event) => {
           if (listItemMatches && listItemMatches.length > 0) {
             const ingredients = listItemMatches.map(match => {
               let text = match.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-              text = text.replace(/^[\d\s•\-\*\.]+/, '').trim();
+              // Keep numbers at start (quantities) but remove bullet points
+              text = text.replace(/^[\s•\-\*\.]+/, '').trim();
               return text;
             }).filter(ing => {
               const lower = ing.toLowerCase();
@@ -236,7 +255,68 @@ exports.handler = async (event) => {
                      !lower.includes('directions') &&
                      !lower.includes('method') &&
                      !lower.includes('prep time') &&
-                     !lower.includes('cook time');
+                     !lower.includes('cook time') &&
+                     !lower.includes('servings') &&
+                     !lower.includes('course') &&
+                     !lower.includes('cuisine');
+            });
+
+            if (ingredients.length > 0) {
+              let title = 'Untitled Recipe';
+              const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i) ||
+                                html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                                html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+              if (titleMatch) {
+                title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
+              }
+
+              let imageUrl;
+              const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+              if (imageMatch) {
+                imageUrl = imageMatch[1];
+              }
+
+              recipeData = {
+                title,
+                ingredients,
+                imageUrl,
+                sourceUrl: url,
+                sourceDomain
+              };
+            }
+          }
+        }
+      }
+
+      // Pattern 3: Look for ingredients list with "US Customary" or similar labels (billyparisi.com pattern)
+      if (!recipeData) {
+        // Look for patterns like "US Customary" followed by list items
+        const usCustomaryMatch = html.match(/US\s+Customary[^<]*(?:<[^>]*>)*\s*(?:<ul[^>]*>|<ol[^>]*>)?(.*?)(?=<h|<div[^>]*class[^>]*instructions|<\/div>|$)/is);
+        
+        if (usCustomaryMatch) {
+          const listContent = usCustomaryMatch[1];
+          const listItemMatches = listContent.match(/<li[^>]*>(.*?)<\/li>/gis);
+          
+          if (listItemMatches && listItemMatches.length > 0) {
+            const ingredients = listItemMatches.map(match => {
+              let text = match.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+              // Keep numbers at start (quantities)
+              text = text.replace(/^[\s•\-\*\.]+/, '').trim();
+              return text;
+            }).filter(ing => {
+              const lower = ing.toLowerCase();
+              return ing.length > 0 && 
+                     ing.length < 200 && 
+                     !lower.includes('instructions') &&
+                     !lower.includes('directions') &&
+                     !lower.includes('method') &&
+                     !lower.includes('prep time') &&
+                     !lower.includes('cook time') &&
+                     !lower.includes('servings') &&
+                     !lower.includes('course') &&
+                     !lower.includes('cuisine') &&
+                     !lower.includes('metric') &&
+                     !lower.includes('customary');
             });
 
             if (ingredients.length > 0) {
