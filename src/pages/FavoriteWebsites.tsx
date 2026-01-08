@@ -94,8 +94,8 @@ const FavoriteWebsites: React.FC = () => {
   const handleSaveEdit = async () => {
     if (!user || !editingSite) return;
 
-    if (!editLabel.trim() || !editBaseUrl.trim() || !editSearchTemplateUrl.trim()) {
-      showToast('Please fill in all fields', 'error');
+    if (!editLabel.trim() || !editBaseUrl.trim()) {
+      showToast('Please fill in Label and Base URL', 'error');
       return;
     }
 
@@ -103,7 +103,7 @@ const FavoriteWebsites: React.FC = () => {
       await recipeSiteService.updateRecipeSite(editingSite.id, {
         label: editLabel.trim(),
         baseUrl: editBaseUrl.trim(),
-        searchTemplateUrl: editSearchTemplateUrl.trim(),
+        searchTemplateUrl: editSearchTemplateUrl.trim() || '', // Allow empty
         enabled: editingSite.enabled
       });
       
@@ -128,8 +128,8 @@ const FavoriteWebsites: React.FC = () => {
   const handleAddNew = async () => {
     if (!user) return;
 
-    if (!newLabel.trim() || !newBaseUrl.trim() || !newSearchTemplateUrl.trim()) {
-      showToast('Please fill in all fields', 'error');
+    if (!newLabel.trim() || !newBaseUrl.trim()) {
+      showToast('Please fill in Label and Base URL', 'error');
       return;
     }
 
@@ -138,7 +138,7 @@ const FavoriteWebsites: React.FC = () => {
       await recipeSiteService.createRecipeSite({
         label: newLabel.trim(),
         baseUrl: newBaseUrl.trim(),
-        searchTemplateUrl: newSearchTemplateUrl.trim(),
+        searchTemplateUrl: newSearchTemplateUrl.trim() || '', // Allow empty
         enabled: true // Add as favorite by default
       });
       
@@ -272,13 +272,13 @@ const FavoriteWebsites: React.FC = () => {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Search Template URL (use {`{query}`} for search term):
+                  Search Template URL (optional - use {`{query}`} for search term):
                 </label>
                 <input
                   type="text"
                   value={newSearchTemplateUrl}
                   onChange={(e) => setNewSearchTemplateUrl(e.target.value)}
-                  placeholder="https://www.allrecipes.com/search/results/?search={query}"
+                  placeholder="https://example.com/search?q={query} (leave empty if site has no search)"
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -288,6 +288,9 @@ const FavoriteWebsites: React.FC = () => {
                     boxSizing: 'border-box'
                   }}
                 />
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                  If left empty, the base URL will open and you can paste ingredients manually.
+                </p>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button
@@ -392,13 +395,13 @@ const FavoriteWebsites: React.FC = () => {
                       </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                          Search Template URL (use {`{query}`} for search term):
+                          Search Template URL (optional - use {`{query}`} for search term):
                         </label>
                         <input
                           type="text"
                           value={editSearchTemplateUrl}
                           onChange={(e) => setEditSearchTemplateUrl(e.target.value)}
-                          placeholder="https://example.com/search?q={query}"
+                          placeholder="https://example.com/search?q={query} (leave empty if site has no search)"
                           style={{
                             width: '100%',
                             padding: '0.75rem',
@@ -408,6 +411,9 @@ const FavoriteWebsites: React.FC = () => {
                             boxSizing: 'border-box'
                           }}
                         />
+                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                          If left empty, the base URL will open and you can paste ingredients manually.
+                        </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                         <button
@@ -453,7 +459,7 @@ const FavoriteWebsites: React.FC = () => {
                           {site.baseUrl}
                         </p>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                          Search: {site.searchTemplateUrl}
+                          {site.searchTemplateUrl ? `Search: ${site.searchTemplateUrl}` : 'No search URL - paste ingredients manually'}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>

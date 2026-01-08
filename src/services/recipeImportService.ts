@@ -58,6 +58,11 @@ export const recipeImportService = {
    * Build search URL for a recipe site
    */
   buildSearchUrl(site: RecipeSite, query: string): string {
+    // If no search template URL or no {query} placeholder, just return base URL
+    if (!site.searchTemplateUrl || !site.searchTemplateUrl.includes('{query}')) {
+      return site.baseUrl;
+    }
+    
     const encodedQuery = encodeURIComponent(query);
     return site.searchTemplateUrl.replace('{query}', encodedQuery);
   },
