@@ -165,68 +165,109 @@ exports.handler = async (event) => {
 
     // Method 3: Fallback - Parse ingredients from HTML patterns
     if (!recipeData) {
-      // Pattern 1: Look for "US Customary" followed by actual recipe ingredients (billyparisi.com pattern)
-      // This should come before the "Ingredients and Substitutions" section
-      const usCustomaryMatch = html.match(/US\s+Customary[^<]*(?:<[^>]*>)*\s*(?:<ul[^>]*>|<ol[^>]*>)?(.*?)(?=Metric|<h[2-6]|<div[^>]*class[^>]*instructions|<\/div>|$)/is);
+      // Pattern 1: Look for "US Customary" or "Ingredients" section with actual recipe ingredients (billyparisi.com pattern)
+      // Try multiple patterns to find the ingredients list
+      let listItemMatches = null;
+      let listContent = null;
       
+      // Try 1a: Look for "US Customary" followed by list
+      const usCustomaryMatch = html.match(/US\s+Customary[^<]*(?:<[^>]*>)*\s*(?:<ul[^>]*>|<ol[^>]*>)?(.*?)(?=Metric|<h[2-6]|<div[^>]*class[^>]*instructions|<\/div>|$)/is);
       if (usCustomaryMatch) {
-        const listContent = usCustomaryMatch[1];
-        const listItemMatches = listContent.match(/<li[^>]*>(.*?)<\/li>/gis);
-        
-        if (listItemMatches && listItemMatches.length > 0) {
-          const ingredients = listItemMatches.map(match => {
-            let text = match.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            // Decode HTML entities
-            text = text.replace(/&ndash;/g, '-').replace(/&mdash;/g, '-').replace(/&nbsp;/g, ' ');
-            text = text.replace(/&[a-z]+;/gi, ' '); // Remove other HTML entities
-            // Keep numbers at start (quantities) but remove bullet points
-            text = text.replace(/^[\s•\-\*\.]+/, '').trim();
-            return text;
-          }).filter(ing => {
-            const lower = ing.toLowerCase();
-            // Filter out descriptions (contain "–" or "—" followed by long explanatory text)
-            const hasDescriptionPattern = /[-–—]\s*[A-Z][^-–—]{20,}/.test(ing);
-            // Filter out items that don't start with a number/measurement
-            const startsWithMeasurement = /^[\d\s]+/.test(ing) || /^[\d]+/.test(ing);
-            return ing.length > 0 && 
-                   ing.length < 200 && 
-                   !hasDescriptionPattern &&
-                   startsWithMeasurement && // Must start with a number/measurement
-                   !lower.includes('instructions') &&
-                   !lower.includes('directions') &&
-                   !lower.includes('method') &&
-                   !lower.includes('prep time') &&
-                   !lower.includes('cook time') &&
-                   !lower.includes('servings') &&
-                   !lower.includes('course') &&
-                   !lower.includes('cuisine') &&
-                   !lower.includes('metric') &&
-                   !lower.includes('customary');
-          });
-
-          if (ingredients.length > 0) {
-            let title = 'Untitled Recipe';
-            const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i) ||
-                              html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
-                              html.match(/<h1[^>]*>(.*?)<\/h1>/i);
-            if (titleMatch) {
-              title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
-            }
-
-            let imageUrl;
-            const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
-            if (imageMatch) {
-              imageUrl = imageMatch[1];
-            }
-
-            recipeData = {
-              title,
-              ingredients,
-              imageUrl,
-              sourceUrl: url,
-              sourceDomain
-            };
+        listContent = usCustomaryMatch[1];
+        listItemMatches = listContent.match(/<li[^>]*>(.*?)<\/li>/gis);
+      }
+      
+      // Try 1b: Look for "Ingredients" heading followed by list (not "Ingredients and Substitutions")
+      if (!listItemMatches || listItemMatches.length === 0) {
+        const ingredientsHeadingMatch = html.match(/<h[2-6][^>]*>.*?[Ii]ngredients?[^<]*<\/h[2-6]>(?!.*[Ss]ubstitutions?)(.*?)(?=<h[2-6]|<div[^>]*class[^>]*instructions|<\/div>|$)/is);
+        if (ingredientsHeadingMatch) {
+          listContent = ingredientsHeadingMatch[1];
+          listItemMatches = listContent.match(/<li[^>]*>(.*?)<\/li>/gis) ||
+                           listContent.match(/<p[^>]*>(.*?)<\/p>/gis);
+        }
+      }
+      
+      // Try 1c: Look for ingredients in a div/section with "ingredients" class
+      if (!listItemMatches || listItemMatches.length === 0) {
+        const ingredientsDivMatch = html.match(/<div[^>]*class[^>]*ingredients?[^>]*>(.*?)<\/div>/is) ||
+                                   html.match(/<section[^>]*class[^>]*ingredients?[^>]*>(.*?)<\/section>/is);
+        if (ingredientsDivMatch) {
+          listContent = ingredientsDivMatch[1];
+          listItemMatches = listContent.match(/<li[^>]*>(.*?)<\/li>/gis) ||
+                           listContent.match(/<p[^>]*>(.*?)<\/p>/gis);
+        }
+      }
+      
+      if (listItemMatches && listItemMatches.length > 0) {
+        const ingredients = listItemMatches.map(match => {
+          let text = match.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          // Decode HTML entities
+          text = text.replace(/&ndash;/g, '-').replace(/&mdash;/g, '-').replace(/&nbsp;/g, ' ');
+          text = text.replace(/&[a-z]+;/gi, ' '); // Remove other HTML entities
+          // Keep numbers at start (quantities) but remove bullet points
+          text = text.replace(/^[\s•\-\*\.]+/, '').trim();
+          return text;
+        }).filter(ing => {
+          if (!ing || ing.length === 0 || ing.length > 200) return false;
+          
+          const lower = ing.toLowerCase();
+          
+          // Skip obvious non-ingredient text
+          if (lower.includes('instructions') ||
+              lower.includes('directions') ||
+              lower.includes('method') ||
+              lower.includes('prep time') ||
+              lower.includes('cook time') ||
+              lower.includes('servings') ||
+              lower.includes('course') ||
+              lower.includes('cuisine') ||
+              lower.includes('metric') ||
+              lower.includes('customary')) {
+            return false;
           }
+          
+          // Filter out descriptions (contain "–" or "—" followed by long explanatory text)
+          const hasDescriptionPattern = /[-–—]\s*[A-Z][^-–—]{20,}/.test(ing);
+          if (hasDescriptionPattern) return false;
+          
+          // Prefer items that start with a number/measurement, but don't require it
+          // This allows for ingredients like "salt and pepper to taste"
+          const startsWithMeasurement = /^[\d\s½¼¾⅓⅔⅛⅜⅝⅞]+/.test(ing) || /^[\d]+/.test(ing);
+          
+          // If it doesn't start with a measurement, check if it's still a valid ingredient
+          // (not a heading, not too short, etc.)
+          if (!startsWithMeasurement) {
+            // Allow short ingredient names (like "salt", "pepper") but filter out very short or very long items
+            if (ing.length < 3 || ing.length > 150) return false;
+            // Filter out items that look like headings or labels
+            if (/^[A-Z][A-Z\s]{10,}$/.test(ing)) return false; // All caps headings
+          }
+          
+          return true;
+        });
+
+        if (ingredients.length > 0) {
+          let title = 'Untitled Recipe';
+          const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i) ||
+                            html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                            html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+          if (titleMatch) {
+            title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
+          }
+
+          let imageUrl;
+          const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+          if (imageMatch) {
+            imageUrl = imageMatch[1];
+          }
+
+          recipeData = {
+            title,
+            ingredients,
+            imageUrl,
+            sourceUrl: url,
+            sourceDomain
+          };
         }
       }
 
