@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 interface BannerProps {
   /** Whether to show the home icon. Defaults to true. Set to false for Shop page. */
   showHomeIcon?: boolean;
+  /** Whether to show the TossItTime text/logo. Defaults to true. */
+  showLogo?: boolean;
   /** Handler for hamburger menu button click */
   onMenuClick: () => void;
   /** Maximum width of the banner content. Defaults to '1200px'. */
@@ -24,7 +26,8 @@ interface BannerProps {
  * ```
  */
 const Banner: React.FC<BannerProps> = ({ 
-  showHomeIcon = true, 
+  showHomeIcon = true,
+  showLogo = true,
   onMenuClick,
   maxWidth = '1200px'
 }) => {
@@ -76,9 +79,11 @@ const Banner: React.FC<BannerProps> = ({
               </svg>
             </Link>
           )}
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
-            TossItTime
-          </h1>
+          {showLogo && (
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#ffffff' }}>
+              TossItTime
+            </h1>
+          )}
         </div>
         <button
           onClick={onMenuClick}
