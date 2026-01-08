@@ -29,7 +29,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
   const [recipeSites, setRecipeSites] = useState<RecipeSite[]>([]);
   const [favoriteSites, setFavoriteSites] = useState<RecipeSite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'google' | 'favorites' | 'suggested'>('google');
+  const [activeTab, setActiveTab] = useState<'google' | 'favorites'>('google');
   const [showRecipeImport, setShowRecipeImport] = useState(false);
 
   // Load recipe sites
@@ -89,7 +89,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
     );
   }
 
-  const displayedSites = activeTab === 'favorites' ? favoriteSites : activeTab === 'suggested' ? recipeSites : [];
+  const displayedSites = activeTab === 'favorites' ? favoriteSites : [];
 
   return (
     <div
@@ -186,21 +186,6 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
             >
               Favorites
             </button>
-            <button
-              onClick={() => setActiveTab('suggested')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: 'transparent',
-                color: activeTab === 'suggested' ? '#002B4D' : '#6b7280',
-                border: 'none',
-                borderBottom: activeTab === 'suggested' ? '2px solid #002B4D' : '2px solid transparent',
-                fontSize: '1rem',
-                fontWeight: activeTab === 'suggested' ? '600' : '500',
-                cursor: 'pointer'
-              }}
-            >
-              Suggested
-            </button>
           </div>
 
           {/* Website List */}
@@ -243,25 +228,23 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
           ) : displayedSites.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-                No {activeTab === 'favorites' ? 'favorite' : 'suggested'} websites available.
+                No favorite websites available.
               </p>
-              {activeTab === 'favorites' && (
-                <button
-                  onClick={handleManageFavorites}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: '#002B4D',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Manage Favorites
-                </button>
-              )}
+              <button
+                onClick={handleManageFavorites}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#002B4D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Manage Favorites
+              </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>

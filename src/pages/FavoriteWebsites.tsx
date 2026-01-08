@@ -15,10 +15,12 @@ import { showToast } from '../components/Toast';
 const FavoriteWebsites: React.FC = () => {
   const [user] = useAuthState(auth);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [recipeSites, setRecipeSites] = useState<RecipeSite[]>([]);
   const [favoriteSites, setFavoriteSites] = useState<RecipeSite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'favorites' | 'suggested'>('favorites');
+  const [editingSite, setEditingSite] = useState<RecipeSite | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editBaseUrl, setEditBaseUrl] = useState('');
+  const [editSearchTemplateUrl, setEditSearchTemplateUrl] = useState('');
 
   // Load recipe sites
   useEffect(() => {
@@ -31,7 +33,6 @@ const FavoriteWebsites: React.FC = () => {
       try {
         setLoading(true);
         const allSites = await recipeSiteService.getRecipeSites();
-        setRecipeSites(allSites);
         
         // For now, treat enabled sites as favorites (can be enhanced later with user preferences)
         const enabled = allSites.filter(site => site.enabled);
@@ -58,7 +59,6 @@ const FavoriteWebsites: React.FC = () => {
       
       // Reload sites
       const allSites = await recipeSiteService.getRecipeSites();
-      setRecipeSites(allSites);
       const enabled = allSites.filter(s => s.enabled);
       setFavoriteSites(enabled);
       
@@ -66,6 +66,53 @@ const FavoriteWebsites: React.FC = () => {
     } catch (error) {
       console.error('Error toggling favorite:', error);
       showToast('Failed to update favorite', 'error');
+    }
+  };
+
+  const handleStartEdit = (site: RecipeSite) => {
+    setEditingSite(site);
+    setEditLabel(site.label);
+    setEditBaseUrl(site.baseUrl);
+    setEditSearchTemplateUrl(site.searchTemplateUrl);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSite(null);
+    setEditLabel('');
+    setEditBaseUrl('');
+    setEditSearchTemplateUrl('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!user || !editingSite) return;
+
+    if (!editLabel.trim() || !editBaseUrl.trim() || !editSearchTemplateUrl.trim()) {
+      showToast('Please fill in all fields', 'error');
+      return;
+    }
+
+    try {
+      await recipeSiteService.updateRecipeSite(editingSite.id, {
+        label: editLabel.trim(),
+        baseUrl: editBaseUrl.trim(),
+        searchTemplateUrl: editSearchTemplateUrl.trim(),
+        enabled: editingSite.enabled
+      });
+      
+      // Reload sites
+      const allSites = await recipeSiteService.getRecipeSites();
+      const enabled = allSites.filter(s => s.enabled);
+      setFavoriteSites(enabled);
+      
+      setEditingSite(null);
+      setEditLabel('');
+      setEditBaseUrl('');
+      setEditSearchTemplateUrl('');
+      
+      showToast('Website updated successfully', 'success');
+    } catch (error) {
+      console.error('Error updating website:', error);
+      showToast('Failed to update website', 'error');
     }
   };
 
@@ -77,7 +124,6 @@ const FavoriteWebsites: React.FC = () => {
     );
   }
 
-  const displayedSites = activeTab === 'favorites' ? favoriteSites : recipeSites;
 
   return (
     <>
@@ -86,87 +132,166 @@ const FavoriteWebsites: React.FC = () => {
       
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
         <h2 style={{ marginBottom: '1rem' }}>Favorite Recipe Websites</h2>
-        
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
-          <button
-            onClick={() => setActiveTab('favorites')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'transparent',
-              color: activeTab === 'favorites' ? '#002B4D' : '#6b7280',
-              border: 'none',
-              borderBottom: activeTab === 'favorites' ? '2px solid #002B4D' : '2px solid transparent',
-              fontSize: '1rem',
-              fontWeight: activeTab === 'favorites' ? '600' : '500',
-              cursor: 'pointer'
-            }}
-          >
-            Favorites ({favoriteSites.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('suggested')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'transparent',
-              color: activeTab === 'suggested' ? '#002B4D' : '#6b7280',
-              border: 'none',
-              borderBottom: activeTab === 'suggested' ? '2px solid #002B4D' : '2px solid transparent',
-              fontSize: '1rem',
-              fontWeight: activeTab === 'suggested' ? '600' : '500',
-              cursor: 'pointer'
-            }}
-          >
-            Suggested ({recipeSites.length})
-          </button>
-        </div>
 
         {/* Website List */}
         {loading ? (
           <p style={{ textAlign: 'center', color: '#6b7280' }}>Loading websites...</p>
-        ) : displayedSites.length === 0 ? (
+        ) : favoriteSites.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-            <p>No {activeTab === 'favorites' ? 'favorite' : 'suggested'} websites available.</p>
+            <p>No favorite websites available.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {displayedSites.map(site => (
+            {favoriteSites.map(site => (
               <div
                 key={site.id}
                 style={{
                   padding: '1.5rem',
                   backgroundColor: '#f9fafb',
                   border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
+                  borderRadius: '8px'
                 }}
               >
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: '600' }}>
-                    {site.label}
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-                    {site.baseUrl}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleToggleFavorite(site)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: site.enabled ? '#fee2e2' : '#d1fae5',
-                    color: site.enabled ? '#991b1b' : '#065f46',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    minWidth: '120px'
-                  }}
-                >
-                  {site.enabled ? '★ Favorited' : '☆ Add to Favorites'}
-                </button>
+                {editingSite?.id === site.id ? (
+                  /* Edit Mode */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                        Label:
+                      </label>
+                      <input
+                        type="text"
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                        Base URL:
+                      </label>
+                      <input
+                        type="url"
+                        value={editBaseUrl}
+                        onChange={(e) => setEditBaseUrl(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                        Search Template URL (use {`{query}`} for search term):
+                      </label>
+                      <input
+                        type="text"
+                        value={editSearchTemplateUrl}
+                        onChange={(e) => setEditSearchTemplateUrl(e.target.value)}
+                        placeholder="https://example.com/search?q={query}"
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={handleCancelEdit}
+                        style={{
+                          padding: '0.75rem 1.5rem',
+                          backgroundColor: '#f3f4f6',
+                          color: '#1f2937',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        style={{
+                          padding: '0.75rem 1.5rem',
+                          backgroundColor: '#002B4D',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode */
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: '600' }}>
+                        {site.label}
+                      </h3>
+                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                        {site.baseUrl}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                        Search: {site.searchTemplateUrl}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => handleStartEdit(site)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#f3f4f6',
+                          color: '#1f2937',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleFavorite(site)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#fee2e2',
+                          color: '#991b1b',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          minWidth: '120px'
+                        }}
+                      >
+                        ★ Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
