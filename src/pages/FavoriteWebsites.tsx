@@ -112,7 +112,6 @@ const FavoriteWebsites: React.FC = () => {
       setEditingSite(null);
       setEditLabel('');
       setEditBaseUrl('');
-      setEditSearchTemplateUrl('');
       
       showToast('Website updated successfully', 'success');
     } catch (error) {
@@ -147,7 +146,6 @@ const FavoriteWebsites: React.FC = () => {
       setShowAddNew(false);
       setNewLabel('');
       setNewBaseUrl('');
-      setNewSearchTemplateUrl('');
       
       showToast('Website added successfully', 'success');
     } catch (error) {

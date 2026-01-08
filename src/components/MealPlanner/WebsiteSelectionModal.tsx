@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { recipeSiteService, recipeImportService } from '../../services';
+import { recipeSiteService } from '../../services';
 import type { RecipeSite } from '../../types/recipeImport';
 import type { MealType } from '../../types';
 import { RecipeImportScreen } from './RecipeImportScreen';
