@@ -15,12 +15,6 @@ import { MealDetailModal } from '../components/MealPlanner/MealDetailModal';
 import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner'
-};
-
 const MEAL_TYPE_ABBREVIATIONS: Record<MealType, string> = {
   breakfast: 'B',
   lunch: 'L',
