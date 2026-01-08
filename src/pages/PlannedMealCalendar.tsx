@@ -21,6 +21,12 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   dinner: 'Dinner'
 };
 
+const MEAL_TYPE_ABBREVIATIONS: Record<MealType, string> = {
+  breakfast: 'B',
+  lunch: 'L',
+  dinner: 'D'
+};
+
 const PlannedMealCalendar: React.FC = () => {
   const [user] = useAuthState(auth);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -309,7 +315,7 @@ const PlannedMealCalendar: React.FC = () => {
                             }}
                             title={meal.recipeTitle || meal.mealName}
                           >
-                            {MEAL_TYPE_LABELS[meal.mealType]}
+                            {MEAL_TYPE_ABBREVIATIONS[meal.mealType]}
                           </span>
                         </span>
                       </div>
