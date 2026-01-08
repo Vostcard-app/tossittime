@@ -29,7 +29,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
   const [recipeSites, setRecipeSites] = useState<RecipeSite[]>([]);
   const [favoriteSites, setFavoriteSites] = useState<RecipeSite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'favorites' | 'suggested'>('favorites');
+  const [activeTab, setActiveTab] = useState<'google' | 'favorites' | 'suggested'>('google');
   const [showRecipeImport, setShowRecipeImport] = useState(false);
 
   // Load recipe sites
@@ -61,6 +61,12 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
     window.open(searchUrl, '_blank');
   };
 
+  const handleGoogleSearch = () => {
+    const query = selectedIngredients.join(' ') + ' recipe';
+    const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    window.open(googleSearchUrl, '_blank');
+  };
+
   const handleManageFavorites = () => {
     navigate('/favorite-websites');
     onClose();
@@ -83,7 +89,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
     );
   }
 
-  const displayedSites = activeTab === 'favorites' ? favoriteSites : recipeSites;
+  const displayedSites = activeTab === 'favorites' ? favoriteSites : activeTab === 'suggested' ? recipeSites : [];
 
   return (
     <div
@@ -151,6 +157,21 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
           {/* Tabs */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
             <button
+              onClick={() => setActiveTab('google')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'transparent',
+                color: activeTab === 'google' ? '#002B4D' : '#6b7280',
+                border: 'none',
+                borderBottom: activeTab === 'google' ? '2px solid #002B4D' : '2px solid transparent',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'google' ? '600' : '500',
+                cursor: 'pointer'
+              }}
+            >
+              Google
+            </button>
+            <button
               onClick={() => setActiveTab('favorites')}
               style={{
                 padding: '0.75rem 1.5rem',
@@ -183,7 +204,41 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
           </div>
 
           {/* Website List */}
-          {loading ? (
+          {activeTab === 'google' ? (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button
+                onClick={handleGoogleSearch}
+                style={{
+                  width: '100%',
+                  padding: '1.5rem',
+                  backgroundColor: '#f9fafb',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  e.currentTarget.style.borderColor = '#002B4D';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                  e.currentTarget.style.borderColor = '#e5e7eb';
+                }}
+              >
+                <div style={{ fontSize: '2rem', fontWeight: '600', color: '#4285F4' }}>G</div>
+                <div style={{ fontWeight: '600', fontSize: '1.125rem', color: '#1f2937' }}>Search Google</div>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  Search for recipes with: {selectedIngredients.join(', ')}
+                </div>
+              </button>
+            </div>
+          ) : loading ? (
             <p style={{ textAlign: 'center', color: '#6b7280' }}>Loading websites...</p>
           ) : displayedSites.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
