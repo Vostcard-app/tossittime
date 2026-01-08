@@ -4,9 +4,10 @@
  */
 
 import type { RecipeSite, RecipeImportResult } from '../types/recipeImport';
-import type { FoodItem, ShoppingListItem } from '../types';
+import type { FoodItem, ShoppingListItem, PlannedMeal } from '../types';
 import { recipeSiteService } from './recipeSiteService';
 import { logServiceOperation, logServiceError } from './baseService';
+import { parseIngredientQuantity, normalizeItemName } from '../utils/ingredientQuantityParser';
 
 /**
  * Recipe Import Service
@@ -124,39 +125,33 @@ export const recipeImportService = {
    * Check ingredient availability with detailed matching information
    * Returns matching items and counts for dashboard cross-reference
    * Excludes pantry items that are already in the shopping list
+   * Accounts for reserved quantities from other planned meals
    */
   checkIngredientAvailabilityDetailed(
     ingredient: string,
     pantryItems: FoodItem[],
-    shoppingListItems: ShoppingListItem[] = []
+    shoppingListItems: ShoppingListItem[] = [],
+    reservedQuantitiesMap: Record<string, number> = {}
   ): {
     status: 'available' | 'missing' | 'partial';
     matchingItems: FoodItem[];
     count: number;
+    availableQuantity: number; // Total available quantity across all matches
+    neededQuantity: number | null; // Quantity needed from ingredient string
   } {
-    const normalizedIngredient = ingredient.toLowerCase().trim();
-    
-    // Remove common measurement words and quantities for better matching
-    const measurementWords = ['cup', 'cups', 'tbsp', 'tsp', 'oz', 'lb', 'lbs', 'g', 'kg', 'ml', 'l', 'piece', 'pieces', 'clove', 'cloves', 'tablespoon', 'tablespoons', 'teaspoon', 'teaspoons'];
-    const quantityPattern = /^[\d\s½¼¾⅓⅔⅛⅜⅝⅞]+/;
-    
-    let cleanedIngredient = normalizedIngredient;
-    // Remove quantities at the start
-    cleanedIngredient = cleanedIngredient.replace(quantityPattern, '').trim();
-    // Remove measurement words
-    cleanedIngredient = measurementWords.reduce((text, word) => {
-      const regex = new RegExp(`\\b${word}\\b`, 'gi');
-      return text.replace(regex, '').trim();
-    }, cleanedIngredient);
+    // Parse quantity and item name from ingredient
+    const parsed = parseIngredientQuantity(ingredient);
+    const neededQuantity = parsed.quantity;
+    const normalizedItemName = normalizeItemName(parsed.itemName);
     
     // Get shopping list item names (normalized, excluding crossed-off items)
     const shoppingListItemNames = shoppingListItems
       .filter(item => !item.crossedOff)
-      .map(item => item.name.toLowerCase().trim());
+      .map(item => normalizeItemName(item.name));
     
     // Helper function to check if a pantry item name matches any shopping list item
     const isInShoppingList = (pantryItemName: string): boolean => {
-      const normalizedPantryName = pantryItemName.toLowerCase().trim();
+      const normalizedPantryName = normalizeItemName(pantryItemName);
       return shoppingListItemNames.some(shoppingName => {
         // Check for exact match or substring match
         return normalizedPantryName === shoppingName ||
@@ -167,6 +162,7 @@ export const recipeImportService = {
     
     // Find matching items (excluding those in shopping list)
     const matchingItems: FoodItem[] = [];
+    let totalAvailableQuantity = 0;
     
     pantryItems.forEach(item => {
       // Skip if this pantry item is already in the shopping list
@@ -174,43 +170,223 @@ export const recipeImportService = {
         return;
       }
       
-      const normalizedItemName = item.name.toLowerCase();
-      const itemWords = normalizedItemName.split(/\s+/);
-      const ingredientWords = cleanedIngredient.split(/\s+/);
+      const normalizedPantryName = normalizeItemName(item.name);
+      const pantryItemWords = normalizedPantryName.split(/\s+/);
+      const ingredientWords = normalizedItemName.split(/\s+/);
+      
+      let isMatch = false;
       
       // Check for exact match
-      if (cleanedIngredient === normalizedItemName || normalizedItemName === cleanedIngredient) {
-        matchingItems.push(item);
-        return;
+      if (normalizedItemName === normalizedPantryName || normalizedPantryName === normalizedItemName) {
+        isMatch = true;
       }
-      
       // Check if ingredient contains item name or vice versa
-      if (cleanedIngredient.includes(normalizedItemName) || normalizedItemName.includes(cleanedIngredient)) {
-        matchingItems.push(item);
-        return;
+      else if (normalizedItemName.includes(normalizedPantryName) || normalizedPantryName.includes(normalizedItemName)) {
+        isMatch = true;
+      }
+      // Check for word overlap (at least 2 words match)
+      else {
+        const matchingWords = pantryItemWords.filter(word => 
+          word.length > 2 && ingredientWords.some(ingWord => 
+            ingWord.includes(word) || word.includes(ingWord)
+          )
+        );
+        
+        if (matchingWords.length >= Math.min(2, pantryItemWords.length)) {
+          isMatch = true;
+        }
       }
       
-      // Check for word overlap (at least 2 words match)
-      const matchingWords = itemWords.filter(word => 
-        word.length > 2 && ingredientWords.some(ingWord => 
-          ingWord.includes(word) || word.includes(ingWord)
-        )
-      );
-      
-      if (matchingWords.length >= Math.min(2, itemWords.length)) {
+      if (isMatch) {
         matchingItems.push(item);
+        
+        // Calculate available quantity for this item
+        const pantryQuantity = item.quantity || 1; // Default to 1 if no quantity specified
+        const reservedQty = reservedQuantitiesMap[normalizedPantryName] || 0;
+        const availableQty = Math.max(0, pantryQuantity - reservedQty);
+        totalAvailableQuantity += availableQty;
       }
     });
 
     const count = matchingItems.length;
     
+    // Determine status based on available quantity vs needed quantity
     if (count === 0) {
-      return { status: 'missing', matchingItems: [], count: 0 };
-    } else if (count === 1 && matchingItems[0].name.toLowerCase() === cleanedIngredient) {
-      return { status: 'available', matchingItems, count };
-    } else {
-      return { status: 'partial', matchingItems, count };
+      return { 
+        status: 'missing', 
+        matchingItems: [], 
+        count: 0,
+        availableQuantity: 0,
+        neededQuantity
+      };
     }
+    
+    // If no quantity specified, treat as available if we have matches
+    if (neededQuantity === null) {
+      return {
+        status: totalAvailableQuantity > 0 ? 'available' : 'missing',
+        matchingItems,
+        count,
+        availableQuantity: totalAvailableQuantity,
+        neededQuantity: null
+      };
+    }
+    
+    // Check if we have enough quantity
+    if (totalAvailableQuantity >= neededQuantity) {
+      return {
+        status: 'available',
+        matchingItems,
+        count,
+        availableQuantity: totalAvailableQuantity,
+        neededQuantity
+      };
+    } else if (totalAvailableQuantity > 0) {
+      return {
+        status: 'partial',
+        matchingItems,
+        count,
+        availableQuantity: totalAvailableQuantity,
+        neededQuantity
+      };
+    } else {
+      return {
+        status: 'missing',
+        matchingItems,
+        count,
+        availableQuantity: 0,
+        neededQuantity
+      };
+    }
+  },
+
+  /**
+   * Calculate reserved quantities from all planned meals
+   * Returns a map of normalized item names to reserved quantities
+   */
+  calculateReservedQuantities(
+    plannedMeals: PlannedMeal[],
+    pantryItems: FoodItem[]
+  ): Record<string, number> {
+    const reservedMap: Record<string, number> = {};
+    
+    plannedMeals.forEach(meal => {
+      // Use recipeIngredients if available, otherwise suggestedIngredients
+      const ingredients = meal.recipeIngredients || meal.suggestedIngredients || [];
+      
+      ingredients.forEach(ingredient => {
+        const parsed = parseIngredientQuantity(ingredient);
+        if (parsed.quantity === null) return; // Skip ingredients without quantities
+        
+        const normalizedItemName = normalizeItemName(parsed.itemName);
+        const neededQty = parsed.quantity;
+        
+        // Find matching pantry items
+        const matchingItems = pantryItems.filter(item => {
+          const normalizedPantryName = normalizeItemName(item.name);
+          const pantryWords = normalizedPantryName.split(/\s+/);
+          const ingredientWords = normalizedItemName.split(/\s+/);
+          
+          // Exact match
+          if (normalizedItemName === normalizedPantryName) return true;
+          
+          // Substring match
+          if (normalizedItemName.includes(normalizedPantryName) || normalizedPantryName.includes(normalizedItemName)) {
+            return true;
+          }
+          
+          // Word overlap
+          const matchingWords = pantryWords.filter(word => 
+            word.length > 2 && ingredientWords.some(ingWord => 
+              ingWord.includes(word) || word.includes(ingWord)
+            )
+          );
+          
+          return matchingWords.length >= Math.min(2, pantryWords.length);
+        });
+        
+        // Reserve quantity from matching pantry items
+        let remainingNeeded = neededQty;
+        matchingItems.forEach(item => {
+          if (remainingNeeded <= 0) return;
+          
+          const pantryQty = item.quantity || 1;
+          const normalizedPantryName = normalizeItemName(item.name);
+          const alreadyReserved = reservedMap[normalizedPantryName] || 0;
+          const available = Math.max(0, pantryQty - alreadyReserved);
+          
+          if (available > 0) {
+            const toReserve = Math.min(remainingNeeded, available);
+            reservedMap[normalizedPantryName] = (reservedMap[normalizedPantryName] || 0) + toReserve;
+            remainingNeeded -= toReserve;
+          }
+        });
+      });
+    });
+    
+    return reservedMap;
+  },
+
+  /**
+   * Calculate reserved quantities for a single meal
+   * Used when saving a meal to store reservedQuantities
+   */
+  calculateMealReservedQuantities(
+    ingredients: string[],
+    pantryItems: FoodItem[]
+  ): Record<string, number> {
+    const reservedMap: Record<string, number> = {};
+    
+    ingredients.forEach(ingredient => {
+      const parsed = parseIngredientQuantity(ingredient);
+      if (parsed.quantity === null) return; // Skip ingredients without quantities
+      
+      const normalizedItemName = normalizeItemName(parsed.itemName);
+      const neededQty = parsed.quantity;
+      
+      // Find matching pantry items
+      const matchingItems = pantryItems.filter(item => {
+        const normalizedPantryName = normalizeItemName(item.name);
+        const pantryWords = normalizedPantryName.split(/\s+/);
+        const ingredientWords = normalizedItemName.split(/\s+/);
+        
+        // Exact match
+        if (normalizedItemName === normalizedPantryName) return true;
+        
+        // Substring match
+        if (normalizedItemName.includes(normalizedPantryName) || normalizedPantryName.includes(normalizedItemName)) {
+          return true;
+        }
+        
+        // Word overlap
+        const matchingWords = pantryWords.filter(word => 
+          word.length > 2 && ingredientWords.some(ingWord => 
+            ingWord.includes(word) || word.includes(ingWord)
+          )
+        );
+        
+        return matchingWords.length >= Math.min(2, pantryWords.length);
+      });
+      
+      // Reserve quantity from matching pantry items
+      let remainingNeeded = neededQty;
+      matchingItems.forEach(item => {
+        if (remainingNeeded <= 0) return;
+        
+        const pantryQty = item.quantity || 1;
+        const normalizedPantryName = normalizeItemName(item.name);
+        const alreadyReserved = reservedMap[normalizedPantryName] || 0;
+        const available = Math.max(0, pantryQty - alreadyReserved);
+        
+        if (available > 0) {
+          const toReserve = Math.min(remainingNeeded, available);
+          reservedMap[normalizedPantryName] = (reservedMap[normalizedPantryName] || 0) + toReserve;
+          remainingNeeded -= toReserve;
+        }
+      });
+    });
+    
+    return reservedMap;
   }
 };
 

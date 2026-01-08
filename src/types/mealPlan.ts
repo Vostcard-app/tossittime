@@ -91,6 +91,8 @@ export interface PlannedMeal {
   recipeSourceUrl?: string | null;
   recipeSourceDomain?: string | null;
   recipeImageUrl?: string | null;
+  // Reserved quantities for this meal (maps normalized item name to quantity)
+  reservedQuantities?: Record<string, number>;
 }
 
 /**

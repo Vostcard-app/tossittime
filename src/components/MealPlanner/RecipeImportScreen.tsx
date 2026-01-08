@@ -11,6 +11,7 @@ import { recipeImportService, mealPlanningService, foodItemService, shoppingList
 import type { RecipeImportResult } from '../../types/recipeImport';
 import type { MealType, PlannedMeal, FoodItem } from '../../types';
 import { showToast } from '../Toast';
+import { startOfWeek, addDays } from 'date-fns';
 
 interface RecipeImportScreenProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
   const [userShoppingLists, setUserShoppingLists] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
   const [shoppingListItems, setShoppingListItems] = useState<any[]>([]);
+  const [reservedQuantitiesMap, setReservedQuantitiesMap] = useState<Record<string, number>>({});
 
   // Load pantry items (dashboard items) for cross-reference
   useEffect(() => {
@@ -50,11 +52,11 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
     return () => unsubscribe();
   }, [user, isOpen]);
 
-  // Load shopping lists and items
+  // Load shopping lists and items, and calculate reserved quantities
   useEffect(() => {
     if (!user || !isOpen) return;
 
-    const loadShoppingLists = async () => {
+    const loadData = async () => {
       try {
         setLoadingLists(true);
         const lists = await shoppingListsService.getShoppingLists(user.uid);
@@ -71,31 +73,57 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
         } else {
           setShoppingListItems([]);
         }
+
+        // Load all planned meals to calculate reserved quantities
+        const today = new Date();
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        const allMeals: PlannedMeal[] = [];
+        let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+        while (weekStart <= monthEnd) {
+          const plan = await mealPlanningService.getMealPlan(user.uid, weekStart);
+          if (plan) {
+            allMeals.push(...plan.meals);
+          }
+          weekStart = addDays(weekStart, 7);
+        }
+        
+        // Calculate reserved quantities (excluding the current meal being edited)
+        const reservedMap = recipeImportService.calculateReservedQuantities(allMeals, pantryItems);
+        setReservedQuantitiesMap(reservedMap);
       } catch (error) {
-        console.error('Error loading shopping lists:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoadingLists(false);
       }
     };
 
-    loadShoppingLists();
-  }, [user, isOpen]);
+    loadData();
+  }, [user, isOpen, pantryItems]);
 
-  // Check ingredient availability against pantry items (excluding shopping list items)
+  // Check ingredient availability against pantry items (excluding shopping list items and reserved quantities)
   const ingredientStatuses = useMemo(() => {
     if (!importedRecipe) return [];
     
     return importedRecipe.ingredients.map((ingredient, index) => {
-      const matchResult = recipeImportService.checkIngredientAvailabilityDetailed(ingredient, pantryItems, shoppingListItems);
+      const matchResult = recipeImportService.checkIngredientAvailabilityDetailed(
+        ingredient, 
+        pantryItems, 
+        shoppingListItems,
+        reservedQuantitiesMap
+      );
       return {
         ingredient,
         index,
         status: matchResult.status,
         matchingItems: matchResult.matchingItems,
-        count: matchResult.count
+        count: matchResult.count,
+        availableQuantity: matchResult.availableQuantity,
+        neededQuantity: matchResult.neededQuantity
       };
     });
-  }, [importedRecipe, pantryItems, shoppingListItems]);
+  }, [importedRecipe, pantryItems, shoppingListItems, reservedQuantitiesMap]);
 
   // Set default selections (only missing items selected by default)
   useEffect(() => {
@@ -156,6 +184,12 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
 
     setSaving(true);
     try {
+      // Calculate reserved quantities for this meal
+      const reservedQuantities = recipeImportService.calculateMealReservedQuantities(
+        importedRecipe.ingredients,
+        pantryItems
+      );
+
       // Create a planned meal from the recipe
       const plannedMeal: PlannedMeal = {
         id: `recipe-${Date.now()}`,
@@ -173,7 +207,8 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
         recipeIngredients: importedRecipe.ingredients,
         recipeSourceUrl: importedRecipe.sourceUrl,
         recipeSourceDomain: importedRecipe.sourceDomain,
-        recipeImageUrl: importedRecipe.imageUrl
+        recipeImageUrl: importedRecipe.imageUrl,
+        reservedQuantities
       };
 
       // Get or create meal plan for this week
@@ -416,7 +451,7 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
                     )}
                   </div>
                   <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.5rem' }}>
-                    {ingredientStatuses.map(({ ingredient, index, status, count }) => {
+                    {ingredientStatuses.map(({ ingredient, index, status, count, availableQuantity, neededQuantity }) => {
                       const isAvailable = status === 'available' || status === 'partial';
                       const backgroundColor = isAvailable 
                         ? (selectedIngredientIndices.has(index) ? '#d1fae5' : '#ecfdf5')
@@ -477,7 +512,9 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
                                 marginRight: '0.5rem'
                               }}
                             >
-                              {count} in dashboard
+                              {neededQuantity !== null && availableQuantity !== undefined
+                                ? `${availableQuantity} available (need ${neededQuantity})`
+                                : `${count} in dashboard`}
                             </span>
                           )}
                           <span
