@@ -262,29 +262,31 @@ const PlannedMealCalendar: React.FC = () => {
                           gap: '0.25rem'
                         }}
                         title={meal.mealName}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (meal.recipeSourceUrl) {
-                            window.open(meal.recipeSourceUrl, '_blank', 'noopener,noreferrer');
-                          }
-                        }}
                       >
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {MEAL_TYPE_LABELS[meal.mealType]}: {meal.mealName}
-                        </span>
-                        {meal.recipeSourceUrl && (
-                          <span
-                            style={{
-                              fontSize: '0.625rem',
-                              cursor: 'pointer',
-                              opacity: 0.8,
-                              textDecoration: 'underline'
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                          <a
+                            href={meal.recipeSourceUrl || '#'}
+                            target={meal.recipeSourceUrl ? "_blank" : undefined}
+                            rel={meal.recipeSourceUrl ? "noopener noreferrer" : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!meal.recipeSourceUrl) {
+                                e.preventDefault();
+                              }
                             }}
-                            title="View recipe"
+                            style={{
+                              color: '#ffffff',
+                              textDecoration: 'underline',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              display: 'block',
+                              width: '100%'
+                            }}
+                            title={meal.recipeSourceUrl ? `${meal.mealName} - View recipe` : meal.mealName}
                           >
-                            🔗
-                          </span>
-                        )}
+                            {MEAL_TYPE_LABELS[meal.mealType]}
+                          </a>
+                        </span>
                       </div>
                     ))}
                     {dayMeals.length > 3 && (
