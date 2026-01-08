@@ -21,11 +21,9 @@ const FavoriteWebsites: React.FC = () => {
   const [editingSite, setEditingSite] = useState<RecipeSite | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editBaseUrl, setEditBaseUrl] = useState('');
-  const [editSearchTemplateUrl, setEditSearchTemplateUrl] = useState('');
   const [showAddNew, setShowAddNew] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newBaseUrl, setNewBaseUrl] = useState('');
-  const [newSearchTemplateUrl, setNewSearchTemplateUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Load recipe sites
@@ -81,14 +79,12 @@ const FavoriteWebsites: React.FC = () => {
     setEditingSite(site);
     setEditLabel(site.label);
     setEditBaseUrl(site.baseUrl);
-    setEditSearchTemplateUrl(site.searchTemplateUrl);
   };
 
   const handleCancelEdit = () => {
     setEditingSite(null);
     setEditLabel('');
     setEditBaseUrl('');
-    setEditSearchTemplateUrl('');
   };
 
   const handleSaveEdit = async () => {
@@ -103,7 +99,7 @@ const FavoriteWebsites: React.FC = () => {
       await recipeSiteService.updateRecipeSite(editingSite.id, {
         label: editLabel.trim(),
         baseUrl: editBaseUrl.trim(),
-        searchTemplateUrl: editSearchTemplateUrl.trim() || '', // Allow empty
+        searchTemplateUrl: '', // Always empty - users paste manually on home page
         enabled: editingSite.enabled
       });
       
@@ -138,7 +134,7 @@ const FavoriteWebsites: React.FC = () => {
       await recipeSiteService.createRecipeSite({
         label: newLabel.trim(),
         baseUrl: newBaseUrl.trim(),
-        searchTemplateUrl: newSearchTemplateUrl.trim() || '', // Allow empty
+        searchTemplateUrl: '', // Always empty - users paste manually on home page
         enabled: true // Add as favorite by default
       });
       
@@ -166,7 +162,6 @@ const FavoriteWebsites: React.FC = () => {
     setShowAddNew(false);
     setNewLabel('');
     setNewBaseUrl('');
-    setNewSearchTemplateUrl('');
   };
 
   const handleAddToFavorites = async (site: RecipeSite) => {
@@ -270,28 +265,6 @@ const FavoriteWebsites: React.FC = () => {
                   }}
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  Search Template URL (optional - use {`{query}`} for search term):
-                </label>
-                <input
-                  type="text"
-                  value={newSearchTemplateUrl}
-                  onChange={(e) => setNewSearchTemplateUrl(e.target.value)}
-                  placeholder="https://example.com/search?q={query} (leave empty if site has no search)"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
-                  If left empty, the base URL will open and you can paste ingredients manually.
-                </p>
-              </div>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button
                   onClick={handleCancelAddNew}
@@ -393,28 +366,6 @@ const FavoriteWebsites: React.FC = () => {
                           }}
                         />
                       </div>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                          Search Template URL (optional - use {`{query}`} for search term):
-                        </label>
-                        <input
-                          type="text"
-                          value={editSearchTemplateUrl}
-                          onChange={(e) => setEditSearchTemplateUrl(e.target.value)}
-                          placeholder="https://example.com/search?q={query} (leave empty if site has no search)"
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            fontSize: '1rem',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
-                          If left empty, the base URL will open and you can paste ingredients manually.
-                        </p>
-                      </div>
                       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                         <button
                           onClick={handleCancelEdit}
@@ -455,11 +406,8 @@ const FavoriteWebsites: React.FC = () => {
                         <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: '600' }}>
                           {site.label}
                         </h3>
-                        <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
                           {site.baseUrl}
-                        </p>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                          {site.searchTemplateUrl ? `Search: ${site.searchTemplateUrl}` : 'No search URL - paste ingredients manually'}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -527,11 +475,8 @@ const FavoriteWebsites: React.FC = () => {
                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: '600' }}>
                       {site.label}
                     </h3>
-                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
                       {site.baseUrl}
-                    </p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                      Search: {site.searchTemplateUrl}
                     </p>
                   </div>
                   <button

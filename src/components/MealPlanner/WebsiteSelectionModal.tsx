@@ -56,17 +56,10 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
 
   const handleSearchSite = (site: RecipeSite) => {
     const query = selectedIngredients.join(' ');
-    const searchUrl = recipeImportService.buildSearchUrl(site, query);
-    
-    // Check if this site has a search template
-    const hasSearchTemplate = site.searchTemplateUrl && site.searchTemplateUrl.includes('{query}');
-    
-    window.open(searchUrl, '_blank');
-    
-    // If no search template, show a toast reminder
-    if (!hasSearchTemplate) {
-      showToast(`Opened ${site.label}. Paste your ingredients: ${query}`, 'info');
-    }
+    // Always open base URL - users will paste ingredients manually on the site
+    window.open(site.baseUrl, '_blank');
+    // Show reminder with ingredients to paste
+    showToast(`Opened ${site.label}. Paste your ingredients: ${query}`, 'info');
   };
 
   const handleGoogleSearch = () => {
