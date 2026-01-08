@@ -774,6 +774,35 @@ export const mealPlanningService = {
       logServiceError('getWasteRiskItems', 'mealPlans', error, { userId });
       throw toServiceError(error, 'mealPlans');
     }
+  },
+
+  /**
+   * Load all planned meals for a given month
+   * Returns an array of all PlannedMeal objects across all meal plans in the month
+   */
+  async loadAllPlannedMealsForMonth(userId: string, monthDate: Date = new Date()): Promise<PlannedMeal[]> {
+    logServiceOperation('loadAllPlannedMealsForMonth', 'mealPlans', { userId, monthDate });
+
+    try {
+      const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      
+      const allMeals: PlannedMeal[] = [];
+      let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+      
+      while (weekStart <= monthEnd) {
+        const plan = await this.getMealPlan(userId, weekStart);
+        if (plan) {
+          allMeals.push(...plan.meals);
+        }
+        weekStart = addDays(weekStart, 7);
+      }
+      
+      return allMeals;
+    } catch (error) {
+      logServiceError('loadAllPlannedMealsForMonth', 'mealPlans', error, { userId, monthDate });
+      throw toServiceError(error, 'mealPlans');
+    }
   }
 };
 

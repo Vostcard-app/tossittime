@@ -4,13 +4,14 @@
  * Shows ingredients with checkboxes for selection before saving
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
-import { recipeImportService, mealPlanningService, foodItemService, shoppingListService, shoppingListsService } from '../../services';
-import type { MealType, PlannedMeal, FoodItem } from '../../types';
+import { recipeImportService, mealPlanningService, shoppingListService } from '../../services';
+import type { MealType, PlannedMeal } from '../../types';
 import { showToast } from '../Toast';
-import { startOfWeek, addDays } from 'date-fns';
+import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
+import { IngredientChecklist } from './IngredientChecklist';
 
 interface CustomMealIngredientScreenProps {
   isOpen: boolean;
@@ -35,98 +36,21 @@ export const CustomMealIngredientScreen: React.FC<CustomMealIngredientScreenProp
 }) => {
   const [user] = useAuthState(auth);
   const [saving, setSaving] = useState(false);
-  const [pantryItems, setPantryItems] = useState<FoodItem[]>([]);
   const [selectedIngredientIndices, setSelectedIngredientIndices] = useState<Set<number>>(new Set());
-  const [targetListId, setTargetListId] = useState<string | null>(null);
-  const [userShoppingLists, setUserShoppingLists] = useState<any[]>([]);
-  const [loadingLists, setLoadingLists] = useState(false);
   const [mealName, setMealName] = useState('');
-  const [shoppingListItems, setShoppingListItems] = useState<any[]>([]);
-  const [reservedQuantitiesMap, setReservedQuantitiesMap] = useState<Record<string, number>>({});
 
-  // Load pantry items (dashboard items) for cross-reference
-  useEffect(() => {
-    if (!user || !isOpen) return;
-
-    const unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
-      setPantryItems(items);
-    });
-
-    return () => unsubscribe();
-  }, [user, isOpen]);
-
-  // Load shopping lists and items, and calculate reserved quantities
-  useEffect(() => {
-    if (!user || !isOpen) return;
-
-    const loadData = async () => {
-      try {
-        setLoadingLists(true);
-        const lists = await shoppingListsService.getShoppingLists(user.uid);
-        setUserShoppingLists(lists);
-        
-        // Set default list
-        const defaultList = lists.find(list => list.isDefault) || lists[0];
-        if (defaultList) {
-          setTargetListId(defaultList.id);
-          
-          // Load shopping list items from default list
-          const items = await shoppingListService.getShoppingListItems(user.uid, defaultList.id);
-          setShoppingListItems(items);
-        } else {
-          setShoppingListItems([]);
-        }
-
-        // Load all planned meals to calculate reserved quantities
-        const today = new Date();
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        
-        const allMeals: PlannedMeal[] = [];
-        let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-        while (weekStart <= monthEnd) {
-          const plan = await mealPlanningService.getMealPlan(user.uid, weekStart);
-          if (plan) {
-            allMeals.push(...plan.meals);
-          }
-          weekStart = addDays(weekStart, 7);
-        }
-        
-        // Calculate reserved quantities
-        const reservedMap = recipeImportService.calculateReservedQuantities(allMeals, pantryItems);
-        setReservedQuantitiesMap(reservedMap);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoadingLists(false);
-      }
-    };
-
-    loadData();
-  }, [user, isOpen, pantryItems]);
-
-  // Check ingredient availability against pantry items (excluding shopping list items and reserved quantities)
-  const ingredientStatuses = useMemo(() => {
-    if (!ingredients || ingredients.length === 0) return [];
-    
-    return ingredients.map((ingredient, index) => {
-      const matchResult = recipeImportService.checkIngredientAvailabilityDetailed(
-        ingredient, 
-        pantryItems, 
-        shoppingListItems,
-        reservedQuantitiesMap
-      );
-      return {
-        ingredient,
-        index,
-        status: matchResult.status,
-        matchingItems: matchResult.matchingItems,
-        count: matchResult.count,
-        availableQuantity: matchResult.availableQuantity,
-        neededQuantity: matchResult.neededQuantity
-      };
-    });
-  }, [ingredients, pantryItems, shoppingListItems, reservedQuantitiesMap]);
+  // Use the custom hook for ingredient availability
+  const {
+    pantryItems,
+    ingredientStatuses,
+    loading: loadingLists,
+    userShoppingLists,
+    targetListId,
+    setTargetListId
+  } = useIngredientAvailability(
+    ingredients,
+    { isOpen }
+  );
 
   // Set default selections (only missing items selected by default)
   useEffect(() => {
@@ -335,89 +259,11 @@ export const CustomMealIngredientScreen: React.FC<CustomMealIngredientScreenProp
                     </div>
                   )}
                 </div>
-                <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.5rem' }}>
-                  {ingredientStatuses.map(({ ingredient, index, status, count, availableQuantity, neededQuantity }) => {
-                    const isAvailable = status === 'available' || status === 'partial';
-                    const backgroundColor = isAvailable 
-                      ? (selectedIngredientIndices.has(index) ? '#d1fae5' : '#ecfdf5')
-                      : (selectedIngredientIndices.has(index) ? '#fee2e2' : '#fef2f2');
-                    const borderColor = isAvailable ? '#10b981' : '#ef4444';
-                    const badgeBg = isAvailable ? '#10b981' : '#ef4444';
-
-                    return (
-                      <label
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '0.75rem',
-                          cursor: 'pointer',
-                          borderRadius: '4px',
-                          marginBottom: '0.25rem',
-                          backgroundColor,
-                          border: `2px solid ${borderColor}`,
-                          transition: 'background-color 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (isAvailable) {
-                            e.currentTarget.style.backgroundColor = selectedIngredientIndices.has(index) ? '#a7f3d0' : '#d1fae5';
-                          } else {
-                            e.currentTarget.style.backgroundColor = selectedIngredientIndices.has(index) ? '#fecaca' : '#fee2e2';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (isAvailable) {
-                            e.currentTarget.style.backgroundColor = selectedIngredientIndices.has(index) ? '#d1fae5' : '#ecfdf5';
-                          } else {
-                            e.currentTarget.style.backgroundColor = selectedIngredientIndices.has(index) ? '#fee2e2' : '#fef2f2';
-                          }
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedIngredientIndices.has(index)}
-                          onChange={() => toggleIngredient(index)}
-                          style={{
-                            marginRight: '0.75rem',
-                            width: '1.25rem',
-                            height: '1.25rem',
-                            cursor: 'pointer'
-                          }}
-                        />
-                        <span style={{ flex: 1, fontSize: '0.875rem', color: '#1f2937' }}>{ingredient}</span>
-                        {isAvailable && count > 0 && (
-                          <span
-                            style={{
-                              fontSize: '0.75rem',
-                              padding: '0.25rem 0.5rem',
-                              borderRadius: '12px',
-                              fontWeight: '600',
-                              backgroundColor: badgeBg,
-                              color: '#ffffff',
-                              marginRight: '0.5rem'
-                            }}
-                          >
-                            {neededQuantity !== null && availableQuantity !== undefined
-                              ? `${availableQuantity} available (need ${neededQuantity})`
-                              : `${count} in dashboard`}
-                          </span>
-                        )}
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '4px',
-                            fontWeight: '500',
-                            backgroundColor: badgeBg,
-                            color: '#ffffff'
-                          }}
-                        >
-                          {isAvailable ? (status === 'partial' ? 'Partial' : 'Available') : 'Missing'}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <IngredientChecklist
+                  ingredientStatuses={ingredientStatuses}
+                  selectedIngredientIndices={selectedIngredientIndices}
+                  onToggleIngredient={toggleIngredient}
+                />
               </div>
 
               {/* Shopping List Selection */}
