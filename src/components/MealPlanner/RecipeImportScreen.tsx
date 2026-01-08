@@ -17,13 +17,15 @@ interface RecipeImportScreenProps {
   onClose: () => void;
   selectedDate: Date;
   selectedMealType: MealType;
+  selectedIngredients?: string[]; // Originally selected ingredients from ingredient picker
 }
 
 export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
   isOpen,
   onClose,
   selectedDate,
-  selectedMealType
+  selectedMealType,
+  selectedIngredients = []
 }) => {
   const [user] = useAuthState(auth);
   const [urlInput, setUrlInput] = useState('');
@@ -71,7 +73,7 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
         mealType: selectedMealType,
         mealName: importedRecipe.title,
         finishBy: '18:00', // Default, can be updated later
-        suggestedIngredients: importedRecipe.ingredients,
+        suggestedIngredients: selectedIngredients.length > 0 ? selectedIngredients : importedRecipe.ingredients, // Use originally selected ingredients, fallback to recipe ingredients
         usesExpiringItems: [],
         confirmed: false,
         shoppingListItems: [],

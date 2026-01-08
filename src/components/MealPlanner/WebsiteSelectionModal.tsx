@@ -86,6 +86,7 @@ export const WebsiteSelectionModal: React.FC<WebsiteSelectionModalProps> = ({
         }}
         selectedDate={selectedDate}
         selectedMealType={selectedMealType}
+        selectedIngredients={selectedIngredients}
       />
     );
   }
