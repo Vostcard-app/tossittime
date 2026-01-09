@@ -52,6 +52,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   const [editedMealName, setEditedMealName] = useState('');
   const [editedDate, setEditedDate] = useState('');
   const [editedMealType, setEditedMealType] = useState<MealType>('breakfast');
+  const [editedIngredients, setEditedIngredients] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   if (!isOpen || !meal) return null;
@@ -62,6 +63,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       setEditedMealName(meal.recipeTitle || meal.mealName);
       setEditedDate(format(meal.date, 'yyyy-MM-dd'));
       setEditedMealType(meal.mealType);
+      setEditedIngredients(meal.recipeIngredients || meal.suggestedIngredients || []);
     }
   }, [meal]);
 
@@ -76,6 +78,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       setEditedMealName(meal.recipeTitle || meal.mealName);
       setEditedDate(format(meal.date, 'yyyy-MM-dd'));
       setEditedMealType(meal.mealType);
+      setEditedIngredients(meal.recipeIngredients || meal.suggestedIngredients || []);
     }
   };
 
@@ -105,6 +108,11 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         return;
       }
 
+      // Parse edited ingredients (split by newlines, filter empty lines, trim)
+      const parsedIngredients = editedIngredients
+        .map(ing => ing.trim())
+        .filter(ing => ing.length > 0);
+
       // Find and update the meal
       const updatedMeals = mealPlan.meals.map(m => {
         if (m.id === meal.id) {
@@ -116,7 +124,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
             mealName: editedMealName.trim(),
             recipeTitle: m.recipeSourceUrl ? editedMealName.trim() : undefined,
             date: newDate,
-            mealType: editedMealType
+            mealType: editedMealType,
+            recipeIngredients: parsedIngredients,
+            suggestedIngredients: parsedIngredients
           };
         }
         return m;
@@ -317,11 +327,31 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
           )}
 
           {/* Ingredients */}
-          {ingredients.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
-                Ingredients ({ingredients.length})
-              </h4>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
+              Ingredients {!isEditing && `(${ingredients.length})`}
+            </h4>
+            {isEditing ? (
+              <textarea
+                value={editedIngredients.join('\n')}
+                onChange={(e) => {
+                  const lines = e.target.value.split('\n');
+                  setEditedIngredients(lines);
+                }}
+                placeholder="Enter ingredients, one per line&#10;Example:&#10;2 cups flour&#10;1 cup sugar&#10;3 eggs"
+                style={{
+                  width: '100%',
+                  minHeight: '200px',
+                  padding: '0.75rem',
+                  fontSize: '0.875rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  lineHeight: '1.5'
+                }}
+              />
+            ) : ingredients.length > 0 ? (
               <div style={{ 
                 border: '1px solid #e5e7eb', 
                 borderRadius: '6px', 
@@ -338,8 +368,12 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
                   ))}
                 </ul>
               </div>
-            </div>
-          )}
+            ) : (
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' }}>
+                No ingredients listed.
+              </p>
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
