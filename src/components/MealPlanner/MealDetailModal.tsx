@@ -309,59 +309,26 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       // Delete all shopping list items associated with this meal
       await shoppingListService.deleteShoppingListItemsByMealId(user.uid, meal.id);
 
-      // Search for the meal across all weeks (search current month)
-      const today = new Date();
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      // Find the meal plan for the meal's date week
+      const mealDate = new Date(meal.date);
+      const mealWeekStart = new Date(mealDate);
+      mealWeekStart.setDate(mealDate.getDate() - mealDate.getDay()); // Start of week (Sunday)
+      mealWeekStart.setHours(0, 0, 0, 0);
       
-      // Search through all weeks in the current month
-      let weekStart = new Date(monthStart);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
-      weekStart.setHours(0, 0, 0, 0);
+      const mealPlan = await mealPlanningService.getMealPlan(user.uid, mealWeekStart);
       
-      let mealFound = false;
-      
-      while (weekStart <= monthEnd) {
-        const mealPlan = await mealPlanningService.getMealPlan(user.uid, weekStart);
+      if (mealPlan) {
+        const mealExists = mealPlan.meals.some(m => m.id === meal.id);
         
-        if (mealPlan) {
-          const mealExists = mealPlan.meals.some(m => m.id === meal.id);
-          
-          if (mealExists) {
-            // Remove the meal from the plan
-            const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
-            await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
-            mealFound = true;
-            break;
-          }
+        if (mealExists) {
+          // Remove the meal from the plan
+          const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
+          await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+        } else {
+          console.warn('Meal not found in meal plan for its date week');
         }
-        
-        // Move to next week
-        weekStart = new Date(weekStart);
-        weekStart.setDate(weekStart.getDate() + 7);
-      }
-
-      // If not found in current month, try the meal's date week
-      if (!mealFound) {
-        const mealWeekStart = new Date(meal.date);
-        mealWeekStart.setDate(meal.date.getDate() - meal.date.getDay());
-        mealWeekStart.setHours(0, 0, 0, 0);
-        
-        const mealPlan = await mealPlanningService.getMealPlan(user.uid, mealWeekStart);
-        
-        if (mealPlan) {
-          const mealExists = mealPlan.meals.some(m => m.id === meal.id);
-          
-          if (mealExists) {
-            const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
-            await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
-            mealFound = true;
-          }
-        }
-      }
-
-      if (!mealFound) {
-        console.warn('Meal not found in any meal plan, but continuing with deletion');
+      } else {
+        console.warn('Meal plan not found for meal date week');
       }
 
       showToast('Meal deleted successfully', 'success');
