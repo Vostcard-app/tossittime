@@ -7,7 +7,7 @@ import { useState, useMemo } from 'react';
 import { isDryCannedItem } from '../utils/storageUtils';
 import type { FoodItem } from '../types';
 
-type FilterType = 'all' | 'expiring_soon' | 'expired';
+type FilterType = 'all' | 'bestBySoon' | 'pastBestBy';
 
 export function useDashboardFilters(foodItems: FoodItem[]) {
   const [filter, setFilter] = useState<FilterType>('all');

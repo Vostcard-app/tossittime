@@ -43,7 +43,7 @@ const FoodItemCard: React.FC<FoodItemCardProps> = React.memo(({ item, onClick, o
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'transform 0.2s, box-shadow 0.2s',
-        border: `1px solid ${item.status === 'expired' ? '#fee2e2' : item.status === 'expiring_soon' ? '#fef3c7' : '#dcfce7'}`,
+        border: `1px solid ${item.status === 'pastBestBy' ? '#fee2e2' : item.status === 'bestBySoon' ? '#fef3c7' : '#dcfce7'}`,
         marginBottom: '1rem'
       }}
       onMouseEnter={(e) => {
@@ -81,19 +81,19 @@ const FoodItemCard: React.FC<FoodItemCardProps> = React.memo(({ item, onClick, o
 
       <div style={{ marginBottom: '0.5rem' }}>
         <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-          <strong>{item.isFrozen ? 'Thaws' : 'Expires'}:</strong> {
+          <strong>{item.isFrozen ? 'Thaws' : 'Best By'}:</strong> {
             item.isFrozen && item.thawDate 
               ? formatDate(item.thawDate)
-              : item.expirationDate 
-                ? formatDate(item.expirationDate)
+              : item.bestByDate 
+                ? formatDate(item.bestByDate)
                 : 'No date'
           }
         </p>
         <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
           {item.isFrozen && item.thawDate
             ? formatRelativeDate(item.thawDate)
-            : item.expirationDate
-              ? formatRelativeDate(item.expirationDate)
+            : item.bestByDate
+              ? formatRelativeDate(item.bestByDate)
               : ''
           }
         </p>

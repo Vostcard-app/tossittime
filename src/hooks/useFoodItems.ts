@@ -32,7 +32,7 @@ export const useFoodItems = (user: User | null) => {
         const currentReminderDays = settings?.reminderDays || 7;
         const updatedItems = items.map(item => ({
           ...item,
-          status: item.isFrozen ? 'fresh' : (item.expirationDate ? getFoodItemStatus(item.expirationDate, currentReminderDays) : 'fresh')
+          status: item.isFrozen ? 'fresh' : (item.bestByDate ? getFoodItemStatus(item.bestByDate, currentReminderDays) : 'fresh')
         }));
         setFoodItems(updatedItems);
         setLoading(false);

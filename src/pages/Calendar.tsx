@@ -29,7 +29,7 @@ const localizer = dateFnsLocalizer({
 interface CalendarEvent extends Event {
   resource: {
     itemId: string;
-    status: 'fresh' | 'expiring_soon' | 'expired';
+    status: 'fresh' | 'bestBySoon' | 'pastBestBy';
     rowIndex?: number; // For vertical stacking in day/week views
     isAdjacentToYellow?: boolean; // Flag for red expiration day adjacent to yellow span
     isThawDate?: boolean; // Flag for thaw date events (orange color)
@@ -94,9 +94,9 @@ const Calendar: React.FC = () => {
     // Items expiring/thawing today should be at the top, then tomorrow, etc.
     const today = startOfDay(new Date());
     const sortedItems = [...foodItems].sort((a, b) => {
-      // Use thawDate for frozen items, expirationDate for regular items
-      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.expirationDate ? new Date(a.expirationDate) : new Date());
-      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.expirationDate ? new Date(b.expirationDate) : new Date());
+      // Use thawDate for frozen items, bestByDate for regular items
+      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.bestByDate ? new Date(a.bestByDate) : new Date());
+      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.bestByDate ? new Date(b.bestByDate) : new Date());
       const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       // Sort by days until expiration/thaw (negative = past, 0 = today, positive = future)
@@ -108,9 +108,9 @@ const Calendar: React.FC = () => {
 
     sortedItems.forEach((item) => {
       const isFrozen = item.isFrozen || false;
-      // Use thawDate for frozen items, expirationDate for regular items
-      const dateField = isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
-      const expirationDate = new Date(dateField);
+      // Use thawDate for frozen items, bestByDate for regular items
+      const dateField = isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
+      const bestByDate = new Date(dateField);
 
       // Helper function to set time to midnight (00:00:00) for top positioning
       const setToMidnight = (date: Date): Date => {
@@ -138,7 +138,7 @@ const Calendar: React.FC = () => {
           end: setToEndOfDay(thawDate),
           resource: {
             itemId: item.id,
-            status: 'expiring_soon', // Use expiring_soon status but we'll override color to orange
+            status: 'bestBySoon', // Use bestBySoon status but we'll override color to orange
             rowIndex: rowIndex,
             isThawDate: true, // Flag to identify thaw date events
           },
@@ -149,17 +149,17 @@ const Calendar: React.FC = () => {
         return; // Don't process frozen items with normal expiration logic
       }
 
-      // For all items (fresh, expiring_soon, and expired), 
-      // Create: 2 yellow days (expiring soon), 2 blue days (freeze), 1 red day (expired)
+      // For all items (fresh, bestBySoon, and pastBestBy), 
+      // Create: 2 yellow days (best by soon), 2 blue days (freeze), 1 red day (past best by)
       // Create individual events for each day (works for both week and day/month views)
       // Day -4: Yellow (expiring soon)
         allEvents.push({
           title: item.name,
-        start: setToMidnight(addDays(expirationDate, -4)),
-        end: setToEndOfDay(addDays(expirationDate, -4)),
+        start: setToMidnight(addDays(bestByDate, -4)),
+        end: setToEndOfDay(addDays(bestByDate, -4)),
           resource: {
             itemId: item.id,
-          status: 'expiring_soon',
+          status: 'bestBySoon',
             rowIndex: rowIndex,
           },
         } as CalendarEvent);
@@ -167,11 +167,11 @@ const Calendar: React.FC = () => {
       // Day -3: Yellow (expiring soon)
       allEvents.push({
             title: item.name,
-        start: setToMidnight(addDays(expirationDate, -3)),
-        end: setToEndOfDay(addDays(expirationDate, -3)),
+        start: setToMidnight(addDays(bestByDate, -3)),
+        end: setToEndOfDay(addDays(bestByDate, -3)),
             resource: {
               itemId: item.id,
-              status: 'expiring_soon',
+              status: 'bestBySoon',
               rowIndex: rowIndex,
             },
       } as CalendarEvent);
@@ -179,11 +179,11 @@ const Calendar: React.FC = () => {
       // Day -2: Blue (freeze)
           allEvents.push({
         title: item.name,
-        start: setToMidnight(addDays(expirationDate, -2)),
-        end: setToEndOfDay(addDays(expirationDate, -2)),
+        start: setToMidnight(addDays(bestByDate, -2)),
+        end: setToEndOfDay(addDays(bestByDate, -2)),
             resource: {
               itemId: item.id,
-          status: 'expiring_soon', // Use expiring_soon status but isFreezeDate will override color
+          status: 'bestBySoon', // Use expiring_soon status but isFreezeDate will override color
               rowIndex: rowIndex,
           isFreezeDate: true,
             },
@@ -192,24 +192,24 @@ const Calendar: React.FC = () => {
       // Day -1: Blue (freeze)
             allEvents.push({
               title: item.name,
-        start: setToMidnight(addDays(expirationDate, -1)),
-        end: setToEndOfDay(addDays(expirationDate, -1)),
+        start: setToMidnight(addDays(bestByDate, -1)),
+        end: setToEndOfDay(addDays(bestByDate, -1)),
               resource: {
                 itemId: item.id,
-          status: 'expiring_soon', // Use expiring_soon status but isFreezeDate will override color
+          status: 'bestBySoon', // Use expiring_soon status but isFreezeDate will override color
                 rowIndex: rowIndex,
           isFreezeDate: true,
               },
             } as CalendarEvent);
           
-      // Day 0: Red (expired)
+      // Day 0: Red (past best by)
           allEvents.push({
             title: item.name,
-            start: setToMidnight(expirationDate),
-            end: setToEndOfDay(expirationDate),
+            start: setToMidnight(bestByDate),
+            end: setToEndOfDay(bestByDate),
             resource: {
               itemId: item.id,
-          status: 'expired',
+          status: 'pastBestBy',
               rowIndex: rowIndex,
             },
           } as CalendarEvent);
@@ -217,15 +217,15 @@ const Calendar: React.FC = () => {
     });
 
     // Debug: Log all events by status
-    const expiringSoonEvents = allEvents.filter(e => e.resource.status === 'expiring_soon');
-    const expiredEvents = allEvents.filter(e => e.resource.status === 'expired');
+    const bestBySoonEvents = allEvents.filter(e => e.resource.status === 'bestBySoon');
+    const pastBestByEvents = allEvents.filter(e => e.resource.status === 'pastBestBy');
     
     // Get current week range for visibility check
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
     const weekEnd = addDays(weekStart, 6);
     
     // Check which yellow events intersect with current week
-    const visibleYellowEvents = expiringSoonEvents.filter(e => {
+    const visibleYellowEvents = bestBySoonEvents.filter(e => {
       if (!e.start || !e.end) return false;
       const eventStart = new Date(e.start);
       const eventEnd = new Date(e.end);
@@ -235,13 +235,13 @@ const Calendar: React.FC = () => {
     
     console.log('📅 Calendar events summary:', {
       total: allEvents.length,
-      expiring_soon: expiringSoonEvents.length,
-      expired: expiredEvents.length,
+      bestBySoon: bestBySoonEvents.length,
+      pastBestBy: pastBestByEvents.length,
       visible_yellow: visibleYellowEvents.length,
       currentView: currentView,
       currentDate: currentDate.toISOString().split('T')[0],
       weekRange: `${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`,
-      expiring_soon_details: expiringSoonEvents.map(e => ({
+      bestBySoon_details: bestBySoonEvents.map(e => ({
         title: e.title,
         start: e.start?.toISOString().split('T')[0],
         end: e.end ? new Date(e.end).toISOString().split('T')[0] : 'undefined',
@@ -250,19 +250,19 @@ const Calendar: React.FC = () => {
       }))
     });
     
-    // Verify: Ensure we have yellow events for all expiring_soon items
-    const expiringSoonItems = sortedItems.filter(item => {
-      // Use thawDate for frozen items, expirationDate for regular items
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+    // Verify: Ensure we have yellow events for all bestBySoon items
+    const bestBySoonItems = sortedItems.filter(item => {
+      // Use thawDate for frozen items, bestByDate for regular items
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
       const expDate = new Date(dateField);
       // Frozen items don't have expiration status, so always return false
       if (item.isFrozen) return false;
-      return getFoodItemStatus(expDate, 7) === 'expiring_soon';
+      return getFoodItemStatus(expDate, 7) === 'bestBySoon';
     });
-    if (expiringSoonItems.length > 0 && expiringSoonEvents.length === 0 && currentView === 'week') {
-      console.error('❌ ERROR: No yellow events created for expiring_soon items!', {
-        expiringSoonItemsCount: expiringSoonItems.length,
-        expiringSoonItems: expiringSoonItems.map(i => i.name)
+    if (bestBySoonItems.length > 0 && bestBySoonEvents.length === 0 && currentView === 'week') {
+      console.error('❌ ERROR: No yellow events created for bestBySoon items!', {
+        bestBySoonItemsCount: bestBySoonItems.length,
+        bestBySoonItems: bestBySoonItems.map(i => i.name)
       });
     }
 
@@ -272,7 +272,7 @@ const Calendar: React.FC = () => {
   // Custom event style function
   const eventStyleGetter = (event: CalendarEvent) => {
     // Debug: Log when eventStyleGetter is called for yellow events
-    if (event.resource.status === 'expiring_soon') {
+    if (event.resource.status === 'bestBySoon') {
       console.log('🎨 eventStyleGetter called for yellow event:', {
         title: event.title,
         start: event.start?.toISOString(),
@@ -374,14 +374,14 @@ const Calendar: React.FC = () => {
     // Get unique statuses for this day
     const statuses = new Set(dayEvents.map((e) => e.resource.status));
     const hasFresh = statuses.has('fresh');
-    const hasExpiring = statuses.has('expiring_soon');
-    const hasExpired = statuses.has('expired');
+    const hasBestBySoon = statuses.has('bestBySoon');
+    const hasPastBestBy = statuses.has('pastBestBy');
 
     // Store status info in data attributes for CSS
     const statusClasses = [];
     if (hasFresh) statusClasses.push('has-fresh');
-    if (hasExpiring) statusClasses.push('has-expiring');
-    if (hasExpired) statusClasses.push('has-expired');
+    if (hasBestBySoon) statusClasses.push('has-best-by-soon');
+    if (hasPastBestBy) statusClasses.push('has-past-best-by');
 
     return {
       className: `calendar-day-with-events ${statusClasses.join(' ')}`,
@@ -397,26 +397,26 @@ const Calendar: React.FC = () => {
       end: addDays(weekStart, 6)
     });
 
-    // Filter out expired items (items past their expiration/thaw date)
-    // Only show items that haven't expired/thawed yet - expired items fall off the calendar
-    // Frozen items use thawDate, regular items use expirationDate
+    // Filter out past best by items (items past their best by/thaw date)
+    // Only show items that haven't passed their best by/thaw date yet - past best by items fall off the calendar
+    // Frozen items use thawDate, regular items use bestByDate
     const today = startOfDay(new Date());
-    const nonExpiredItems = foodItems.filter(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
-      const expirationDate = new Date(dateField);
-      const expirationDay = startOfDay(expirationDate);
-      // Only show items that haven't expired/thawed yet (date is today or in the future)
-      const isNotExpired = expirationDay >= today;
-      if (!isNotExpired) {
-        const dateType = item.isFrozen ? 'thaw' : 'expiration';
-        console.log(`🔴 Filtered out expired item: ${item.name}, ${dateType}: ${expirationDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
+    const nonPastBestByItems = foodItems.filter(item => {
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
+      const bestByDate = new Date(dateField);
+      const bestByDay = startOfDay(bestByDate);
+      // Only show items that haven't passed their best by/thaw date yet (date is today or in the future)
+      const isNotPastBestBy = bestByDay >= today;
+      if (!isNotPastBestBy) {
+        const dateType = item.isFrozen ? 'thaw' : 'best by';
+        console.log(`🔴 Filtered out past best by item: ${item.name}, ${dateType}: ${bestByDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
       }
-      return isNotExpired;
+      return isNotPastBestBy;
     });
 
     // Debug: Log all items and their statuses
     console.log('📋 All food items:', foodItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
       return {
         name: item.name,
         isFrozen: item.isFrozen,
@@ -424,8 +424,8 @@ const Calendar: React.FC = () => {
         status: item.isFrozen ? 'fresh' : getFoodItemStatus(new Date(dateField), 7)
       };
     }));
-    console.log('✅ Non-expired items:', nonExpiredItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+    console.log('✅ Non-past best by items:', nonPastBestByItems.map(item => {
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
       return {
         name: item.name,
         isFrozen: item.isFrozen,
@@ -434,17 +434,17 @@ const Calendar: React.FC = () => {
       };
     }));
 
-    // Sort items by expiration/thaw proximity (soonest first)
-    const sortedItems = [...nonExpiredItems].sort((a, b) => {
-      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.expirationDate ? new Date(a.expirationDate) : new Date());
-      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.expirationDate ? new Date(b.expirationDate) : new Date());
+    // Sort items by best by/thaw proximity (soonest first)
+    const sortedItems = [...nonPastBestByItems].sort((a, b) => {
+      const dateA = a.isFrozen && a.thawDate ? new Date(a.thawDate) : (a.bestByDate ? new Date(a.bestByDate) : new Date());
+      const dateB = b.isFrozen && b.thawDate ? new Date(b.thawDate) : (b.bestByDate ? new Date(b.bestByDate) : new Date());
       const daysUntilA = Math.ceil((dateA.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntilA - daysUntilB;
     });
     
     console.log('📊 Sorted items for rendering:', sortedItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.expirationDate || new Date());
+      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
       const date = new Date(dateField);
       return {
         name: item.name,
@@ -661,22 +661,22 @@ const Calendar: React.FC = () => {
             }
             
             // Normal (non-frozen) items: Calculate 5-day span: 2 yellow, 2 blue, 1 red
-            // For non-frozen items, use expirationDate
-            if (!item.expirationDate) {
-              return null; // Skip items without expiration date
+            // For non-frozen items, use bestByDate
+            if (!item.bestByDate) {
+              return null; // Skip items without best by date
             }
-            const expirationDate = new Date(item.expirationDate);
-            const fourDaysBefore = addDays(expirationDate, -4);
-            const threeDaysBefore = addDays(expirationDate, -3);
-            const twoDaysBefore = addDays(expirationDate, -2);
-            const oneDayBefore = addDays(expirationDate, -1);
+            const bestByDate = new Date(item.bestByDate);
+            const fourDaysBefore = addDays(bestByDate, -4);
+            const threeDaysBefore = addDays(bestByDate, -3);
+            const twoDaysBefore = addDays(bestByDate, -2);
+            const oneDayBefore = addDays(bestByDate, -1);
             
             // Get column indices for the 5-day span
             const dayMinus4Col = getColumnIndex(fourDaysBefore);
             const dayMinus3Col = getColumnIndex(threeDaysBefore);
             const dayMinus2Col = getColumnIndex(twoDaysBefore);
             const dayMinus1Col = getColumnIndex(oneDayBefore);
-            const redCol = getColumnIndex(expirationDate);
+            const redCol = getColumnIndex(bestByDate);
             
             // Check if any part of the span intersects with week
             const spanIntersectsWeek = dayMinus4Col !== null || dayMinus3Col !== null || 
@@ -846,11 +846,11 @@ const Calendar: React.FC = () => {
     if (currentView === 'day') {
       // Find the original item to get expiration/thaw date
       const item = foodItems.find((i) => i.id === event.resource.itemId);
-      // Use thawDate for frozen items, expirationDate for regular items
-      const dateField = item && item.isFrozen && item.thawDate ? item.thawDate : (item?.expirationDate || null);
-      const expirationDate = dateField ? new Date(dateField) : null;
-      const formattedDate = expirationDate ? format(expirationDate, 'MMM d, yyyy') : '';
-      const dateLabel = item?.isFrozen ? 'Thaws' : 'Expires';
+      // Use thawDate for frozen items, bestByDate for regular items
+      const dateField = item && item.isFrozen && item.thawDate ? item.thawDate : (item?.bestByDate || null);
+      const bestByDate = dateField ? new Date(dateField) : null;
+      const formattedDate = bestByDate ? format(bestByDate, 'MMM d, yyyy') : '';
+      const dateLabel = item?.isFrozen ? 'Thaws' : 'Best By';
       
       return (
         <div 

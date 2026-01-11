@@ -162,15 +162,15 @@ const AddItem: React.FC = () => {
       }
 
       // Otherwise, proceed with adding/updating food item
-      // For frozen items: require thawDate, for non-frozen items: require expirationDate
+      // For frozen items: require thawDate, for non-frozen items: require bestByDate
       if (data.isFrozen) {
         if (!data.thawDate) {
           alert('Thaw date is required for frozen items');
           return;
         }
       } else {
-        if (!data.expirationDate) {
-          alert('Please select an expiration date or check "No expiration"');
+        if (!data.bestByDate) {
+          alert('Please select a best by date or check "No best by date"');
           return;
         }
       }
@@ -182,8 +182,8 @@ const AddItem: React.FC = () => {
       }
 
       // Build itemData without undefined fields
-      // For frozen items: include thawDate, exclude expirationDate
-      // For non-frozen items: include expirationDate, exclude thawDate
+      // For frozen items: include thawDate, exclude bestByDate
+      // For non-frozen items: include bestByDate, exclude thawDate
       const capitalizedName = capitalizeItemName(data.name);
       const itemData: FoodItemData = {
         name: capitalizedName,
@@ -195,11 +195,11 @@ const AddItem: React.FC = () => {
         if (data.thawDate) {
           itemData.thawDate = data.thawDate;
         }
-        // Explicitly exclude expirationDate for frozen items
-        itemData.expirationDate = undefined;
+        // Explicitly exclude bestByDate for frozen items
+        itemData.bestByDate = undefined;
       } else {
-        if (data.expirationDate) {
-          itemData.expirationDate = data.expirationDate;
+        if (data.bestByDate) {
+          itemData.bestByDate = data.bestByDate;
         }
         // Explicitly exclude thawDate for non-frozen items
         itemData.thawDate = undefined;
@@ -219,8 +219,8 @@ const AddItem: React.FC = () => {
       if (editingItem) {
         // Update existing item
         // For frozen items, status might not be relevant, but we'll use 'fresh' as default
-        // For non-frozen items, calculate status from expirationDate
-        const status = data.isFrozen ? 'fresh' : (data.expirationDate ? getFoodItemStatus(data.expirationDate) : 'fresh');
+        // For non-frozen items, calculate status from bestByDate
+        const status = data.isFrozen ? 'fresh' : (data.bestByDate ? getFoodItemStatus(data.bestByDate) : 'fresh');
         await foodItemService.updateFoodItem(editingItem.id, { ...itemData, status });
         
         // Track engagement: item_updated
@@ -232,8 +232,8 @@ const AddItem: React.FC = () => {
       } else {
         // Add new item
         // For frozen items, status might not be relevant, but we'll use 'fresh' as default
-        // For non-frozen items, calculate status from expirationDate
-        const status = data.isFrozen ? 'fresh' : (data.expirationDate ? getFoodItemStatus(data.expirationDate) : 'fresh');
+        // For non-frozen items, calculate status from bestByDate
+        const status = data.isFrozen ? 'fresh' : (data.bestByDate ? getFoodItemStatus(data.bestByDate) : 'fresh');
         const itemId = await foodItemService.addFoodItem(user.uid, itemData, status);
         
         // Track engagement: item_added
@@ -243,8 +243,8 @@ const AddItem: React.FC = () => {
           category: data.category,
         });
         
-        // Save to userItems database if item has expiration or thaw date
-        const targetDate = data.isFrozen ? data.thawDate : data.expirationDate;
+        // Save to userItems database if item has best by or thaw date
+        const targetDate = data.isFrozen ? data.thawDate : data.bestByDate;
         if (targetDate) {
           try {
             const addedDate = new Date(); // Use current date for new items
@@ -345,10 +345,10 @@ const AddItem: React.FC = () => {
       }
     }
     
-    // Create item with calculated expiration date
+    // Create item with calculated best by date
     const itemWithDate: FoodItem = {
       ...item,
-      expirationDate: calculatedExpirationDate || item.expirationDate
+      bestByDate: calculatedExpirationDate || item.bestByDate
     };
     
     setEditingItem(itemWithDate);

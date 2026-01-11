@@ -438,8 +438,8 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
             <span style={{ fontSize: '0.875rem', color: '#1f2937', fontWeight: '500' }}>
               {item.isFrozen && item.thawDate 
                 ? formatDate(item.thawDate)
-                : item.expirationDate 
-                  ? formatDate(item.expirationDate)
+                : item.bestByDate 
+                  ? formatDate(item.bestByDate)
                   : 'No date'
               }
             </span>
