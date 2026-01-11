@@ -15,14 +15,14 @@ interface AddMealFromRecipeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (recipe: RecipeImportResult, date: Date, mealType: MealType, finishBy: string) => void;
-  expiringItems?: FoodItem[];
+  bestBySoonItems?: FoodItem[];
 }
 
 export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  expiringItems = []
+  bestBySoonItems = []
 }) => {
   const [user] = useAuthState(auth);
   const [recipeSites, setRecipeSites] = useState<RecipeSite[]>([]);
@@ -108,7 +108,7 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
     }
   }, [importedRecipe]);
 
-  // Toggle expiring item selection
+  // Toggle best by soon item selection
   const toggleExpiringItem = (itemId: string) => {
     const newSelected = new Set(selectedExpiringItems);
     if (newSelected.has(itemId)) {
@@ -134,8 +134,8 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
   const buildSearchQuery = (): string => {
     const selectedItems: string[] = [];
     
-    // Add selected expiring items
-    expiringItems.forEach(item => {
+    // Add selected best by soon items
+    bestBySoonItems.forEach(item => {
       if (selectedExpiringItems.has(item.id)) {
         selectedItems.push(item.name);
       }

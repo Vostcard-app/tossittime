@@ -74,7 +74,7 @@ export const leftoverMealService = {
       );
       
       const querySnapshot = await getDocs(q);
-      return transformSnapshot<LeftoverMeal>(querySnapshot, ['date', 'createdAt', 'expirationDate']);
+      return transformSnapshot<LeftoverMeal>(querySnapshot, ['date', 'createdAt', 'bestByDate']);
     } catch (error) {
       logServiceError('getLeftoverMeals', 'leftoverMeals', error, { userId });
       throw toServiceError(error, 'leftoverMeals');
@@ -138,14 +138,14 @@ export const leftoverMealService = {
     try {
       if (!leftoverMeal.addedToCalendar) {
         // Create a food item for the leftover meal
-        const expirationDate = leftoverMeal.expirationDate || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Default 2 days
+        const bestByDate = leftoverMeal.bestByDate || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Default 2 days
         
         await foodItemService.addFoodItem(
           leftoverMeal.userId,
           {
             name: `Leftover: ${leftoverMeal.mealName}`,
             category: 'Leftovers',
-            expirationDate,
+            bestByDate,
             notes: `Leftover meal: ${leftoverMeal.ingredients.join(', ')}`,
             quantity: 1
           },

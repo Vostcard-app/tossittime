@@ -21,7 +21,7 @@ interface IngredientPickerModalProps {
 interface IngredientItem {
   id: string;
   name: string;
-  source: 'expiring' | 'shopList' | 'perishable' | 'dryCanned';
+  source: 'bestBySoon' | 'shopList' | 'perishable' | 'dryCanned';
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -54,13 +54,13 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         setLoading(true);
         const allIngredients: IngredientItem[] = [];
 
-        // 1. Load expiring items (next 14 days)
+        // 1. Load best by soon items (next 14 days)
         const allFoodItems = await foodItemService.getFoodItems(user.uid);
         const now = new Date();
         const twoWeeksFromNow = addDays(now, 14);
         
-        const expiringItems = allFoodItems.filter(item => {
-          const expDate = item.expirationDate || item.thawDate;
+        const bestBySoonItems = allFoodItems.filter(item => {
+          const expDate = item.bestByDate || item.thawDate;
           if (!expDate) return false;
           return expDate >= now && expDate <= twoWeeksFromNow;
         });
@@ -146,7 +146,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   // Group ingredients by source
   const groupedIngredients = useMemo(() => {
     const groups = {
-      expiring: [] as IngredientItem[],
+      bestBySoon: [] as IngredientItem[],
       shopList: [] as IngredientItem[],
       perishable: [] as IngredientItem[],
       dryCanned: [] as IngredientItem[]
@@ -203,7 +203,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
 
   const getSourceLabel = (source: IngredientItem['source']): string => {
     switch (source) {
-      case 'expiring':
+      case 'bestBySoon':
         return 'Expiring Soon';
       case 'shopList':
         return 'Shop List';

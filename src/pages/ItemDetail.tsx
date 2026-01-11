@@ -31,7 +31,7 @@ const ItemDetail: React.FC = () => {
           const foodItem: FoodItem = {
             id: docSnap.id,
             ...data,
-            expirationDate: data.expirationDate.toDate(),
+            bestByDate: data.expirationDate?.toDate(), // Map Firestore expirationDate to bestByDate
             addedDate: data.addedDate.toDate()
           } as FoodItem;
 
@@ -44,7 +44,7 @@ const ItemDetail: React.FC = () => {
           setItem(foodItem);
           
           // Get quality message for dry/canned goods
-          if (foodItem.isDryCanned && foodItem.expirationDate) {
+          if (foodItem.isDryCanned && foodItem.bestByDate) {
             const foodKeeperItem = findFoodItem(foodItem.name);
             const shelfLifeResult = getDryGoodsShelfLife(foodItem.name, foodKeeperItem || null);
             if (shelfLifeResult && shelfLifeResult.qualityMessage) {
@@ -146,21 +146,21 @@ const ItemDetail: React.FC = () => {
 
         <div style={{ marginBottom: '1rem' }}>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '600', color: '#6b7280' }}>
-            {item.isFrozen ? 'Thaw Date' : 'Expiration Date'}
+            {item.isFrozen ? 'Thaw Date' : 'Best By Date'}
           </h3>
           <p style={{ margin: 0, fontSize: '1.125rem', color: '#1f2937' }}>
             {item.isFrozen && item.thawDate
               ? formatDate(item.thawDate)
-              : item.expirationDate
-                ? formatDate(item.expirationDate)
+              : item.bestByDate
+                ? formatDate(item.bestByDate)
                 : 'No date'
             }
           </p>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
             {item.isFrozen && item.thawDate
               ? formatRelativeDate(item.thawDate)
-              : item.expirationDate
-                ? formatRelativeDate(item.expirationDate)
+              : item.bestByDate
+                ? formatRelativeDate(item.bestByDate)
                 : ''
             }
           </p>

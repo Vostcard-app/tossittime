@@ -69,7 +69,7 @@ export const mealPlanningService = {
       const twoWeeksFromNow = addDays(now, 14);
       
       const expiringItems = allItems.filter(item => {
-        const expDate = item.expirationDate || item.thawDate;
+        const expDate = item.bestByDate || item.thawDate;
         if (!expDate) return false;
         return expDate >= now && expDate <= twoWeeksFromNow;
       });
@@ -101,7 +101,7 @@ export const mealPlanningService = {
         expiringItems: expiringItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate,
           category: item.category
         })),
@@ -124,7 +124,7 @@ export const mealPlanningService = {
         currentInventory: allItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate
         }))
       };
@@ -181,7 +181,7 @@ export const mealPlanningService = {
       const twoWeeksFromNow = addDays(now, 14);
       
       const expiringItems = allItems.filter(item => {
-        const expDate = item.expirationDate || item.thawDate;
+        const expDate = item.bestByDate || item.thawDate;
         if (!expDate) return false;
         return expDate >= now && expDate <= twoWeeksFromNow;
       });
@@ -219,7 +219,7 @@ export const mealPlanningService = {
         expiringItems: expiringItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate,
           category: item.category
         })),
@@ -237,7 +237,7 @@ export const mealPlanningService = {
         currentInventory: allItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate
         }))
       };
@@ -589,13 +589,13 @@ export const mealPlanningService = {
       const context = {
         expiringItems: availableItems
           .filter(item => {
-            const expDate = item.expirationDate || item.thawDate;
+            const expDate = item.bestByDate || item.thawDate;
             return expDate && expDate <= addDays(new Date(), 14);
           })
           .map(item => ({
             id: item.id,
             name: item.name,
-            expirationDate: item.expirationDate,
+            bestByDate: item.bestByDate,
             thawDate: item.thawDate,
             category: item.category
           })),
@@ -617,17 +617,17 @@ export const mealPlanningService = {
         currentInventory: availableItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate
         })),
         skippedMeals,
         wasteRiskItems: wasteRiskItems.map(item => ({
           id: item.id,
           name: item.name,
-          expirationDate: item.expirationDate,
+          bestByDate: item.bestByDate,
           thawDate: item.thawDate,
-          daysUntilExpiration: item.expirationDate
-            ? Math.ceil((item.expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          daysUntilBestBy: item.bestByDate
+            ? Math.ceil((item.bestByDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
             : item.thawDate
             ? Math.ceil((item.thawDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
             : 999
@@ -780,7 +780,7 @@ export const mealPlanningService = {
       const wasteRiskItems: FoodItem[] = [];
       
       for (const item of allItems) {
-        const expDate = item.expirationDate || item.thawDate;
+        const expDate = item.bestByDate || item.thawDate;
         if (!expDate) continue;
 
         // Find when this item is planned to be used

@@ -244,7 +244,7 @@ function buildMealPlanningPrompt(context: MealPlanningContext, targetMealType?: 
     ? `Generate exactly 3 meal suggestions for ${targetMealType} on ${targetDateStr}.`
     : 'Generate meal suggestions for the upcoming week.';
 
-  const priorityInstruction = context.expiringItems.length > 0
+  const priorityInstruction = context.bestBySoonItems.length > 0
     ? 'PRIORITIZE using expiring items and leftovers to prevent waste, BUT ONLY if they comply with the diet restrictions below.'
     : 'Since there are no expiring items, base suggestions on user preferences and favorite meals.';
 
@@ -253,7 +253,7 @@ function buildMealPlanningPrompt(context: MealPlanningContext, targetMealType?: 
   
   // Filter inventory to only include items that comply with diet
   const compliantInventory = filterInventoryByDiet(context.currentInventory, context.userPreferences.dietApproach, context.userPreferences.dietStrict);
-  const compliantExpiringItems = filterInventoryByDiet(context.expiringItems, context.userPreferences.dietApproach, context.userPreferences.dietStrict);
+  const compliantBestBySoonItems = filterInventoryByDiet(context.bestBySoonItems, context.userPreferences.dietApproach, context.userPreferences.dietStrict);
 
   return `${mealTypeInstruction} ${priorityInstruction}
 
@@ -515,7 +515,7 @@ Today's date is ${new Date().toISOString().split('T')[0]}.`;
  */
 function buildReplanningPrompt(context: ReplanningContext): string {
   const wasteRiskList = context.wasteRiskItems
-    .map(item => `- ${item.name} (expires in ${item.daysUntilExpiration} days)`)
+    .map(item => `- ${item.name} (best by in ${item.daysUntilBestBy} days)`)
     .join('\n');
 
   const skippedMealsList = context.skippedMeals
