@@ -165,7 +165,7 @@ const PlannedMealCalendar: React.FC = () => {
 
   return (
     <>
-      <Banner showHomeIcon={true} onMenuClick={() => setMenuOpen(true)} />
+      <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
       
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
