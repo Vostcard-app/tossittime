@@ -167,7 +167,9 @@ export const shoppingListService = {
     logServiceOperation('deleteShoppingListItemsByMealId', 'shoppingList', { userId, mealId });
     
     try {
-      const q = buildQueryWithFilters('shoppingList', userId, [['mealId', '==', mealId]], 'createdAt', 'desc');
+      // Don't use ordering for deletion - it requires a composite index
+      // We just need to find all items with this mealId
+      const q = buildQueryWithFilters('shoppingList', userId, [['mealId', '==', mealId]]);
       const querySnapshot = await getDocs(q);
       
       const deletePromises = querySnapshot.docs.map(docSnapshot => 
