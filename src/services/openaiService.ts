@@ -265,8 +265,8 @@ BEST BY SOON ITEMS (use these soon to prevent waste, but ONLY if they comply wit
 ${compliantBestBySoonItems.length > 0 ? compliantBestBySoonItems.map((item: { id: string; name: string; bestByDate?: Date; thawDate?: Date; category?: string }) => {
   const date = item.bestByDate || item.thawDate;
   const daysUntil = date ? Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 'unknown';
-  return `- ${item.name} (expires in ${daysUntil} days, category: ${item.category || 'unknown'})`;
-}).join('\n') : 'None (all expiring items filtered out due to diet restrictions)'}
+  return `- ${item.name} (best by in ${daysUntil} days, category: ${item.category || 'unknown'})`;
+}).join('\n') : 'None (all best by soon items filtered out due to diet restrictions)'}
 
 AVAILABLE LEFTOVER MEALS:
 ${context.leftoverMeals
