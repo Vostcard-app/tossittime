@@ -95,7 +95,7 @@ const UserGuide: React.FC = () => {
                 <strong>Swipe left or right</strong> on any active item to mark it as crossed off (moved to "Previously Used")
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                Tap the <strong>"+ Cal"</strong> button to add an item to your calendar with an expiration date
+                Tap the <strong>"+ Cal"</strong> button to add an item to your calendar with a best by date
               </li>
             </ul>
 
@@ -133,7 +133,7 @@ const UserGuide: React.FC = () => {
                 From the Shop page, tap <strong>"+ Cal"</strong> on any item
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                Enter or adjust the expiration date (dates are suggestions, not guarantees)
+                Enter or adjust the best by date (dates are suggestions, not guarantees)
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
                 Check the "Freeze" box if you're freezing the item (you'll see a warning if freezing isn't recommended)
@@ -162,13 +162,13 @@ const UserGuide: React.FC = () => {
             </p>
             <ul style={{ marginLeft: '1.5rem', marginBottom: '1rem' }}>
               <li style={{ marginBottom: '0.5rem' }}>
-                <strong style={{ color: '#fbbf24' }}>Yellow (2 days)</strong> - Expiring soon
+                <strong style={{ color: '#fbbf24' }}>Yellow (2 days)</strong> - Best by soon
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
                 <strong style={{ color: '#3b82f6' }}>Blue (2 days)</strong> - Freeze recommended
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <strong style={{ color: '#ef4444' }}>Red (1 day)</strong> - Expired
+                <strong style={{ color: '#ef4444' }}>Red (1 day)</strong> - Past best by date
               </li>
             </ul>
             <p style={{ marginBottom: '1rem' }}>
@@ -187,7 +187,7 @@ const UserGuide: React.FC = () => {
               Dashboard
             </h2>
             <p style={{ marginBottom: '1rem' }}>
-              View all your active food items with their expiration dates:
+              View all your active food items with their best by dates:
             </p>
             <ul style={{ marginLeft: '1.5rem', marginBottom: '1rem' }}>
               <li style={{ marginBottom: '0.5rem' }}>
@@ -235,7 +235,7 @@ const UserGuide: React.FC = () => {
               Edit Items
             </h3>
             <p style={{ marginBottom: '1rem' }}>
-              Edit item names, expiration lengths, and categories. This includes both active and previously used items.
+              Edit item names, best by date lengths, and categories. This includes both active and previously used items.
             </p>
 
             <h3 style={{
@@ -270,13 +270,13 @@ const UserGuide: React.FC = () => {
                 Use the freeze feature to extend the life of items that can be frozen
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                Check your calendar regularly to see what's expiring soon
+                Check your calendar regularly to see what's approaching its best by date
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
                 Swipe items off your shopping list when you've purchased them
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                Edit items to customize expiration lengths based on your experience
+                Edit items to customize best by date lengths based on your experience
               </li>
             </ul>
           </section>

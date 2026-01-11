@@ -162,7 +162,7 @@ const Settings: React.FC = () => {
                 onChange={(e) => setSettings(prev => ({ ...prev, notificationsEnabled: e.target.checked }))}
                 style={{ width: '1.25rem', height: '1.25rem' }}
               />
-              <span>Enable expiration reminders</span>
+              <span>Enable best by date reminders</span>
             </label>
           </div>
           {!notificationService.isSupported() && (
@@ -200,7 +200,7 @@ const Settings: React.FC = () => {
           </h2>
           <div style={{ marginBottom: '1rem' }}>
             <label htmlFor="reminderDays" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-              Remind me (days before expiration)
+              Remind me (days before best by date)
             </label>
             <input
               type="number"
@@ -219,7 +219,7 @@ const Settings: React.FC = () => {
               }}
             />
             <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
-              You'll receive reminders when items are expiring within this many days.
+              You'll receive reminders when items are approaching their best by date within this many days.
             </p>
           </div>
         </div>

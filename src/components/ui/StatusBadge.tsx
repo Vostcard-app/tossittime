@@ -4,7 +4,7 @@
  * 
  * @example
  * ```tsx
- * <StatusBadge status="expiring_soon" />
+ * <StatusBadge status="bestBySoon" />
  * ```
  */
 
