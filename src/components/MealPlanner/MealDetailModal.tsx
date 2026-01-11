@@ -126,19 +126,6 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
 
     setSaving(true);
     try {
-      // Get the meal plan for this week
-      const weekStart = new Date(meal.date);
-      weekStart.setDate(meal.date.getDate() - meal.date.getDay()); // Start of week (Sunday)
-      weekStart.setHours(0, 0, 0, 0);
-
-      const mealPlan = await mealPlanningService.getMealPlan(user.uid, weekStart);
-      
-      if (!mealPlan) {
-        showToast('Meal plan not found', 'error');
-        setSaving(false);
-        return;
-      }
-
       // Parse edited ingredients (split by newlines, filter empty lines, trim)
       const parsedIngredients = editedIngredients
         .map(ing => ing.trim())
@@ -236,27 +223,66 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         }
       }
 
-      // Find and update the meal
-      const updatedMeals = mealPlan.meals.map(m => {
-        if (m.id === meal.id) {
-          const newDate = new Date(editedDate);
-          newDate.setHours(meal.date.getHours(), meal.date.getMinutes());
-          
-          return {
-            ...m,
-            mealName: editedMealName.trim(),
-            recipeTitle: m.recipeSourceUrl ? editedMealName.trim() : undefined,
-            date: newDate,
-            mealType: editedMealType,
-            recipeIngredients: parsedIngredients,
-            suggestedIngredients: parsedIngredients,
-            reservedQuantities: newReservedQuantities
-          };
-        }
-        return m;
-      });
+      // Calculate new date
+      const newDate = new Date(editedDate);
+      newDate.setHours(meal.date.getHours(), meal.date.getMinutes());
+      
+      // Calculate old and new week starts
+      const oldWeekStart = new Date(meal.date);
+      oldWeekStart.setDate(meal.date.getDate() - meal.date.getDay()); // Start of week (Sunday)
+      oldWeekStart.setHours(0, 0, 0, 0);
+      
+      const newWeekStart = new Date(newDate);
+      newWeekStart.setDate(newDate.getDate() - newDate.getDay()); // Start of week (Sunday)
+      newWeekStart.setHours(0, 0, 0, 0);
 
-      await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+      // Get the old meal plan (where meal currently is)
+      const oldMealPlan = await mealPlanningService.getMealPlan(user.uid, oldWeekStart);
+      
+      if (!oldMealPlan) {
+        showToast('Meal plan not found', 'error');
+        setSaving(false);
+        return;
+      }
+
+      // Check if date changed to a different week
+      const weekChanged = oldWeekStart.getTime() !== newWeekStart.getTime();
+
+      // Create updated meal object
+      const updatedMeal = {
+        ...meal,
+        mealName: editedMealName.trim(),
+        recipeTitle: meal.recipeSourceUrl ? editedMealName.trim() : undefined,
+        date: newDate,
+        mealType: editedMealType,
+        recipeIngredients: parsedIngredients,
+        suggestedIngredients: parsedIngredients,
+        reservedQuantities: newReservedQuantities
+      };
+
+      if (weekChanged) {
+        // Remove meal from old week's meal plan
+        const oldMeals = oldMealPlan.meals.filter(m => m.id !== meal.id);
+        await mealPlanningService.updateMealPlan(oldMealPlan.id, { meals: oldMeals });
+
+        // Get or create new week's meal plan
+        let newMealPlan = await mealPlanningService.getMealPlan(user.uid, newWeekStart);
+        
+        if (!newMealPlan) {
+          // Create a new empty meal plan for the new week
+          newMealPlan = await mealPlanningService.createEmptyMealPlan(user.uid, newWeekStart);
+        }
+        
+        // Add meal to new week's meal plan (whether it existed or was just created)
+        const newMeals = [...newMealPlan.meals, updatedMeal];
+        await mealPlanningService.updateMealPlan(newMealPlan.id, { meals: newMeals });
+      } else {
+        // Same week - just update the meal in place
+        const updatedMeals = oldMealPlan.meals.map(m => 
+          m.id === meal.id ? updatedMeal : m
+        );
+        await mealPlanningService.updateMealPlan(oldMealPlan.id, { meals: updatedMeals });
+      }
 
       showToast('Meal updated successfully', 'success');
       setIsEditing(false);
@@ -269,7 +295,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!user || !meal) {
+    if (!user || !meal || !meal.id) {
       showToast('Please log in to delete meals', 'error');
       return;
     }
@@ -283,17 +309,59 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       // Delete all shopping list items associated with this meal
       await shoppingListService.deleteShoppingListItemsByMealId(user.uid, meal.id);
 
-      // Get the meal plan for this week
-      const weekStart = new Date(meal.date);
-      weekStart.setDate(meal.date.getDate() - meal.date.getDay()); // Start of week (Sunday)
-      weekStart.setHours(0, 0, 0, 0);
-
-      const mealPlan = await mealPlanningService.getMealPlan(user.uid, weekStart);
+      // Search for the meal across all weeks (search current month)
+      const today = new Date();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       
-      if (mealPlan) {
-        // Remove the meal from the plan
-        const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
-        await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+      // Search through all weeks in the current month
+      let weekStart = new Date(monthStart);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+      weekStart.setHours(0, 0, 0, 0);
+      
+      let mealFound = false;
+      
+      while (weekStart <= monthEnd) {
+        const mealPlan = await mealPlanningService.getMealPlan(user.uid, weekStart);
+        
+        if (mealPlan) {
+          const mealExists = mealPlan.meals.some(m => m.id === meal.id);
+          
+          if (mealExists) {
+            // Remove the meal from the plan
+            const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
+            await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+            mealFound = true;
+            break;
+          }
+        }
+        
+        // Move to next week
+        weekStart = new Date(weekStart);
+        weekStart.setDate(weekStart.getDate() + 7);
+      }
+
+      // If not found in current month, try the meal's date week
+      if (!mealFound) {
+        const mealWeekStart = new Date(meal.date);
+        mealWeekStart.setDate(meal.date.getDate() - meal.date.getDay());
+        mealWeekStart.setHours(0, 0, 0, 0);
+        
+        const mealPlan = await mealPlanningService.getMealPlan(user.uid, mealWeekStart);
+        
+        if (mealPlan) {
+          const mealExists = mealPlan.meals.some(m => m.id === meal.id);
+          
+          if (mealExists) {
+            const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
+            await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+            mealFound = true;
+          }
+        }
+      }
+
+      if (!mealFound) {
+        console.warn('Meal not found in any meal plan, but continuing with deletion');
       }
 
       showToast('Meal deleted successfully', 'success');
@@ -345,52 +413,58 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         selectedIngredientIndices.has(index)
       );
 
-      // Get current shopping list items for this meal
-      const currentShoppingListItems = shoppingListItems.filter(item => item.mealId === meal.id);
-
-      // Delete shopping list items that match checked ingredients (fuzzy match)
-      for (const shoppingItem of currentShoppingListItems) {
-        const matchesCheckedIngredient = checkedIngredients.some(ingredient =>
-          fuzzyMatchIngredientToItem(ingredient, shoppingItem.name)
+      // Delete claimed shopping list items that match checked ingredients
+      if (meal.claimedShoppingListItemIds && meal.claimedShoppingListItemIds.length > 0) {
+        const claimedShoppingItems = shoppingListItems.filter(item => 
+          meal.claimedShoppingListItemIds!.includes(item.id)
         );
-        if (matchesCheckedIngredient) {
-          await shoppingListService.deleteShoppingListItem(shoppingItem.id);
-        }
-      }
 
-      // Get dashboard items that are used by this meal
-      const itemsUsedByMeal = pantryItems.filter(item => 
-        item.usedByMeals?.includes(meal.id)
-      );
-
-      // Process only checked ingredients for dashboard items
-      const itemsToProcess: string[] = [];
-      const reservedQuantitiesForChecked: Record<string, number> = {};
-
-      for (const item of itemsUsedByMeal) {
-        // Check if this item matches any checked ingredient
-        const matchesCheckedIngredient = checkedIngredients.some(ingredient =>
-          fuzzyMatchIngredientToItem(ingredient, item.name)
-        );
-        
-        if (matchesCheckedIngredient) {
-          itemsToProcess.push(item.id);
-          // Get reserved quantity for this item
-          const normalizedName = item.name.toLowerCase().trim();
-          if (meal.reservedQuantities?.[normalizedName]) {
-            reservedQuantitiesForChecked[normalizedName] = meal.reservedQuantities[normalizedName];
+        for (const shoppingItem of claimedShoppingItems) {
+          // Check if this shopping list item matches any checked ingredient
+          const matchesCheckedIngredient = checkedIngredients.some(ingredient =>
+            fuzzyMatchIngredientToItem(ingredient, shoppingItem.name)
+          );
+          if (matchesCheckedIngredient) {
+            await shoppingListService.deleteShoppingListItem(shoppingItem.id);
           }
         }
       }
 
-      // Reduce quantities and remove mealId from usedByMeals for checked ingredients only
-      if (itemsToProcess.length > 0 && Object.keys(reservedQuantitiesForChecked).length > 0) {
-        await foodItemService.markItemsAsUsedForMeal(
-          user.uid,
-          meal.id,
-          itemsToProcess,
-          reservedQuantitiesForChecked
+      // Process claimed dashboard items that match checked ingredients
+      if (meal.claimedItemIds && meal.claimedItemIds.length > 0) {
+        const claimedItems = pantryItems.filter(item => 
+          meal.claimedItemIds!.includes(item.id)
         );
+
+        // Filter to only items that match checked ingredients
+        const itemsToProcess: string[] = [];
+        const reservedQuantitiesForChecked: Record<string, number> = {};
+
+        for (const item of claimedItems) {
+          // Check if this item matches any checked ingredient
+          const matchesCheckedIngredient = checkedIngredients.some(ingredient =>
+            fuzzyMatchIngredientToItem(ingredient, item.name)
+          );
+          
+          if (matchesCheckedIngredient) {
+            itemsToProcess.push(item.id);
+            // Get reserved quantity for this item
+            const normalizedName = item.name.toLowerCase().trim();
+            if (meal.reservedQuantities?.[normalizedName]) {
+              reservedQuantitiesForChecked[normalizedName] = meal.reservedQuantities[normalizedName];
+            }
+          }
+        }
+
+        // Reduce quantities and remove mealId from usedByMeals for checked ingredients only
+        if (itemsToProcess.length > 0 && Object.keys(reservedQuantitiesForChecked).length > 0) {
+          await foodItemService.markItemsAsUsedForMeal(
+            user.uid,
+            meal.id,
+            itemsToProcess,
+            reservedQuantitiesForChecked
+          );
+        }
       }
 
       // Mark meal as completed

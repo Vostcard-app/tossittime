@@ -132,6 +132,21 @@ export const shoppingListService = {
   },
 
   /**
+   * Update shopping list item with partial data
+   */
+  async updateShoppingListItem(userId: string, itemId: string, updates: Partial<ShoppingListItem>): Promise<void> {
+    logServiceOperation('updateShoppingListItem', 'shoppingList', { userId, itemId, updates });
+    
+    try {
+      const cleanData = cleanFirestoreData(updates);
+      await updateDoc(doc(db, 'shoppingList', itemId), cleanData);
+    } catch (error) {
+      logServiceError('updateShoppingListItem', 'shoppingList', error, { userId, itemId });
+      throw toServiceError(error, 'shoppingList');
+    }
+  },
+
+  /**
    * Delete item from shopping list
    */
   async deleteShoppingListItem(itemId: string): Promise<void> {

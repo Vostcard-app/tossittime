@@ -337,6 +337,37 @@ export const mealPlanningService = {
   },
 
   /**
+   * Create an empty meal plan for a week
+   */
+  async createEmptyMealPlan(userId: string, weekStartDate: Date): Promise<MealPlan> {
+    logServiceOperation('createEmptyMealPlan', 'mealPlans', { userId, weekStartDate });
+
+    try {
+      const cleanData = cleanFirestoreData({
+        userId,
+        weekStartDate: Timestamp.fromDate(weekStartDate),
+        meals: [],
+        status: 'draft' as const,
+        createdAt: Timestamp.now()
+      });
+
+      const docRef = await addDoc(collection(db, 'mealPlans'), cleanData);
+      
+      return {
+        id: docRef.id,
+        userId,
+        weekStartDate,
+        meals: [],
+        status: 'draft',
+        createdAt: new Date()
+      };
+    } catch (error) {
+      logServiceError('createEmptyMealPlan', 'mealPlans', error, { userId });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
    * Update an existing meal plan
    */
   async updateMealPlan(mealPlanId: string, updates: Partial<MealPlan>): Promise<void> {

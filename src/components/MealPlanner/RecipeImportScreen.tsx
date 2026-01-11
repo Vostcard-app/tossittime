@@ -39,6 +39,7 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
   // Use the custom hook for ingredient availability
   const {
     pantryItems,
+    shoppingListItems,
     ingredientStatuses,
     loading: loadingLists,
     userShoppingLists,
@@ -147,18 +148,32 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
         mealPlan = await mealPlanningService.createMealPlan(user.uid, weekStart, []);
       }
 
-      // Add the recipe meal to the plan
-      const updatedMeals = [...mealPlan.meals, plannedMeal];
-      await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+      // Claim items from dashboard/pantry for this meal
+      const claimedItemIds = await recipeImportService.claimItemsForMeal(
+        user.uid,
+        plannedMeal.id,
+        importedRecipe.ingredients,
+        pantryItems,
+        reservedQuantities
+      );
 
-      // Add selected ingredients to shopping list
+      // Claim existing shopping list items for this meal
+      const claimedShoppingListItemIds = await recipeImportService.claimShoppingListItemsForMeal(
+        user.uid,
+        plannedMeal.id,
+        importedRecipe.ingredients,
+        shoppingListItems
+      );
+
+      // Add selected ingredients to shopping list and track their IDs
       const selectedItems = Array.from(selectedIngredientIndices)
         .map(index => importedRecipe.ingredients[index])
         .filter(Boolean);
 
+      const newlyAddedItemIds: string[] = [];
       if (selectedItems.length > 0) {
         for (const ingredient of selectedItems) {
-          await shoppingListService.addShoppingListItem(
+          const itemId = await shoppingListService.addShoppingListItem(
             user.uid,
             targetListId,
             ingredient,
@@ -166,7 +181,22 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
             'recipe_import',
             plannedMeal.id
           );
+          newlyAddedItemIds.push(itemId);
         }
+      }
+
+      // Combine claimed and newly added shopping list item IDs
+      const allClaimedShoppingListItemIds = [...claimedShoppingListItemIds, ...newlyAddedItemIds];
+
+      // Update meal with claimed item IDs
+      plannedMeal.claimedItemIds = claimedItemIds;
+      plannedMeal.claimedShoppingListItemIds = allClaimedShoppingListItemIds;
+
+      // Add the recipe meal to the plan
+      const updatedMeals = [...mealPlan.meals, plannedMeal];
+      await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+
+      if (selectedItems.length > 0) {
         showToast(`Recipe saved and ${selectedItems.length} ingredient(s) added to shopping list!`, 'success');
       } else {
         showToast('Recipe saved to meal planner successfully!', 'success');

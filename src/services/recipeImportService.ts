@@ -6,6 +6,8 @@
 import type { RecipeSite, RecipeImportResult } from '../types/recipeImport';
 import type { FoodItem, ShoppingListItem, PlannedMeal } from '../types';
 import { recipeSiteService } from './recipeSiteService';
+import { foodItemService } from './foodItemService';
+import { shoppingListService } from './shoppingListService';
 import { logServiceOperation, logServiceError } from './baseService';
 import { parseIngredientQuantity, normalizeItemName } from '../utils/ingredientQuantityParser';
 
@@ -387,6 +389,146 @@ export const recipeImportService = {
     });
     
     return reservedMap;
+  },
+
+  /**
+   * Claim items from dashboard/pantry for a meal
+   * Matches ingredients to pantry items and marks them as used by the meal
+   * Returns the IDs of claimed items
+   */
+  async claimItemsForMeal(
+    userId: string,
+    mealId: string,
+    ingredients: string[],
+    pantryItems: FoodItem[],
+    reservedQuantities: Record<string, number>
+  ): Promise<string[]> {
+    const claimedItemIds: string[] = [];
+    
+    for (const ingredient of ingredients) {
+      const parsed = parseIngredientQuantity(ingredient);
+      const normalizedItemName = normalizeItemName(parsed.itemName);
+      const neededQty = parsed.quantity || 1;
+      
+      // Find matching pantry items using fuzzy matching
+      const matchingItems = pantryItems.filter(item => {
+        const normalizedPantryName = normalizeItemName(item.name);
+        
+        // Exact match
+        if (normalizedItemName === normalizedPantryName) return true;
+        
+        // Substring match
+        if (normalizedItemName.includes(normalizedPantryName) || normalizedPantryName.includes(normalizedItemName)) {
+          return true;
+        }
+        
+        // Word overlap
+        const pantryWords = normalizedPantryName.split(/\s+/).filter(w => w.length > 2);
+        const ingredientWords = normalizedItemName.split(/\s+/).filter(w => w.length > 2);
+        
+        if (pantryWords.length === 0 || ingredientWords.length === 0) return false;
+        
+        const matchingWords = pantryWords.filter(word => 
+          ingredientWords.some(ingWord => 
+            ingWord.includes(word) || word.includes(ingWord)
+          )
+        );
+        
+        return matchingWords.length >= Math.min(2, pantryWords.length);
+      });
+      
+      // Claim items based on needed quantity
+      let remainingNeeded = neededQty;
+      for (const item of matchingItems) {
+        if (remainingNeeded <= 0) break;
+        
+        // Skip if already claimed by this meal
+        if (item.usedByMeals?.includes(mealId)) {
+          continue;
+        }
+        
+        const itemQty = item.quantity || 1;
+        const normalizedPantryName = normalizeItemName(item.name);
+        const reservedQty = reservedQuantities[normalizedPantryName] || 0;
+        const availableQty = Math.max(0, itemQty - reservedQty);
+        
+        if (availableQty > 0) {
+          // Claim this item
+          const currentUsedByMeals = item.usedByMeals || [];
+          if (!currentUsedByMeals.includes(mealId)) {
+            await foodItemService.updateFoodItemUsedByMeals(userId, item.id, [...currentUsedByMeals, mealId]);
+            claimedItemIds.push(item.id);
+          }
+          
+          const toClaim = Math.min(remainingNeeded, availableQty);
+          remainingNeeded -= toClaim;
+        }
+      }
+    }
+    
+    return claimedItemIds;
+  },
+
+  /**
+   * Claim shopping list items for a meal
+   * Returns the IDs of claimed shopping list items
+   */
+  async claimShoppingListItemsForMeal(
+    userId: string,
+    mealId: string,
+    ingredients: string[],
+    shoppingListItems: ShoppingListItem[]
+  ): Promise<string[]> {
+    const claimedItemIds: string[] = [];
+    
+    for (const ingredient of ingredients) {
+      const parsed = parseIngredientQuantity(ingredient);
+      const normalizedItemName = normalizeItemName(parsed.itemName);
+      
+      // Find matching shopping list items
+      const matchingItems = shoppingListItems.filter(item => {
+        if (item.crossedOff) return false; // Don't claim crossed-off items
+        if (item.mealId && item.mealId !== mealId) return false; // Already claimed by another meal
+        
+        const normalizedListItemName = normalizeItemName(item.name);
+        
+        // Exact match
+        if (normalizedItemName === normalizedListItemName) return true;
+        
+        // Substring match
+        if (normalizedItemName.includes(normalizedListItemName) || normalizedListItemName.includes(normalizedItemName)) {
+          return true;
+        }
+        
+        // Word overlap
+        const listWords = normalizedListItemName.split(/\s+/).filter(w => w.length > 2);
+        const ingredientWords = normalizedItemName.split(/\s+/).filter(w => w.length > 2);
+        
+        if (listWords.length === 0 || ingredientWords.length === 0) return false;
+        
+        const matchingWords = listWords.filter(word => 
+          ingredientWords.some(ingWord => 
+            ingWord.includes(word) || word.includes(ingWord)
+          )
+        );
+        
+        return matchingWords.length >= Math.min(2, listWords.length);
+      });
+      
+      // Claim matching shopping list items
+      for (const item of matchingItems) {
+        if (!item.mealId) {
+          // Update shopping list item to link it to this meal
+          await shoppingListService.updateShoppingListItem(userId, item.id, { mealId });
+          claimedItemIds.push(item.id);
+        } else if (item.mealId === mealId && !claimedItemIds.includes(item.id)) {
+          // Already linked to this meal, just add to claimed list
+          claimedItemIds.push(item.id);
+        }
+      }
+    }
+    
+    return claimedItemIds;
   }
 };
 

@@ -94,6 +94,10 @@ export interface PlannedMeal {
   recipeImageUrl?: string | null;
   // Reserved quantities for this meal (maps normalized item name to quantity)
   reservedQuantities?: Record<string, number>;
+  // IDs of items from dashboard/pantry that are claimed for this meal
+  claimedItemIds?: string[];
+  // IDs of shopping list items that are claimed for this meal
+  claimedShoppingListItemIds?: string[];
 }
 
 /**
