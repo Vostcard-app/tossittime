@@ -115,6 +115,11 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         setLoading(true);
         const allIngredients: IngredientItem[] = [];
 
+        // Helper function to check if item is not claimed by any meal
+        const isNotClaimed = (item: { usedByMeals?: string[] }) => {
+          return !item.usedByMeals || item.usedByMeals.length === 0;
+        };
+
         // 1. Load best by soon items (next 14 days)
         const allFoodItems = await foodItemService.getFoodItems(user.uid);
         const now = new Date();
@@ -123,6 +128,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         const bestBySoonItems = allFoodItems.filter(item => {
           const expDate = item.bestByDate || item.thawDate;
           if (!expDate) return false;
+          if (!isNotClaimed(item)) return false; // Exclude claimed items
           return expDate >= now && expDate <= twoWeeksFromNow;
         });
 
@@ -153,7 +159,9 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         }
 
         // 3. Load perishable items (not dry/canned)
-        const perishableItems = allFoodItems.filter(item => !isDryCannedItem(item));
+        const perishableItems = allFoodItems.filter(item => 
+          !isDryCannedItem(item) && isNotClaimed(item)
+        );
         perishableItems.forEach(item => {
           allIngredients.push({
             id: `perishable-${item.id}`,
@@ -163,7 +171,9 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         });
 
         // 4. Load dry/canned items
-        const dryCannedItems = allFoodItems.filter(item => isDryCannedItem(item));
+        const dryCannedItems = allFoodItems.filter(item => 
+          isDryCannedItem(item) && isNotClaimed(item)
+        );
         dryCannedItems.forEach(item => {
           allIngredients.push({
             id: `dryCanned-${item.id}`,
