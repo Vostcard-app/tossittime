@@ -45,7 +45,7 @@ export const useFoodItems = (user: User | null) => {
           // Frozen items don't have expiration status, use 'fresh' as default
           const updatedItems = items.map(item => ({
             ...item,
-            status: item.isFrozen ? 'fresh' : (item.expirationDate ? getFoodItemStatus(item.expirationDate, 7) : 'fresh') // Use default
+            status: item.isFrozen ? 'fresh' : (item.bestByDate ? getFoodItemStatus(item.bestByDate, 7) : 'fresh') // Use default
           }));
           setFoodItems(updatedItems);
           setLoading(false);

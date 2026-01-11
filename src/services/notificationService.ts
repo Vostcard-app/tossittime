@@ -1,5 +1,5 @@
 import type { FoodItem } from '../types';
-import { calculateDaysUntilExpiration } from '../utils/dateUtils';
+import { calculateDaysUntilBestBy } from '../utils/dateUtils';
 import { logServiceOperation } from './baseService';
 
 export const notificationService = {
@@ -49,10 +49,10 @@ export const notificationService = {
 
     const daysUntilBestBy = calculateDaysUntilBestBy(item.bestByDate);
     
-    if (daysUntilExpiration >= 0 && daysUntilExpiration <= reminderDays) {
-      const message = daysUntilExpiration === 0
-        ? `${item.name} expires today!`
-        : `${item.name} expires in ${daysUntilExpiration} day${daysUntilExpiration === 1 ? '' : 's'}`;
+    if (daysUntilBestBy >= 0 && daysUntilBestBy <= reminderDays) {
+      const message = daysUntilBestBy === 0
+        ? `${item.name} is best by today!`
+        : `${item.name} is best by in ${daysUntilBestBy} day${daysUntilBestBy === 1 ? '' : 's'}`;
 
       new Notification('TossItTime Reminder', {
         body: message,
@@ -74,7 +74,7 @@ export const notificationService = {
     const itemsToRemind = items.filter(item => {
       if (item.reminderSent) return false;
       // Skip frozen items (they use thawDate, not bestByDate)
-      if (item.isFrozen || !item.expirationDate) return false;
+      if (item.isFrozen || !item.bestByDate) return false;
       const days = calculateDaysUntilBestBy(item.bestByDate);
       return days >= 0 && days <= reminderDays;
     });

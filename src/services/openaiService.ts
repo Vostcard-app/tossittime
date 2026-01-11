@@ -261,9 +261,9 @@ ${dietRestrictions}
 
 Based on the following information:
 
-EXPIRING ITEMS (use these soon to prevent waste, but ONLY if they comply with diet restrictions):
-${compliantExpiringItems.length > 0 ? compliantExpiringItems.map(item => {
-  const date = item.expirationDate || item.thawDate;
+BEST BY SOON ITEMS (use these soon to prevent waste, but ONLY if they comply with diet restrictions):
+${compliantBestBySoonItems.length > 0 ? compliantBestBySoonItems.map((item: { id: string; name: string; bestByDate?: Date; thawDate?: Date; category?: string }) => {
+  const date = item.bestByDate || item.thawDate;
   const daysUntil = date ? Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 'unknown';
   return `- ${item.name} (expires in ${daysUntil} days, category: ${item.category || 'unknown'})`;
 }).join('\n') : 'None (all expiring items filtered out due to diet restrictions)'}

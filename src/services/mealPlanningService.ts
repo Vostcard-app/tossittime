@@ -97,14 +97,16 @@ export const mealPlanningService = {
       const daySchedule = await mealProfileService.getEffectiveSchedule(userId, date);
 
       // Build context for AI - focused on this specific day and meal type
+      const bestBySoonItemsMapped = expiringItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        bestByDate: item.bestByDate,
+        thawDate: item.thawDate,
+        category: item.category
+      }));
       const context = {
-        expiringItems: expiringItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          bestByDate: item.bestByDate,
-          thawDate: item.thawDate,
-          category: item.category
-        })),
+        expiringItems: bestBySoonItemsMapped, // Keep for backward compatibility
+        bestBySoonItems: bestBySoonItemsMapped,
         leftoverMeals,
         userPreferences: {
           dislikedFoods: profile.dislikedFoods,
@@ -143,6 +145,7 @@ export const mealPlanningService = {
         const prefContext = {
           ...context,
           expiringItems: [],
+          bestBySoonItems: [],
           currentInventory: []
         };
         const prefSuggestions = await generateMealSuggestions(prefContext);
@@ -215,14 +218,16 @@ export const mealPlanningService = {
       }
 
       // Build context for AI
+      const bestBySoonItemsMapped = expiringItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        bestByDate: item.bestByDate,
+        thawDate: item.thawDate,
+        category: item.category
+      }));
       const context = {
-        expiringItems: expiringItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          bestByDate: item.bestByDate,
-          thawDate: item.thawDate,
-          category: item.category
-        })),
+        expiringItems: bestBySoonItemsMapped, // Keep for backward compatibility
+        bestBySoonItems: bestBySoonItemsMapped,
         leftoverMeals,
         userPreferences: {
           dislikedFoods: profile.dislikedFoods,
@@ -586,19 +591,21 @@ export const mealPlanningService = {
       }
 
       // Build replanning context
+      const bestBySoonItemsMapped = availableItems
+        .filter(item => {
+          const expDate = item.bestByDate || item.thawDate;
+          return expDate && expDate <= addDays(new Date(), 14);
+        })
+        .map(item => ({
+          id: item.id,
+          name: item.name,
+          bestByDate: item.bestByDate,
+          thawDate: item.thawDate,
+          category: item.category
+        }));
       const context = {
-        expiringItems: availableItems
-          .filter(item => {
-            const expDate = item.bestByDate || item.thawDate;
-            return expDate && expDate <= addDays(new Date(), 14);
-          })
-          .map(item => ({
-            id: item.id,
-            name: item.name,
-            bestByDate: item.bestByDate,
-            thawDate: item.thawDate,
-            category: item.category
-          })),
+        expiringItems: bestBySoonItemsMapped, // Keep for backward compatibility
+        bestBySoonItems: bestBySoonItemsMapped,
         leftoverMeals,
         userPreferences: {
           dislikedFoods: profile?.dislikedFoods || [],
