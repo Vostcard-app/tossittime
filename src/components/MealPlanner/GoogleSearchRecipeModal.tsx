@@ -99,6 +99,11 @@ export const GoogleSearchRecipeModal: React.FC<GoogleSearchRecipeModalProps> = (
     }
   };
 
+  const handleOpenInNewTab = () => {
+    window.open(searchUrl, '_blank');
+    showToast('Google search opened in new tab. Copy the recipe URL and return here to paste it.', 'info');
+  };
+
   const handleSaveRecipe = () => {
     if (!dishName.trim()) {
       showToast('Please enter a dish name', 'error');
@@ -197,8 +202,38 @@ export const GoogleSearchRecipeModal: React.FC<GoogleSearchRecipeModalProps> = (
             </p>
           </div>
 
+          {/* Instructions */}
+          <div style={{ padding: '0.75rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px' }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: '#1e40af' }}>
+              💡 <strong>Tip:</strong> Browse Google results below. When you find a recipe, click "Open in New Tab" to copy the URL more easily.
+            </p>
+          </div>
+
           {/* Google Search iframe */}
-          <div style={{ flex: 1, minHeight: '500px', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', flex: 1, minHeight: '500px', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+            {/* Floating "Open in New Tab" button */}
+            <button
+              onClick={handleOpenInNewTab}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                zIndex: 10,
+                padding: '0.5rem 1rem',
+                backgroundColor: '#002B4D',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                whiteSpace: 'nowrap'
+              }}
+              title="Open Google search in a new tab for easier URL copying"
+            >
+              Open in New Tab
+            </button>
             <iframe
               src={searchUrl}
               style={{
