@@ -12,6 +12,8 @@ import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import { IngredientPickerModal } from '../components/MealPlanner/IngredientPickerModal';
 import { MealDetailModal } from '../components/MealPlanner/MealDetailModal';
+import { MealTypeSelectionModal } from '../components/MealPlanner/MealTypeSelectionModal';
+import { DishListModal } from '../components/MealPlanner/DishListModal';
 import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -28,8 +30,12 @@ const PlannedMealCalendar: React.FC = () => {
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showMealTypeSelection, setShowMealTypeSelection] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
+  const [showDishList, setShowDishList] = useState(false);
   const [showIngredientPicker, setShowIngredientPicker] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<PlannedMeal | null>(null);
+  const [selectedDish, setSelectedDish] = useState<{ dish: any; meal: PlannedMeal } | null>(null);
   const [showMealDetailModal, setShowMealDetailModal] = useState(false);
 
   // Load meal plans for current month
@@ -112,9 +118,38 @@ const PlannedMealCalendar: React.FC = () => {
     return allPlannedMeals.filter(meal => isSameDay(meal.date, date));
   };
 
+  // Get meal for a specific day and meal type
+  const getMealForDayAndType = (date: Date, mealType: MealType): PlannedMeal | null => {
+    return allPlannedMeals.find(meal => isSameDay(meal.date, date) && meal.mealType === mealType) || null;
+  };
+
   // Handle day click
   const handleDayClick = (date: Date) => {
     setSelectedDay(date);
+    setShowMealTypeSelection(true);
+  };
+
+  // Handle meal type selection
+  const handleMealTypeSelect = (mealType: MealType) => {
+    setSelectedMealType(mealType);
+    setShowMealTypeSelection(false);
+    setShowDishList(true);
+  };
+
+  // Handle dish click
+  const handleDishClick = (dish: any) => {
+    if (!selectedDay || !selectedMealType) return;
+    const meal = getMealForDayAndType(selectedDay, selectedMealType);
+    if (meal) {
+      setSelectedDish({ dish, meal });
+      setShowDishList(false);
+      setShowMealDetailModal(true);
+    }
+  };
+
+  // Handle add dish
+  const handleAddDish = () => {
+    setShowDishList(false);
     setShowIngredientPicker(true);
   };
 
@@ -274,47 +309,34 @@ const PlannedMealCalendar: React.FC = () => {
                 {/* Meal Indicators */}
                 {dayMeals.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    {dayMeals.slice(0, 3).map((meal, mealIndex) => (
-                      <div
-                        key={mealIndex}
-                        style={{
-                          fontSize: '0.75rem',
-                          padding: '0.25rem 0.5rem',
-                          backgroundColor: meal.completed ? '#9ca3af' : '#002B4D',
-                          color: '#ffffff',
-                          borderRadius: '4px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          opacity: meal.completed ? 0.6 : 1
-                        }}
-                        title={meal.mealName}
-                      >
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMeal(meal);
-                              setShowMealDetailModal(true);
-                            }}
-                            style={{
-                              color: '#ffffff',
-                              textDecoration: 'underline',
-                              cursor: 'pointer',
-                              fontWeight: '600',
-                              display: 'block',
-                              width: '100%'
-                            }}
-                            title={meal.recipeTitle || meal.mealName}
-                          >
-                            {MEAL_TYPE_ABBREVIATIONS[meal.mealType]}
+                    {dayMeals.slice(0, 3).map((meal, mealIndex) => {
+                      const dishCount = meal.dishes?.length || 0;
+                      const hasCompletedDishes = meal.dishes?.some(d => d.completed) || false;
+                      return (
+                        <div
+                          key={mealIndex}
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: hasCompletedDishes ? '#9ca3af' : '#002B4D',
+                            color: '#ffffff',
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            opacity: hasCompletedDishes ? 0.6 : 1
+                          }}
+                          title={`${MEAL_TYPE_ABBREVIATIONS[meal.mealType]}: ${dishCount} dish${dishCount !== 1 ? 'es' : ''}`}
+                        >
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
+                            {MEAL_TYPE_ABBREVIATIONS[meal.mealType]} {dishCount > 0 && `(${dishCount})`}
                           </span>
-                        </span>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                     {dayMeals.length > 3 && (
                       <div style={{
                         fontSize: '0.75rem',
@@ -339,28 +361,63 @@ const PlannedMealCalendar: React.FC = () => {
         </div>
       </div>
 
+      {/* Meal Type Selection Modal */}
+      {showMealTypeSelection && selectedDay && (
+        <MealTypeSelectionModal
+          isOpen={showMealTypeSelection}
+          onClose={() => {
+            setShowMealTypeSelection(false);
+            setSelectedDay(null);
+          }}
+          onSelectMealType={handleMealTypeSelect}
+          date={selectedDay}
+        />
+      )}
+
+      {/* Dish List Modal */}
+      {showDishList && selectedDay && selectedMealType && (
+        <DishListModal
+          isOpen={showDishList}
+          onClose={() => {
+            setShowDishList(false);
+            setSelectedMealType(null);
+            setSelectedDay(null);
+          }}
+          meal={getMealForDayAndType(selectedDay, selectedMealType)}
+          date={selectedDay}
+          mealType={selectedMealType}
+          onDishClick={handleDishClick}
+          onAddDish={handleAddDish}
+        />
+      )}
+
       {/* Ingredient Picker Modal */}
-      {showIngredientPicker && selectedDay && (
+      {showIngredientPicker && selectedDay && selectedMealType && (
         <IngredientPickerModal
           isOpen={showIngredientPicker}
           onClose={() => {
             setShowIngredientPicker(false);
+            setSelectedMealType(null);
             setSelectedDay(null);
+            refreshMealPlans();
           }}
           selectedDate={selectedDay}
+          initialMealType={selectedMealType}
         />
       )}
 
       {/* Meal Detail Modal */}
-      {showMealDetailModal && selectedMeal && (
+      {showMealDetailModal && selectedDish && (
         <MealDetailModal
           isOpen={showMealDetailModal}
           onClose={() => {
             setShowMealDetailModal(false);
-            setSelectedMeal(null);
+            setSelectedDish(null);
+            refreshMealPlans();
           }}
-          meal={selectedMeal}
-          onMealDeleted={refreshMealPlans}
+          dish={selectedDish.dish}
+          meal={selectedDish.meal}
+          onDishDeleted={refreshMealPlans}
         />
       )}
     </>

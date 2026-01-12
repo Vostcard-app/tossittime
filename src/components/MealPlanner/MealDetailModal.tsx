@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
 import { mealPlanningService, shoppingListService, foodItemService, recipeImportService } from '../../services';
-import type { PlannedMeal, MealType } from '../../types';
+import type { PlannedMeal, MealType, Dish } from '../../types';
 import { showToast } from '../Toast';
 import { format } from 'date-fns';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
@@ -17,8 +17,11 @@ import { fuzzyMatchIngredientToItem } from '../../utils/fuzzyIngredientMatcher';
 interface MealDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
+  dish: Dish | null;
   meal: PlannedMeal | null;
-  onMealDeleted?: () => void; // Callback to refresh calendar
+  onDishDeleted?: () => void; // Callback to refresh calendar
+  // Legacy support for backward compatibility
+  onMealDeleted?: () => void; // Deprecated: use onDishDeleted
 }
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
@@ -46,8 +49,10 @@ const smartTruncate = (text: string, maxLength: number = 60): string => {
 export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   isOpen,
   onClose,
+  dish,
   meal,
-  onMealDeleted
+  onDishDeleted,
+  onMealDeleted // Legacy support
 }) => {
   const [user] = useAuthState(auth);
   const [deleting, setDeleting] = useState(false);
@@ -61,7 +66,22 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   const [selectedIngredientIndices, setSelectedIngredientIndices] = useState<Set<number>>(new Set());
   const [preparing, setPreparing] = useState(false);
 
-  const ingredients = meal?.recipeIngredients || meal?.suggestedIngredients || [];
+  // Use dish data if available, otherwise fall back to legacy meal data
+  const currentDish = dish || (meal ? {
+    id: meal.id,
+    dishName: meal.mealName || '',
+    recipeTitle: meal.recipeTitle || null,
+    recipeIngredients: meal.recipeIngredients || meal.suggestedIngredients || [],
+    recipeSourceUrl: meal.recipeSourceUrl || null,
+    recipeSourceDomain: meal.recipeSourceDomain || null,
+    recipeImageUrl: meal.recipeImageUrl || null,
+    reservedQuantities: meal.reservedQuantities,
+    claimedItemIds: meal.claimedItemIds,
+    claimedShoppingListItemIds: meal.claimedShoppingListItemIds,
+    completed: meal.completed
+  } : null);
+  
+  const ingredients = currentDish?.recipeIngredients || [];
 
   // Use ingredient availability hook
   const {
@@ -75,19 +95,19 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     { isOpen, excludeMealId: meal?.id }
   );
 
-  if (!isOpen || !meal) return null;
+  if (!isOpen || !currentDish || !meal) return null;
 
-  // Initialize edit state when meal changes
+  // Initialize edit state when dish changes
   useEffect(() => {
-    if (meal) {
-      setEditedMealName(meal.recipeTitle || meal.mealName);
+    if (currentDish) {
+      setEditedMealName(currentDish.dishName);
       setEditedDate(format(meal.date, 'yyyy-MM-dd'));
       setEditedMealType(meal.mealType);
-      setEditedIngredients(meal.recipeIngredients || meal.suggestedIngredients || []);
+      setEditedIngredients(currentDish.recipeIngredients || []);
       setSelectedIngredientIndices(new Set()); // Reset selections
       setIsPreparing(false); // Reset preparing state
     }
-  }, [meal]);
+  }, [currentDish, meal]);
 
   // Note: Real-time subscriptions are handled by useIngredientAvailability hook
   // The hook subscribes to food items and loads shopping list items
@@ -300,48 +320,35 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete "${meal.recipeTitle || meal.mealName}"? This will also remove associated ingredients from your shopping list.`)) {
+    if (!window.confirm(`Are you sure you want to delete "${currentDish.dishName}"? This will also remove associated ingredients from your shopping list.`)) {
       return;
     }
 
     setDeleting(true);
     try {
-      // Delete all shopping list items associated with this meal
-      await shoppingListService.deleteShoppingListItemsByMealId(user.uid, meal.id);
-
-      // Find the meal plan for the meal's date week
-      const mealDate = new Date(meal.date);
-      const mealWeekStart = new Date(mealDate);
-      mealWeekStart.setDate(mealDate.getDate() - mealDate.getDay()); // Start of week (Sunday)
-      mealWeekStart.setHours(0, 0, 0, 0);
-      
-      const mealPlan = await mealPlanningService.getMealPlan(user.uid, mealWeekStart);
-      
-      if (mealPlan) {
-        const mealExists = mealPlan.meals.some(m => m.id === meal.id);
-        
-        if (mealExists) {
-          // Remove the meal from the plan
-          const updatedMeals = mealPlan.meals.filter(m => m.id !== meal.id);
-          await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
-        } else {
-          console.warn('Meal not found in meal plan for its date week');
-        }
-      } else {
-        console.warn('Meal plan not found for meal date week');
+      if (!currentDish || !meal) {
+        throw new Error('Dish or meal not found');
       }
 
-      showToast('Meal deleted successfully', 'success');
-      onMealDeleted?.(); // Refresh calendar
+      // Delete all shopping list items associated with this dish
+      await shoppingListService.deleteShoppingListItemsByMealId(user.uid, currentDish.id);
+
+      // Remove the dish from the meal
+      await mealPlanningService.removeDishFromMeal(user.uid, meal.id, currentDish.id);
+
+      // If this was the last dish, we could optionally delete the meal, but for now we'll keep it
+      showToast('Dish deleted successfully', 'success');
+      onDishDeleted?.(); // Refresh calendar
+      onMealDeleted?.(); // Legacy support
       onClose();
     } catch (error) {
-      console.error('Error deleting meal:', error);
-      showToast('Failed to delete meal. Please try again.', 'error');
+      console.error('Error deleting dish:', error);
+      showToast('Failed to delete dish. Please try again.', 'error');
       setDeleting(false);
     }
   };
 
-  const displayName = meal.recipeTitle || meal.mealName;
+  const displayName = currentDish.dishName;
   const truncatedDisplayName = smartTruncate(displayName, 60);
 
   const toggleIngredient = (index: number) => {
@@ -363,8 +370,8 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   };
 
   const handleConfirmPrepared = async () => {
-    if (!user || !meal) {
-      showToast('Please log in to mark meals as prepared', 'error');
+    if (!user || !meal || !currentDish) {
+      showToast('Please log in to mark dishes as prepared', 'error');
       return;
     }
 
@@ -381,9 +388,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       );
 
       // Delete claimed shopping list items that match checked ingredients
-      if (meal.claimedShoppingListItemIds && meal.claimedShoppingListItemIds.length > 0) {
+      if (currentDish.claimedShoppingListItemIds && currentDish.claimedShoppingListItemIds.length > 0) {
         const claimedShoppingItems = shoppingListItems.filter(item => 
-          meal.claimedShoppingListItemIds!.includes(item.id)
+          currentDish.claimedShoppingListItemIds!.includes(item.id)
         );
 
         for (const shoppingItem of claimedShoppingItems) {
@@ -398,9 +405,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       }
 
       // Process claimed dashboard items that match checked ingredients
-      if (meal.claimedItemIds && meal.claimedItemIds.length > 0) {
+      if (currentDish.claimedItemIds && currentDish.claimedItemIds.length > 0) {
         const claimedItems = pantryItems.filter(item => 
-          meal.claimedItemIds!.includes(item.id)
+          currentDish.claimedItemIds!.includes(item.id)
         );
 
         // Filter to only items that match checked ingredients
@@ -417,42 +424,33 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
             itemsToProcess.push(item.id);
             // Get reserved quantity for this item
             const normalizedName = item.name.toLowerCase().trim();
-            if (meal.reservedQuantities?.[normalizedName]) {
-              reservedQuantitiesForChecked[normalizedName] = meal.reservedQuantities[normalizedName];
+            if (currentDish.reservedQuantities?.[normalizedName]) {
+              reservedQuantitiesForChecked[normalizedName] = currentDish.reservedQuantities[normalizedName];
             }
           }
         }
 
-        // Reduce quantities and remove mealId from usedByMeals for checked ingredients only
+        // Reduce quantities and remove dishId from usedByMeals for checked ingredients only
         if (itemsToProcess.length > 0 && Object.keys(reservedQuantitiesForChecked).length > 0) {
           await foodItemService.markItemsAsUsedForMeal(
             user.uid,
-            meal.id,
+            currentDish.id,
             itemsToProcess,
             reservedQuantitiesForChecked
           );
         }
       }
 
-      // Mark meal as completed
-      const weekStart = new Date(meal.date);
-      weekStart.setDate(meal.date.getDate() - meal.date.getDay());
-      weekStart.setHours(0, 0, 0, 0);
+      // Mark dish as completed
+      await mealPlanningService.updateDishInMeal(user.uid, meal.id, currentDish.id, { completed: true });
 
-      const mealPlan = await mealPlanningService.getMealPlan(user.uid, weekStart);
-      if (mealPlan) {
-        const updatedMeals = mealPlan.meals.map(m => 
-          m.id === meal.id ? { ...m, completed: true } : m
-        );
-        await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
-      }
-
-      showToast('Meal marked as prepared!', 'success');
-      onMealDeleted?.(); // Refresh calendar
+      showToast('Dish marked as prepared!', 'success');
+      onDishDeleted?.(); // Refresh calendar
+      onMealDeleted?.(); // Legacy support
       onClose();
     } catch (error) {
-      console.error('Error marking meal as prepared:', error);
-      showToast('Failed to mark meal as prepared. Please try again.', 'error');
+      console.error('Error marking dish as prepared:', error);
+      showToast('Failed to mark dish as prepared. Please try again.', 'error');
       setPreparing(false);
     }
   };
@@ -494,9 +492,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
-              {MEAL_TYPE_LABELS[meal.mealType]}
+              {currentDish.dishName}
             </h2>
-            {meal.completed && (
+            {currentDish.completed && (
               <span
                 style={{
                   fontSize: '0.75rem',
@@ -590,10 +588,10 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
           </div>
 
           {/* Recipe Link */}
-          {meal.recipeSourceUrl && !isEditing && (
+          {currentDish.recipeSourceUrl && !isEditing && (
             <div style={{ marginBottom: '1.5rem' }}>
               <a
-                href={meal.recipeSourceUrl}
+                href={currentDish.recipeSourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

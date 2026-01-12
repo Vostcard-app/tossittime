@@ -70,34 +70,49 @@ export interface MealSchedule {
 }
 
 /**
- * Planned Meal
+ * Dish - Individual dish within a meal
+ */
+export interface Dish {
+  id: string;
+  dishName: string; // User-provided dish name
+  recipeTitle?: string | null; // Recipe title (if from recipe import)
+  recipeIngredients: string[];
+  recipeSourceUrl?: string | null;
+  recipeSourceDomain?: string | null;
+  recipeImageUrl?: string | null;
+  reservedQuantities?: Record<string, number>; // Reserved quantities for this dish
+  claimedItemIds?: string[]; // IDs of items from dashboard/pantry that are claimed for this dish
+  claimedShoppingListItemIds?: string[]; // IDs of shopping list items that are claimed for this dish
+  completed?: boolean; // Whether this dish has been prepared
+}
+
+/**
+ * Planned Meal - Container for a meal type on a date (can contain multiple dishes)
  */
 export interface PlannedMeal {
   id: string;
   date: Date;
   mealType: MealType;
-  mealName: string;
   finishBy: string; // HH:mm format
   startCookingAt?: string; // HH:mm format - Calculated based on meal duration
-  suggestedIngredients: string[];
-  usesBestBySoonItems: string[]; // Food item IDs that will be used
   confirmed: boolean;
-  shoppingListItems: string[]; // Items needed from store
   skipped: boolean;
   isLeftover: boolean;
-  completed?: boolean; // Whether the meal has been prepared
-  // Recipe import fields
-  recipeTitle?: string | null;
-  recipeIngredients?: string[] | null;
-  recipeSourceUrl?: string | null;
-  recipeSourceDomain?: string | null;
-  recipeImageUrl?: string | null;
-  // Reserved quantities for this meal (maps normalized item name to quantity)
-  reservedQuantities?: Record<string, number>;
-  // IDs of items from dashboard/pantry that are claimed for this meal
-  claimedItemIds?: string[];
-  // IDs of shopping list items that are claimed for this meal
-  claimedShoppingListItemIds?: string[];
+  dishes: Dish[]; // Array of dishes for this meal type
+  // Legacy fields for backward compatibility (deprecated)
+  mealName?: string; // Deprecated: use dishes[].dishName
+  suggestedIngredients?: string[]; // Deprecated: use dishes[].recipeIngredients
+  usesBestBySoonItems?: string[]; // Deprecated: use dishes[].claimedItemIds
+  shoppingListItems?: string[]; // Deprecated
+  completed?: boolean; // Deprecated: use dishes[].completed
+  recipeTitle?: string | null; // Deprecated: use dishes[].recipeTitle
+  recipeIngredients?: string[] | null; // Deprecated: use dishes[].recipeIngredients
+  recipeSourceUrl?: string | null; // Deprecated: use dishes[].recipeSourceUrl
+  recipeSourceDomain?: string | null; // Deprecated: use dishes[].recipeSourceDomain
+  recipeImageUrl?: string | null; // Deprecated: use dishes[].recipeImageUrl
+  reservedQuantities?: Record<string, number>; // Deprecated: use dishes[].reservedQuantities
+  claimedItemIds?: string[]; // Deprecated: use dishes[].claimedItemIds
+  claimedShoppingListItemIds?: string[]; // Deprecated: use dishes[].claimedShoppingListItemIds
 }
 
 /**

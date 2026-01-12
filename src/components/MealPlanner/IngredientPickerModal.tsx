@@ -7,9 +7,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
 import { foodItemService, shoppingListService, shoppingListsService, mealPlanningService, recipeImportService } from '../../services';
-import type { MealType, PlannedMeal } from '../../types';
+import type { MealType, PlannedMeal, Dish } from '../../types';
 import { isDryCannedItem } from '../../utils/storageUtils';
-import { addDays, startOfWeek } from 'date-fns';
+import { addDays, startOfWeek, isSameDay } from 'date-fns';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
 import { IngredientChecklist } from './IngredientChecklist';
 import { showToast } from '../Toast';
@@ -18,6 +18,7 @@ interface IngredientPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date;
+  initialMealType?: MealType;
 }
 
 interface IngredientItem {
@@ -41,7 +42,8 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
 export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   isOpen,
   onClose,
-  selectedDate
+  selectedDate,
+  initialMealType
 }) => {
   const [user] = useAuthState(auth);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
@@ -53,7 +55,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const [pastedIngredients, setPastedIngredients] = useState('');
   const [parsedIngredients, setParsedIngredients] = useState<string[]>([]);
   const [selectedPastedIngredientIndices, setSelectedPastedIngredientIndices] = useState<Set<number>>(new Set());
-  const [mealName, setMealName] = useState('');
+  const [dishName, setDishName] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Parse pasted ingredients when text changes
@@ -277,6 +279,13 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     setSelectedCombinedIndices(newSelected);
   };
 
+  // Set initial meal type if provided
+  useEffect(() => {
+    if (isOpen && initialMealType) {
+      setSelectedMealType(initialMealType);
+    }
+  }, [isOpen, initialMealType]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -287,7 +296,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       setPastedIngredients('');
       setParsedIngredients([]);
       setSelectedPastedIngredientIndices(new Set());
-      setMealName('');
+      setDishName('');
       setSelectedCombinedIndices(new Set());
     }
   }, [isOpen]);
@@ -340,48 +349,26 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       return;
     }
 
+    if (!dishName.trim()) {
+      showToast('Please enter a dish name', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
-      const mealId = `meal-${Date.now()}`;
-      const finalMealName = mealName.trim() || MEAL_TYPE_LABELS[selectedMealType];
+      const dishId = `dish-${Date.now()}`;
+      const finalDishName = dishName.trim();
 
       // Get checked ingredients from combined list
       const checkedIngredients = Array.from(selectedCombinedIndices)
         .map(index => combinedIngredients[index])
         .filter(Boolean);
 
-      // Calculate reserved quantities for this meal
+      // Calculate reserved quantities for this dish
       const reservedQuantities = recipeImportService.calculateMealReservedQuantities(
         combinedIngredients,
         pantryItems
       );
-
-      // Create a planned meal
-      const plannedMeal: PlannedMeal = {
-        id: mealId,
-        date: selectedDate,
-        mealType: selectedMealType,
-        mealName: finalMealName,
-        finishBy: '18:00',
-        suggestedIngredients: combinedIngredients,
-        usesBestBySoonItems: [],
-        confirmed: false,
-        shoppingListItems: [],
-        skipped: false,
-        isLeftover: false,
-        recipeTitle: finalMealName,
-        recipeIngredients: combinedIngredients,
-        recipeSourceUrl: recipeUrl || null,
-        recipeSourceDomain: recipeUrl ? (() => {
-          try {
-            return new URL(recipeUrl).hostname;
-          } catch {
-            return null;
-          }
-        })() : null,
-        recipeImageUrl: null,
-        reservedQuantities
-      };
 
       // Get or create meal plan for this week
       const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
@@ -393,19 +380,39 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         mealPlan = await mealPlanningService.createMealPlan(user.uid, weekStart, []);
       }
 
-      // Claim items from dashboard/pantry for this meal
+      // Get or create PlannedMeal for this date and meal type
+      let plannedMeal = mealPlan.meals.find(
+        m => isSameDay(m.date, selectedDate) && m.mealType === selectedMealType
+      );
+
+      if (!plannedMeal) {
+        // Create new PlannedMeal for this date+mealType
+        const mealId = `meal-${Date.now()}`;
+        plannedMeal = {
+          id: mealId,
+          date: selectedDate,
+          mealType: selectedMealType,
+          finishBy: '18:00',
+          confirmed: false,
+          skipped: false,
+          isLeftover: false,
+          dishes: []
+        };
+      }
+
+      // Claim items from dashboard/pantry for this dish (using dishId as mealId)
       const claimedItemIds = await recipeImportService.claimItemsForMeal(
         user.uid,
-        mealId,
+        dishId,
         combinedIngredients,
         pantryItems,
         reservedQuantities
       );
 
-      // Claim existing shopping list items for this meal
+      // Claim existing shopping list items for this dish (using dishId as mealId)
       const claimedShoppingListItemIds = await recipeImportService.claimShoppingListItemsForMeal(
         user.uid,
-        mealId,
+        dishId,
         combinedIngredients,
         shoppingListItems
       );
@@ -422,7 +429,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
             ingredient,
             false,
             'meal_plan',
-            mealId
+            dishId
           );
           newlyAddedItemIds.push(itemId);
         }
@@ -431,24 +438,51 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       // Combine claimed and newly added shopping list item IDs
       const allClaimedShoppingListItemIds = [...claimedShoppingListItemIds, ...newlyAddedItemIds];
 
-      // Update meal with claimed item IDs
-      plannedMeal.claimedItemIds = claimedItemIds;
-      plannedMeal.claimedShoppingListItemIds = allClaimedShoppingListItemIds;
+      // Create the dish
+      const dish: Dish = {
+        id: dishId,
+        dishName: finalDishName,
+        recipeTitle: finalDishName,
+        recipeIngredients: combinedIngredients,
+        recipeSourceUrl: recipeUrl || null,
+        recipeSourceDomain: recipeUrl ? (() => {
+          try {
+            return new URL(recipeUrl).hostname;
+          } catch {
+            return null;
+          }
+        })() : null,
+        recipeImageUrl: null,
+        reservedQuantities,
+        claimedItemIds,
+        claimedShoppingListItemIds: allClaimedShoppingListItemIds,
+        completed: false
+      };
 
-      // Add the meal to the plan
-      const updatedMeals = [...mealPlan.meals, plannedMeal];
-      await mealPlanningService.updateMealPlan(mealPlan.id, { meals: updatedMeals });
+      // Add dish to PlannedMeal
+      const updatedDishes = [...(plannedMeal.dishes || []), dish];
+      plannedMeal.dishes = updatedDishes;
+
+      // Update or add PlannedMeal to meal plan
+      const mealIndex = mealPlan.meals.findIndex(m => m.id === plannedMeal!.id);
+      if (mealIndex >= 0) {
+        mealPlan.meals[mealIndex] = plannedMeal;
+      } else {
+        mealPlan.meals.push(plannedMeal);
+      }
+
+      await mealPlanningService.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
 
       if (itemsToAdd.length > 0) {
-        showToast(`Meal saved and ${itemsToAdd.length} ingredient(s) added to shopping list!`, 'success');
+        showToast(`Dish saved and ${itemsToAdd.length} ingredient(s) added to shopping list!`, 'success');
       } else {
-        showToast('Meal saved to meal planner successfully!', 'success');
+        showToast('Dish saved to meal planner successfully!', 'success');
       }
 
       onClose();
     } catch (error) {
-      console.error('Error saving meal:', error);
-      showToast('Failed to save meal. Please try again.', 'error');
+      console.error('Error saving dish:', error);
+      showToast('Failed to save dish. Please try again.', 'error');
       setSaving(false);
     }
   };
@@ -581,6 +615,29 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                   >
                     Back
                   </button>
+                </div>
+
+                {/* Name your Dish Field */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label htmlFor="dishName" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+                    Name your Dish
+                  </label>
+                  <input
+                    id="dishName"
+                    type="text"
+                    value={dishName}
+                    onChange={(e) => setDishName(e.target.value)}
+                    placeholder="e.g., Homemade Tortilla Soup"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      color: '#1f2937',
+                      boxSizing: 'border-box'
+                    }}
+                  />
                 </div>
 
                 {/* Tab Headers */}
@@ -889,27 +946,6 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                     <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem', fontWeight: '600', color: '#1f2937' }}>
                       Meal Ingredients List
                     </h3>
-                    
-                    {/* Meal Name Input */}
-                    <div style={{ marginBottom: '1.5rem' }}>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
-                        Meal Name
-                      </label>
-                      <input
-                        type="text"
-                        value={mealName}
-                        onChange={(e) => setMealName(e.target.value)}
-                        placeholder={`e.g., Spaghetti and meatballs (defaults to ${MEAL_TYPE_LABELS[selectedMealType!]})`}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
 
                     {/* Combined Ingredients with Checkboxes */}
                     <div style={{ marginBottom: '1.5rem' }}>
@@ -989,19 +1025,19 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                   </button>
                   <button
                     onClick={handleSaveMeal}
-                    disabled={saving || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0}
+                    disabled={saving || !dishName.trim() || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0}
                     style={{
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: saving || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0 ? '#9ca3af' : '#002B4D',
+                      backgroundColor: saving || !dishName.trim() || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0 ? '#9ca3af' : '#002B4D',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
                       fontSize: '1rem',
                       fontWeight: '500',
-                      cursor: saving || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0 ? 'not-allowed' : 'pointer'
+                      cursor: saving || !dishName.trim() || (selectedCombinedIndices.size > 0 && !targetListId) || combinedIngredients.length === 0 ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {saving ? 'Saving...' : `Create Meal${selectedCombinedIndices.size > 0 ? ` & Add ${selectedCombinedIndices.size} to List` : ''}`}
+                    {saving ? 'Saving...' : `Create Dish${selectedCombinedIndices.size > 0 ? ` & Add ${selectedCombinedIndices.size} to List` : ''}`}
                   </button>
                 </div>
               </div>

@@ -24,7 +24,8 @@ import type {
   UnplannedEvent,
   FoodItem,
   MealType,
-  LeftoverMeal
+  LeftoverMeal,
+  Dish
 } from '../types';
 import {
   handleSubscriptionError,
@@ -839,6 +840,165 @@ export const mealPlanningService = {
       return allMeals;
     } catch (error) {
       logServiceError('loadAllPlannedMealsForMonth', 'mealPlans', error, { userId, monthDate });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
+   * Get PlannedMeal for a specific date and meal type
+   */
+  async getMealForDateAndType(userId: string, date: Date, mealType: MealType): Promise<PlannedMeal | null> {
+    logServiceOperation('getMealForDateAndType', 'mealPlans', { userId, date, mealType });
+
+    try {
+      const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+      weekStart.setHours(0, 0, 0, 0);
+
+      const mealPlan = await this.getMealPlan(userId, weekStart);
+      if (!mealPlan) {
+        return null;
+      }
+
+      const meal = mealPlan.meals.find(
+        m => isSameDay(m.date, date) && m.mealType === mealType
+      );
+
+      return meal || null;
+    } catch (error) {
+      logServiceError('getMealForDateAndType', 'mealPlans', error, { userId, date, mealType });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
+   * Get meal plan containing a specific meal
+   */
+  async getMealPlanForMeal(userId: string, mealId: string): Promise<MealPlan | null> {
+    logServiceOperation('getMealPlanForMeal', 'mealPlans', { userId, mealId });
+
+    try {
+      // Search through recent meal plans (last 3 months)
+      const now = new Date();
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const threeMonthsFromNow = new Date(now.getFullYear(), now.getMonth() + 3, 1);
+
+      let weekStart = startOfWeek(threeMonthsAgo, { weekStartsOn: 0 });
+      weekStart.setHours(0, 0, 0, 0);
+
+      while (weekStart <= threeMonthsFromNow) {
+        const plan = await this.getMealPlan(userId, weekStart);
+        if (plan && plan.meals.some(m => m.id === mealId)) {
+          return plan;
+        }
+        weekStart = addDays(weekStart, 7);
+      }
+
+      return null;
+    } catch (error) {
+      logServiceError('getMealPlanForMeal', 'mealPlans', error, { userId, mealId });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
+   * Add a dish to a PlannedMeal
+   */
+  async addDishToMeal(userId: string, mealId: string, dish: Dish): Promise<void> {
+    logServiceOperation('addDishToMeal', 'mealPlans', { userId, mealId, dish });
+
+    try {
+      const mealPlan = await this.getMealPlanForMeal(userId, mealId);
+      if (!mealPlan) {
+        throw new Error('Meal plan not found');
+      }
+
+      const mealIndex = mealPlan.meals.findIndex(m => m.id === mealId);
+      if (mealIndex < 0) {
+        throw new Error('Meal not found');
+      }
+
+      const meal = mealPlan.meals[mealIndex];
+      const updatedDishes = [...(meal.dishes || []), dish];
+      mealPlan.meals[mealIndex] = {
+        ...meal,
+        dishes: updatedDishes
+      };
+
+      await this.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
+    } catch (error) {
+      logServiceError('addDishToMeal', 'mealPlans', error, { userId, mealId, dish });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
+   * Remove a dish from a PlannedMeal
+   */
+  async removeDishFromMeal(userId: string, mealId: string, dishId: string): Promise<void> {
+    logServiceOperation('removeDishFromMeal', 'mealPlans', { userId, mealId, dishId });
+
+    try {
+      const mealPlan = await this.getMealPlanForMeal(userId, mealId);
+      if (!mealPlan) {
+        throw new Error('Meal plan not found');
+      }
+
+      const mealIndex = mealPlan.meals.findIndex(m => m.id === mealId);
+      if (mealIndex < 0) {
+        throw new Error('Meal not found');
+      }
+
+      const meal = mealPlan.meals[mealIndex];
+      const updatedDishes = (meal.dishes || []).filter(d => d.id !== dishId);
+      mealPlan.meals[mealIndex] = {
+        ...meal,
+        dishes: updatedDishes
+      };
+
+      await this.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
+    } catch (error) {
+      logServiceError('removeDishFromMeal', 'mealPlans', error, { userId, mealId, dishId });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
+   * Update a dish in a PlannedMeal
+   */
+  async updateDishInMeal(userId: string, mealId: string, dishId: string, updates: Partial<Dish>): Promise<void> {
+    logServiceOperation('updateDishInMeal', 'mealPlans', { userId, mealId, dishId, updates });
+
+    try {
+      const mealPlan = await this.getMealPlanForMeal(userId, mealId);
+      if (!mealPlan) {
+        throw new Error('Meal plan not found');
+      }
+
+      const mealIndex = mealPlan.meals.findIndex(m => m.id === mealId);
+      if (mealIndex < 0) {
+        throw new Error('Meal not found');
+      }
+
+      const meal = mealPlan.meals[mealIndex];
+      const dishIndex = (meal.dishes || []).findIndex(d => d.id === dishId);
+      if (dishIndex < 0) {
+        throw new Error('Dish not found');
+      }
+
+      const updatedDishes = [...(meal.dishes || [])];
+      updatedDishes[dishIndex] = {
+        ...updatedDishes[dishIndex],
+        ...updates
+      };
+
+      mealPlan.meals[mealIndex] = {
+        ...meal,
+        dishes: updatedDishes
+      };
+
+      await this.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
+    } catch (error) {
+      logServiceError('updateDishInMeal', 'mealPlans', error, { userId, mealId, dishId, updates });
       throw toServiceError(error, 'mealPlans');
     }
   }
