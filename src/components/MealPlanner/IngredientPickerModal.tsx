@@ -8,6 +8,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
 import { foodItemService, shoppingListService, shoppingListsService, mealPlanningService, recipeImportService } from '../../services';
 import type { MealType, Dish } from '../../types';
+import type { RecipeImportResult } from '../../types/recipeImport';
 import { isDryCannedItem } from '../../utils/storageUtils';
 import { addDays, startOfWeek, isSameDay } from 'date-fns';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
@@ -52,6 +53,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const [selectedPastedIngredientIndices, setSelectedPastedIngredientIndices] = useState<Set<number>>(new Set());
   const [dishName, setDishName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importingRecipe, setImportingRecipe] = useState(false);
+  const [importedRecipe, setImportedRecipe] = useState<RecipeImportResult | null>(null);
 
   // Parse pasted ingredients when text changes
   useEffect(() => {
@@ -281,6 +284,82 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     }
   }, [isOpen, initialMealType]);
 
+  // Auto-import recipe when URL is entered and dish name is empty
+  useEffect(() => {
+    // Debounce the import to avoid multiple calls while user is typing
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
+    const isValidUrl = (url: string): boolean => {
+      try {
+        new URL(url);
+        return url.startsWith('http://') || url.startsWith('https://');
+      } catch {
+        return false;
+      }
+    };
+
+    // Only import if URL is valid, dish name is empty, user is logged in, and we haven't already imported this URL
+    const trimmedUrl = recipeUrl.trim();
+    if (
+      trimmedUrl && 
+      !dishName.trim() && 
+      isValidUrl(trimmedUrl) && 
+      user &&
+      (!importedRecipe || importedRecipe.sourceUrl !== trimmedUrl)
+    ) {
+      timeoutId = setTimeout(async () => {
+        setImportingRecipe(true);
+        try {
+          const recipe = await recipeImportService.importRecipe(trimmedUrl);
+          setImportedRecipe(recipe);
+          
+          // Set dish name from recipe title
+          if (recipe.title) {
+            setDishName(recipe.title);
+          }
+          
+          // Add recipe ingredients to parsed ingredients and auto-select them
+          if (recipe.ingredients && recipe.ingredients.length > 0) {
+            // Use functional updates to avoid dependency issues
+            setParsedIngredients(prevParsed => {
+              const newParsed = recipe.ingredients!
+                .map(ing => ing.trim())
+                .filter(ing => ing.length > 0 && !prevParsed.includes(ing));
+              
+              if (newParsed.length > 0) {
+                // Auto-select all new recipe ingredients
+                setSelectedPastedIngredientIndices(prevSelected => {
+                  const newSelected = new Set(prevSelected);
+                  newParsed.forEach((_, index) => {
+                    newSelected.add(prevParsed.length + index);
+                  });
+                  return newSelected;
+                });
+                
+                return [...prevParsed, ...newParsed];
+              }
+              
+              return prevParsed;
+            });
+          }
+          
+          showToast('Recipe imported successfully', 'success');
+        } catch (error: any) {
+          console.error('Error auto-importing recipe:', error);
+          showToast(error.message || 'Failed to import recipe. You can still enter a dish name manually.', 'error');
+        } finally {
+          setImportingRecipe(false);
+        }
+      }, 1500); // Wait 1.5 seconds after user stops typing
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [recipeUrl, dishName, user, importedRecipe]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -293,6 +372,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       setSelectedPastedIngredientIndices(new Set());
       setDishName('');
       setSelectedCombinedIndices(new Set());
+      setImportedRecipe(null);
+      setImportingRecipe(false);
     }
   }, [isOpen]);
 
@@ -880,8 +961,27 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                           color: '#1f2937'
                         }}
                       />
+                      {importingRecipe && (
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#002B4D', fontStyle: 'italic' }}>
+                          Importing recipe...
+                        </p>
+                      )}
+                      {importedRecipe && !importingRecipe && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px' }}>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#166534', fontWeight: '500' }}>
+                            ✓ Recipe imported: {importedRecipe.title}
+                          </p>
+                          {importedRecipe.ingredients && importedRecipe.ingredients.length > 0 && (
+                            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#15803d' }}>
+                              {importedRecipe.ingredients.length} ingredient{importedRecipe.ingredients.length !== 1 ? 's' : ''} added
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                        Enter a recipe URL to save with your meal. This will be stored for reference.
+                        {!dishName.trim() 
+                          ? 'Enter a recipe URL to automatically import the recipe title and ingredients.'
+                          : 'Enter a recipe URL to save with your meal. This will be stored for reference.'}
                       </p>
                     </div>
                   )}
