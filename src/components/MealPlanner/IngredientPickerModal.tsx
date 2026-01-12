@@ -15,6 +15,7 @@ import { addDays, startOfWeek, isSameDay } from 'date-fns';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
 import { IngredientChecklist } from './IngredientChecklist';
 import { GoogleSearchModal } from './GoogleSearchModal';
+import { GoogleSearchRecipeModal } from './GoogleSearchRecipeModal';
 import { showToast } from '../Toast';
 
 interface IngredientPickerModalProps {
@@ -62,6 +63,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const [selectedFavoriteSite, setSelectedFavoriteSite] = useState<RecipeSite | null>(null);
   const [selectedSearchIngredients, setSelectedSearchIngredients] = useState<Set<string>>(new Set());
   const [showGoogleSearchModal, setShowGoogleSearchModal] = useState(false);
+  const [showGoogleSearchRecipeModal, setShowGoogleSearchRecipeModal] = useState(false);
 
   // Parse pasted ingredients when text changes
   useEffect(() => {
@@ -325,6 +327,41 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     setShowGoogleSearchModal(true);
   };
 
+  // Handle recipe imported from Google search modal
+  const handleRecipeImported = (recipe: RecipeImportResult, importedDishName: string) => {
+    // Add imported ingredients to parsed ingredients and auto-select them
+    if (recipe.ingredients && recipe.ingredients.length > 0) {
+      setParsedIngredients(prev => {
+        const newIngredients = recipe.ingredients!
+          .map(ing => ing.trim())
+          .filter(ing => ing.length > 0 && !prev.includes(ing));
+        
+        // Auto-select all new ingredients
+        setSelectedPastedIngredientIndices(prevSelected => {
+          const newSelected = new Set(prevSelected);
+          const currentLength = prev.length;
+          newIngredients.forEach((_, index) => {
+            newSelected.add(currentLength + index);
+          });
+          return newSelected;
+        });
+        
+        return [...prev, ...newIngredients];
+      });
+    }
+    
+    // Set dish name if provided
+    if (importedDishName && importedDishName.trim()) {
+      setDishName(importedDishName);
+    }
+    
+    // Set recipe URL and imported recipe
+    if (recipe.sourceUrl) {
+      setRecipeUrl(recipe.sourceUrl);
+      setImportedRecipe(recipe);
+    }
+  };
+
   // Set initial meal type if provided
   useEffect(() => {
     if (isOpen && initialMealType) {
@@ -408,6 +445,32 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     };
   }, [recipeUrl, dishName, user, importedRecipe]);
 
+  // Ensure Google exists as a favorite website
+  const ensureGoogleFavorite = async () => {
+    try {
+      const allSites = await recipeSiteService.getRecipeSites();
+      const googleSite = allSites.find(s => 
+        s.label.toLowerCase() === 'google' || 
+        s.baseUrl.includes('google.com')
+      );
+      
+      if (!googleSite) {
+        // Create Google as a favorite
+        await recipeSiteService.createRecipeSite({
+          label: 'Google',
+          baseUrl: 'https://www.google.com',
+          searchTemplateUrl: 'https://www.google.com/search?q={query}',
+          enabled: true
+        });
+      } else if (!googleSite.enabled) {
+        // Enable Google if it exists but is disabled
+        await recipeSiteService.updateRecipeSite(googleSite.id, { enabled: true });
+      }
+    } catch (error) {
+      console.error('Error ensuring Google favorite:', error);
+    }
+  };
+
   // Load favorite websites when modal opens
   useEffect(() => {
     if (!isOpen || !user) {
@@ -418,11 +481,18 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     const loadFavorites = async () => {
       try {
         setLoadingFavorites(true);
+        // Ensure Google exists
+        await ensureGoogleFavorite();
+        
         // Get all sites and filter for enabled ones (more reliable than ordering by enabled)
         const allSites = await recipeSiteService.getRecipeSites();
         const enabledSites = allSites.filter(site => site.enabled === true);
-        // Sort by label
-        enabledSites.sort((a, b) => a.label.localeCompare(b.label));
+        // Sort by label, but put Google first
+        enabledSites.sort((a, b) => {
+          if (a.label.toLowerCase() === 'google') return -1;
+          if (b.label.toLowerCase() === 'google') return 1;
+          return a.label.localeCompare(b.label);
+        });
         setFavoriteWebsites(enabledSites);
         console.log('[IngredientPickerModal] Loaded favorite websites:', enabledSites.length, enabledSites);
       } catch (error) {
@@ -453,6 +523,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       setSelectedFavoriteSite(null);
       setSelectedSearchIngredients(new Set());
       setShowGoogleSearchModal(false);
+      setShowGoogleSearchRecipeModal(false);
     }
   }, [isOpen]);
 
@@ -1049,9 +1120,23 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                           id="favoriteWebsite"
                           value={selectedFavoriteSite?.id || ''}
                           onChange={(e) => {
-                            const site = favoriteWebsites.find(s => s.id === e.target.value);
-                            if (site) {
-                              handleFavoriteSiteSelect(site);
+                            if (e.target.value === '__add_favorite__') {
+                              // Open Google search modal with selected ingredients
+                              const ingredientsToSearch = selectedSearchIngredients.size > 0
+                                ? Array.from(selectedSearchIngredients)
+                                : combinedIngredients.slice(0, 3); // Limit to 3
+                              
+                              if (ingredientsToSearch.length === 0) {
+                                showToast('Please select at least one ingredient to search', 'warning');
+                                return;
+                              }
+                              
+                              setShowGoogleSearchRecipeModal(true);
+                            } else {
+                              const site = favoriteWebsites.find(s => s.id === e.target.value);
+                              if (site) {
+                                handleFavoriteSiteSelect(site);
+                              }
                             }
                           }}
                           disabled={loadingFavorites}
@@ -1071,6 +1156,9 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                               {site.label}
                             </option>
                           ))}
+                          <option value="__add_favorite__" style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                            + Add Favorite (Google Search)
+                          </option>
                         </select>
                         {loadingFavorites && (
                           <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
@@ -1362,6 +1450,16 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         isOpen={showGoogleSearchModal}
         onClose={() => setShowGoogleSearchModal(false)}
         ingredients={Array.from(selectedSearchIngredients)}
+      />
+
+      {/* Google Search Recipe Modal */}
+      <GoogleSearchRecipeModal
+        isOpen={showGoogleSearchRecipeModal}
+        onClose={() => setShowGoogleSearchRecipeModal(false)}
+        ingredients={selectedSearchIngredients.size > 0 
+          ? Array.from(selectedSearchIngredients) 
+          : combinedIngredients.slice(0, 3)}
+        onRecipeImported={handleRecipeImported}
       />
     </>
   );
