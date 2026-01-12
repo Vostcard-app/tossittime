@@ -726,7 +726,6 @@ const PlannedMealCalendar: React.FC = () => {
                       // Only show drop zone if this meal type is empty and matches the dragged meal type
                       if (hasMealOfType || mealType !== draggedMeal.meal.mealType) return null;
                       
-                      const canDrop = canDropMeal(normalizedDay, mealType);
                       const isTarget = dragOverDate && isSameDay(dragOverDate, normalizedDay) && dragOverMealType === mealType;
                       
                       return (
