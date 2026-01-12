@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { mealPlanningService } from '../services';
-import type { MealPlan, PlannedMeal, MealType } from '../types';
+import type { MealPlan, PlannedMeal, MealType, Dish } from '../types';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import { IngredientPickerModal } from '../components/MealPlanner/IngredientPickerModal';
@@ -105,17 +105,57 @@ const PlannedMealCalendar: React.FC = () => {
     }
   };
 
+  // Migrate legacy meal to new dishes structure
+  const migrateLegacyMeal = (meal: PlannedMeal): PlannedMeal => {
+    // If meal already has dishes, return as-is
+    if (meal.dishes && meal.dishes.length > 0) {
+      return {
+        ...meal,
+        date: startOfDay(meal.date)
+      };
+    }
+
+    // Check if this is a legacy meal (has old structure)
+    const hasLegacyData = meal.mealName || meal.recipeTitle || (meal.recipeIngredients && meal.recipeIngredients.length > 0) || (meal.suggestedIngredients && meal.suggestedIngredients.length > 0);
+
+    if (hasLegacyData) {
+      // Create a dish from legacy meal data
+      const dish: Dish = {
+        id: meal.id + '-dish-0', // Generate a unique ID for the migrated dish
+        dishName: meal.mealName || meal.recipeTitle || 'Unnamed Dish',
+        recipeTitle: meal.recipeTitle || null,
+        recipeIngredients: meal.recipeIngredients || meal.suggestedIngredients || [],
+        recipeSourceUrl: meal.recipeSourceUrl || null,
+        recipeSourceDomain: meal.recipeSourceDomain || null,
+        recipeImageUrl: meal.recipeImageUrl || null,
+        reservedQuantities: meal.reservedQuantities || {},
+        claimedItemIds: meal.claimedItemIds || meal.usesBestBySoonItems || [],
+        claimedShoppingListItemIds: meal.claimedShoppingListItemIds || [],
+        completed: meal.completed || false
+      };
+
+      return {
+        ...meal,
+        date: startOfDay(meal.date),
+        dishes: [dish]
+      };
+    }
+
+    // No legacy data, just ensure dishes array exists
+    return {
+      ...meal,
+      date: startOfDay(meal.date),
+      dishes: []
+    };
+  };
+
   // Get all planned meals from all meal plans
   const allPlannedMeals = useMemo(() => {
     const meals: PlannedMeal[] = [];
     mealPlans.forEach(plan => {
       plan.meals.forEach(meal => {
-        // Normalize meal date and ensure dishes array exists
-        meals.push({
-          ...meal,
-          date: startOfDay(meal.date),
-          dishes: meal.dishes || []
-        });
+        // Migrate legacy meals and normalize dates
+        meals.push(migrateLegacyMeal(meal));
       });
     });
     return meals;
@@ -137,11 +177,8 @@ const PlannedMealCalendar: React.FC = () => {
       return null;
     }
     
-    // Ensure dishes array exists
-    return {
-      ...meal,
-      dishes: meal.dishes || []
-    };
+    // Meal is already migrated in allPlannedMeals, just return it
+    return meal;
   };
 
   // Handle meal indicator click (specific meal type)
