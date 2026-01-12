@@ -118,26 +118,30 @@ const PlannedMealCalendar: React.FC = () => {
 
   // Get meals for a specific day
   const getMealsForDay = (date: Date): PlannedMeal[] => {
-    return allPlannedMeals.filter(meal => isSameDay(meal.date, date));
+    const normalizedDate = startOfDay(date);
+    return allPlannedMeals.filter(meal => isSameDay(meal.date, normalizedDate));
   };
 
   // Get meal for a specific day and meal type
   const getMealForDayAndType = (date: Date, mealType: MealType): PlannedMeal | null => {
-    return allPlannedMeals.find(meal => isSameDay(meal.date, date) && meal.mealType === mealType) || null;
+    const normalizedDate = startOfDay(date);
+    return allPlannedMeals.find(meal => isSameDay(meal.date, normalizedDate) && meal.mealType === mealType) || null;
   };
 
   // Handle meal indicator click (specific meal type)
   const handleMealIndicatorClick = (date: Date, mealType: MealType, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent day click handler from firing
-    setSelectedDay(date);
+    const normalizedDate = startOfDay(date);
+    setSelectedDay(normalizedDate);
     setSelectedMealType(mealType);
     setShowDishList(true);
   };
 
   // Handle day click (only when not clicking on a meal indicator)
   const handleDayClick = (date: Date) => {
-    setSelectedDay(date);
-    const dayMeals = getMealsForDay(date);
+    const normalizedDate = startOfDay(date);
+    setSelectedDay(normalizedDate);
+    const dayMeals = getMealsForDay(normalizedDate);
     
     // If there are meals for this day, show the day meals modal
     // Otherwise, show the meal type selection modal
@@ -305,14 +309,15 @@ const PlannedMealCalendar: React.FC = () => {
 
           {/* Calendar Days */}
           {calendarDays.map((day, index) => {
-            const dayMeals = getMealsForDay(day);
+            const normalizedDay = startOfDay(day);
+            const dayMeals = getMealsForDay(normalizedDay);
             const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-            const isToday = isSameDay(day, new Date());
+            const isToday = isSameDay(normalizedDay, startOfDay(new Date()));
             
             return (
               <div
                 key={index}
-                onClick={() => handleDayClick(day)}
+                onClick={() => handleDayClick(normalizedDay)}
                 style={{
                   minHeight: '100px',
                   padding: '0.5rem',
@@ -350,7 +355,7 @@ const PlannedMealCalendar: React.FC = () => {
                       return (
                         <div
                           key={mealIndex}
-                          onClick={(e) => handleMealIndicatorClick(day, meal.mealType, e)}
+                          onClick={(e) => handleMealIndicatorClick(normalizedDay, meal.mealType, e)}
                           style={{
                             fontSize: '0.75rem',
                             padding: '0.25rem 0.5rem',
