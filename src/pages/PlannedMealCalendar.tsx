@@ -17,6 +17,7 @@ import { DayMealsModal } from '../components/MealPlanner/DayMealsModal';
 import { DishListModal } from '../components/MealPlanner/DishListModal';
 import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { showToast } from '../components/Toast';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const MEAL_TYPE_ABBREVIATIONS: Record<MealType, string> = {
@@ -42,6 +43,14 @@ const PlannedMealCalendar: React.FC = () => {
   const [showMealDetailModal, setShowMealDetailModal] = useState(false);
   const unsubscribeRef = useRef<Map<string, () => void>>(new Map());
   const loadedWeeksRef = useRef<Set<string>>(new Set());
+  const cleanupDoneRef = useRef<boolean>(false);
+  
+  // Drag and drop state
+  const [draggedMeal, setDraggedMeal] = useState<{ meal: PlannedMeal; sourceDate: Date } | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
+  const [dragOverMealType, setDragOverMealType] = useState<MealType | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
 
   // Subscribe to meal plans for current month (real-time updates)
   useEffect(() => {
@@ -210,6 +219,47 @@ const PlannedMealCalendar: React.FC = () => {
     return meal;
   };
 
+  // One-time cleanup: Remove legacy dinner meals from January 12th and 14th, 2026
+  useEffect(() => {
+    if (!user || cleanupDoneRef.current) return;
+    if (allPlannedMeals.length === 0) return; // Wait for meals to be computed
+
+    const cleanupLegacyMeals = async () => {
+      try {
+        // January 12th, 2026
+        const jan12 = startOfDay(new Date(2026, 0, 12)); // Month is 0-indexed
+        
+        // January 14th, 2026
+        const jan14 = startOfDay(new Date(2026, 0, 14));
+
+        // Find meals for these dates (inline logic to avoid dependency issues)
+        const jan12Meal = allPlannedMeals.find(meal => 
+          isSameDay(meal.date, jan12) && meal.mealType === 'dinner'
+        );
+        const jan14Meal = allPlannedMeals.find(meal => 
+          isSameDay(meal.date, jan14) && meal.mealType === 'dinner'
+        );
+
+        if (jan12Meal) {
+          console.log('[cleanupLegacyMeals] Deleting legacy dinner from January 12th');
+          await mealPlanningService.deleteMeal(user.uid, jan12Meal.id);
+        }
+
+        if (jan14Meal) {
+          console.log('[cleanupLegacyMeals] Deleting legacy dinner from January 14th');
+          await mealPlanningService.deleteMeal(user.uid, jan14Meal.id);
+        }
+
+        cleanupDoneRef.current = true; // Mark as done
+      } catch (error) {
+        console.error('[cleanupLegacyMeals] Error cleaning up legacy meals:', error);
+      }
+    };
+
+    // Run cleanup once after meals are loaded
+    cleanupLegacyMeals();
+  }, [user, allPlannedMeals]); // Only run when allPlannedMeals are computed
+
   // Handle meal indicator click (specific meal type)
   const handleMealIndicatorClick = (date: Date, mealType: MealType, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent day click handler from firing
@@ -255,6 +305,159 @@ const PlannedMealCalendar: React.FC = () => {
   const handleAddMeal = () => {
     setShowDishList(false);
     setShowMealTypeSelection(true);
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (meal: PlannedMeal, date: Date, e: React.DragEvent) => {
+    e.stopPropagation(); // Prevent day click handler
+    setDraggedMeal({ meal, sourceDate: date });
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+  };
+
+  const handleDragEnd = () => {
+    setDraggedMeal(null);
+    setDragOverDate(null);
+    setDragOverMealType(null);
+    setIsDragging(false);
+  };
+
+  const canDropMeal = (date: Date, mealType: MealType): boolean => {
+    if (!draggedMeal) return false;
+    
+    // Can't drop on the same day and meal type
+    if (isSameDay(date, draggedMeal.sourceDate) && mealType === draggedMeal.meal.mealType) {
+      return false;
+    }
+    
+    // Check if target day already has a meal of this type
+    const targetDayMeals = getMealsForDay(date);
+    const hasMealOfType = targetDayMeals.some(m => m.mealType === mealType);
+    
+    return !hasMealOfType;
+  };
+
+  const handleDragOver = (date: Date, mealType: MealType, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (canDropMeal(date, mealType)) {
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverDate(date);
+      setDragOverMealType(mealType);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+      setDragOverDate(null);
+      setDragOverMealType(null);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDate(null);
+    setDragOverMealType(null);
+  };
+
+  const moveMealToDate = async (sourceDate: Date, sourceMealType: MealType, targetDate: Date, targetMealType: MealType) => {
+    if (!user) return;
+
+    try {
+      // Get source meal
+      const sourceMeal = getMealForDayAndType(sourceDate, sourceMealType);
+      if (!sourceMeal || !sourceMeal.dishes || sourceMeal.dishes.length === 0) {
+        console.error('[moveMealToDate] Source meal not found or has no dishes');
+        return;
+      }
+
+      // Get source meal plan
+      const sourceWeekStart = startOfWeek(sourceDate, { weekStartsOn: 0 });
+      sourceWeekStart.setHours(0, 0, 0, 0);
+      let sourceMealPlan = await mealPlanningService.getMealPlan(user.uid, sourceWeekStart);
+      
+      if (!sourceMealPlan) {
+        console.error('[moveMealToDate] Source meal plan not found');
+        return;
+      }
+
+      // Get target meal plan
+      const targetWeekStart = startOfWeek(targetDate, { weekStartsOn: 0 });
+      targetWeekStart.setHours(0, 0, 0, 0);
+      let targetMealPlan = await mealPlanningService.getMealPlan(user.uid, targetWeekStart);
+      
+      if (!targetMealPlan) {
+        targetMealPlan = await mealPlanningService.createMealPlan(user.uid, targetWeekStart, []);
+      }
+
+      // Get or create target meal
+      let targetMeal = targetMealPlan.meals.find(
+        m => isSameDay(m.date, targetDate) && m.mealType === targetMealType
+      );
+
+      if (!targetMeal) {
+        const targetMealId = `meal-${Date.now()}`;
+        targetMeal = {
+          id: targetMealId,
+          date: targetDate,
+          mealType: targetMealType,
+          finishBy: sourceMeal.finishBy || '18:00',
+          confirmed: false,
+          skipped: false,
+          isLeftover: false,
+          dishes: []
+        };
+        targetMealPlan.meals.push(targetMeal);
+      }
+
+      // Move all dishes from source to target
+      const dishesToMove = [...(sourceMeal.dishes || [])];
+      targetMeal.dishes = [...(targetMeal.dishes || []), ...dishesToMove];
+
+      // Remove source meal entirely (since all dishes are moved)
+      const sourceMealIndex = sourceMealPlan.meals.findIndex(m => m.id === sourceMeal.id);
+      if (sourceMealIndex >= 0) {
+        sourceMealPlan.meals.splice(sourceMealIndex, 1);
+      }
+
+      // Update both meal plans
+      await mealPlanningService.updateMealPlan(sourceMealPlan.id, { meals: sourceMealPlan.meals });
+      await mealPlanningService.updateMealPlan(targetMealPlan.id, { meals: targetMealPlan.meals });
+
+      console.log('[moveMealToDate] Successfully moved meal', {
+        from: { date: sourceDate, type: sourceMealType },
+        to: { date: targetDate, type: targetMealType },
+        dishesMoved: dishesToMove.length
+      });
+    } catch (error) {
+      console.error('[moveMealToDate] Error moving meal:', error);
+      throw error;
+    }
+  };
+
+  const handleDrop = async (date: Date, mealType: MealType, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedMeal || !canDropMeal(date, mealType)) {
+      return;
+    }
+
+    try {
+      await moveMealToDate(
+        draggedMeal.sourceDate,
+        draggedMeal.meal.mealType,
+        date,
+        mealType
+      );
+      
+      showToast('Meal moved successfully', 'success');
+      
+      // Clean up drag state
+      handleDragEnd();
+    } catch (error) {
+      console.error('[handleDrop] Error dropping meal:', error);
+      showToast('Failed to move meal. Please try again.', 'error');
+      handleDragEnd();
+    }
   };
 
   // Generate calendar days for current month
@@ -396,27 +599,57 @@ const PlannedMealCalendar: React.FC = () => {
             const isCurrentMonth = day.getMonth() === currentDate.getMonth();
             const isToday = isSameDay(normalizedDay, startOfDay(new Date()));
             
+            // Check if this day is a valid drop target for each meal type
+            const canDropBreakfast = isDragging && draggedMeal && canDropMeal(normalizedDay, 'breakfast');
+            const canDropLunch = isDragging && draggedMeal && canDropMeal(normalizedDay, 'lunch');
+            const canDropDinner = isDragging && draggedMeal && canDropMeal(normalizedDay, 'dinner');
+            const isDropTarget = canDropBreakfast || canDropLunch || canDropDinner;
+            const isInvalidDrop = isDragging && draggedMeal && !isDropTarget && 
+              (dragOverDate && isSameDay(dragOverDate, normalizedDay));
+            
             return (
               <div
                 key={index}
-                onClick={() => handleDayClick(normalizedDay)}
+                onClick={() => {
+                  if (!isDragging) {
+                    handleDayClick(normalizedDay);
+                  }
+                }}
+                onDragOver={(e) => {
+                  // Handle drag over for each meal type
+                  if (isDragging && draggedMeal) {
+                    const mealType = draggedMeal.meal.mealType;
+                    handleDragOver(normalizedDay, mealType, e);
+                  }
+                }}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => {
+                  if (isDragging && draggedMeal) {
+                    const mealType = draggedMeal.meal.mealType;
+                    handleDrop(normalizedDay, mealType, e);
+                  }
+                }}
                 style={{
                   minHeight: '100px',
                   padding: '0.5rem',
-                  border: '1px solid #e5e7eb',
+                  border: isDropTarget ? '2px solid #10b981' : (isInvalidDrop ? '2px solid #ef4444' : '1px solid #e5e7eb'),
                   borderRadius: '4px',
-                  backgroundColor: isToday ? '#f0f8ff' : (isCurrentMonth ? '#ffffff' : '#f9fafb'),
-                  cursor: 'pointer',
+                  backgroundColor: isDropTarget ? '#f0fdf4' : (isInvalidDrop ? '#fef2f2' : (isToday ? '#f0f8ff' : (isCurrentMonth ? '#ffffff' : '#f9fafb'))),
+                  cursor: isDragging ? (isDropTarget ? 'copy' : (isInvalidDrop ? 'not-allowed' : 'pointer')) : 'pointer',
                   transition: 'all 0.2s',
                   position: 'relative'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isToday ? '#e0f2fe' : '#f3f4f6';
-                  e.currentTarget.style.borderColor = '#002B4D';
+                  if (!isDragging) {
+                    e.currentTarget.style.backgroundColor = isToday ? '#e0f2fe' : '#f3f4f6';
+                    e.currentTarget.style.borderColor = '#002B4D';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isToday ? '#f0f8ff' : (isCurrentMonth ? '#ffffff' : '#f9fafb');
-                  e.currentTarget.style.borderColor = '#e5e7eb';
+                  if (!isDragging) {
+                    e.currentTarget.style.backgroundColor = isToday ? '#f0f8ff' : (isCurrentMonth ? '#ffffff' : '#f9fafb');
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }
                 }}
               >
                 <div style={{
@@ -437,10 +670,18 @@ const PlannedMealCalendar: React.FC = () => {
                       .map((meal, mealIndex) => {
                         const dishCount = meal.dishes?.length || 0;
                         const hasCompletedDishes = meal.dishes?.some(d => d.completed) || false;
+                        const isBeingDragged = isDragging && draggedMeal?.meal.id === meal.id && isSameDay(draggedMeal.sourceDate, normalizedDay);
                         return (
                         <div
                           key={mealIndex}
-                          onClick={(e) => handleMealIndicatorClick(normalizedDay, meal.mealType, e)}
+                          draggable={true}
+                          onDragStart={(e) => handleDragStart(meal, normalizedDay, e)}
+                          onDragEnd={handleDragEnd}
+                          onClick={(e) => {
+                            if (!isDragging) {
+                              handleMealIndicatorClick(normalizedDay, meal.mealType, e);
+                            }
+                          }}
                           style={{
                             fontSize: '0.75rem',
                             padding: '0.25rem 0.5rem',
@@ -453,10 +694,11 @@ const PlannedMealCalendar: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.25rem',
-                            opacity: hasCompletedDishes ? 0.6 : 1,
-                            cursor: 'pointer'
+                            opacity: isBeingDragged ? 0.3 : (hasCompletedDishes ? 0.6 : 1),
+                            cursor: isDragging ? 'grabbing' : 'grab',
+                            userSelect: 'none'
                           }}
-                          title={`${MEAL_TYPE_ABBREVIATIONS[meal.mealType]}: ${dishCount} dish${dishCount !== 1 ? 'es' : ''}`}
+                          title={`${MEAL_TYPE_ABBREVIATIONS[meal.mealType]}: ${dishCount} dish${dishCount !== 1 ? 'es' : ''} - Drag to move`}
                         >
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
                             {MEAL_TYPE_ABBREVIATIONS[meal.mealType]} {dishCount > 0 && `(${dishCount})`}
@@ -473,6 +715,38 @@ const PlannedMealCalendar: React.FC = () => {
                         +{dayMeals.length - 3} more
                       </div>
                     )}
+                  </div>
+                )}
+                
+                {/* Drop zone indicators for empty meal types */}
+                {isDragging && draggedMeal && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.25rem' }}>
+                    {(['breakfast', 'lunch', 'dinner'] as MealType[]).map(mealType => {
+                      const hasMealOfType = dayMeals.some(m => m.mealType === mealType);
+                      // Only show drop zone if this meal type is empty and matches the dragged meal type
+                      if (hasMealOfType || mealType !== draggedMeal.meal.mealType) return null;
+                      
+                      const canDrop = canDropMeal(normalizedDay, mealType);
+                      const isTarget = dragOverDate && isSameDay(dragOverDate, normalizedDay) && dragOverMealType === mealType;
+                      
+                      return (
+                        <div
+                          key={mealType}
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: isTarget ? '#10b981' : '#e5e7eb',
+                            color: isTarget ? '#ffffff' : '#9ca3af',
+                            borderRadius: '4px',
+                            border: isTarget ? '2px dashed #10b981' : '1px dashed #d1d5db',
+                            textAlign: 'center',
+                            opacity: isTarget ? 1 : 0.5
+                          }}
+                        >
+                          Drop {MEAL_TYPE_ABBREVIATIONS[mealType]} here
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

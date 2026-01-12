@@ -1060,6 +1060,37 @@ export const mealPlanningService = {
   },
 
   /**
+   * Delete an entire meal from a meal plan
+   */
+  async deleteMeal(userId: string, mealId: string): Promise<void> {
+    logServiceOperation('deleteMeal', 'mealPlans', { userId, mealId });
+
+    try {
+      const mealPlan = await this.getMealPlanForMeal(userId, mealId);
+      if (!mealPlan) {
+        console.error(`[deleteMeal] Meal plan not found for mealId: ${mealId}`);
+        throw new Error('Meal plan not found');
+      }
+
+      const mealIndex = mealPlan.meals.findIndex(m => m.id === mealId);
+      if (mealIndex < 0) {
+        console.error(`[deleteMeal] Meal not found in plan. mealId: ${mealId}, planId: ${mealPlan.id}`);
+        throw new Error('Meal not found in meal plan');
+      }
+
+      // Remove the meal from the plan
+      const updatedMeals = mealPlan.meals.filter(m => m.id !== mealId);
+      mealPlan.meals = updatedMeals;
+
+      await this.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
+      console.log(`[deleteMeal] Successfully deleted meal ${mealId}`);
+    } catch (error) {
+      logServiceError('deleteMeal', 'mealPlans', error, { userId, mealId });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
    * Update a dish in a PlannedMeal
    */
   async updateDishInMeal(userId: string, mealId: string, dishId: string, updates: Partial<Dish>): Promise<void> {
