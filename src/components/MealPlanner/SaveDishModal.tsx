@@ -258,12 +258,57 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
             />
           </div>
 
+          {/* Cancel and Save Buttons */}
+          <div style={{ 
+            marginBottom: '1.5rem', 
+            display: 'flex', 
+            gap: '0.75rem', 
+            justifyContent: 'flex-end' 
+          }}>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#f3f4f6',
+                color: '#1f2937',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: '500',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.5 : 1
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: (!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)) ? '#9ca3af' : '#002B4D',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: '500',
+                cursor: (!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {saving ? 'Saving...' : 'Save Dish'}
+            </button>
+          </div>
+
           {/* Ingredients List */}
           {allIngredients.length > 0 && (
             <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem', fontWeight: '600', color: '#1f2937' }}>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.125rem', fontWeight: '600', color: '#1f2937' }}>
                 Ingredients ({allIngredients.length})
               </h3>
+              <p style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                Select ingredients to add to list or reserve for this dish
+              </p>
               
               {loadingIngredients ? (
                 <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>Checking ingredient availability...</p>
@@ -462,48 +507,6 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ 
-          padding: '1.5rem', 
-          borderTop: '1px solid #e5e7eb', 
-          display: 'flex', 
-          gap: '0.75rem', 
-          justifyContent: 'flex-end' 
-        }}>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#f3f4f6',
-              color: '#1f2937',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? 0.5 : 1
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: (!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)) ? '#9ca3af' : '#002B4D',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: (!dishName.trim() || saving || (selectedForShoppingList.size > 0 && !targetListId)) ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Dish'}
-          </button>
-        </div>
       </div>
     </div>
   );

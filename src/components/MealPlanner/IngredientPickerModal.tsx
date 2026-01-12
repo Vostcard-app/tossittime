@@ -57,6 +57,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [importingRecipe, setImportingRecipe] = useState(false);
   const [importedRecipe, setImportedRecipe] = useState<RecipeImportResult | null>(null);
+  const [recipeImportError, setRecipeImportError] = useState(false);
   const [favoriteWebsites, setFavoriteWebsites] = useState<RecipeSite[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [selectedFavoriteSite, setSelectedFavoriteSite] = useState<RecipeSite | null>(null);
@@ -349,6 +350,9 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const handleGetIngredients = async () => {
     const trimmedUrl = recipeUrl.trim();
     
+    // Reset error state on new attempt
+    setRecipeImportError(false);
+    
     if (!trimmedUrl) {
       showToast('Please enter a recipe URL', 'warning');
       return;
@@ -383,6 +387,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     } catch (error: any) {
       console.error('Error importing recipe:', error);
       showToast(error.message || 'Failed to import recipe. Please try again.', 'error');
+      setRecipeImportError(true);
     } finally {
       setImportingRecipe(false);
     }
@@ -1067,6 +1072,13 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                           <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#002B4D', fontStyle: 'italic', textAlign: 'center' }}>
                             Importing recipe...
                           </p>
+                        )}
+                        {recipeImportError && (
+                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}>
+                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#991b1b', fontWeight: '500' }}>
+                              Copy then paste ingredients in the Add Ingredients tab
+                            </p>
+                          </div>
                         )}
                         <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
                           Paste a recipe URL and click "Get Ingredients" to import the recipe.
