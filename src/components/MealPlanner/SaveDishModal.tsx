@@ -68,8 +68,11 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
       setNewIngredient('');
       setSaving(false);
     } else if (importedRecipeTitle && !dishName.trim()) {
-      // Initialize dish name from imported recipe if available
-      setDishName(importedRecipeTitle);
+      // Initialize dish name from imported recipe if available, limit to 60 characters
+      const truncatedTitle = importedRecipeTitle.length > 60 
+        ? importedRecipeTitle.substring(0, 60).trim()
+        : importedRecipeTitle;
+      setDishName(truncatedTitle);
     }
   }, [isOpen, importedRecipeTitle]);
 
