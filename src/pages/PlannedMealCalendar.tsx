@@ -14,6 +14,7 @@ import { IngredientPickerModal } from '../components/MealPlanner/IngredientPicke
 import { MealDetailModal } from '../components/MealPlanner/MealDetailModal';
 import { MealTypeSelectionModal } from '../components/MealPlanner/MealTypeSelectionModal';
 import { DayMealsModal } from '../components/MealPlanner/DayMealsModal';
+import { DishListModal } from '../components/MealPlanner/DishListModal';
 import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -33,6 +34,7 @@ const PlannedMealCalendar: React.FC = () => {
   const [showMealTypeSelection, setShowMealTypeSelection] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
   const [showDishList, setShowDishList] = useState(false);
+  const [showDayMealsModal, setShowDayMealsModal] = useState(false);
   const [showIngredientPicker, setShowIngredientPicker] = useState(false);
   const [selectedDish, setSelectedDish] = useState<{ dish: any; meal: PlannedMeal } | null>(null);
   const [showMealDetailModal, setShowMealDetailModal] = useState(false);
@@ -117,7 +119,20 @@ const PlannedMealCalendar: React.FC = () => {
     return allPlannedMeals.filter(meal => isSameDay(meal.date, date));
   };
 
-  // Handle day click
+  // Get meal for a specific day and meal type
+  const getMealForDayAndType = (date: Date, mealType: MealType): PlannedMeal | null => {
+    return allPlannedMeals.find(meal => isSameDay(meal.date, date) && meal.mealType === mealType) || null;
+  };
+
+  // Handle meal indicator click (specific meal type)
+  const handleMealIndicatorClick = (date: Date, mealType: MealType, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent day click handler from firing
+    setSelectedDay(date);
+    setSelectedMealType(mealType);
+    setShowDishList(true);
+  };
+
+  // Handle day click (only when not clicking on a meal indicator)
   const handleDayClick = (date: Date) => {
     setSelectedDay(date);
     const dayMeals = getMealsForDay(date);
@@ -125,7 +140,7 @@ const PlannedMealCalendar: React.FC = () => {
     // If there are meals for this day, show the day meals modal
     // Otherwise, show the meal type selection modal
     if (dayMeals.length > 0) {
-      setShowDishList(true);
+      setShowDayMealsModal(true);
     } else {
       setShowMealTypeSelection(true);
     }
@@ -316,6 +331,7 @@ const PlannedMealCalendar: React.FC = () => {
                       return (
                         <div
                           key={mealIndex}
+                          onClick={(e) => handleMealIndicatorClick(day, meal.mealType, e)}
                           style={{
                             fontSize: '0.75rem',
                             padding: '0.25rem 0.5rem',
@@ -328,7 +344,8 @@ const PlannedMealCalendar: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.25rem',
-                            opacity: hasCompletedDishes ? 0.6 : 1
+                            opacity: hasCompletedDishes ? 0.6 : 1,
+                            cursor: 'pointer'
                           }}
                           title={`${MEAL_TYPE_ABBREVIATIONS[meal.mealType]}: ${dishCount} dish${dishCount !== 1 ? 'es' : ''}`}
                         >
@@ -375,19 +392,46 @@ const PlannedMealCalendar: React.FC = () => {
         />
       )}
 
-      {/* Day Meals Modal - Shows all meals for a day */}
-      {showDishList && selectedDay && (
-        <DayMealsModal
+      {/* Dish List Modal - Shows dishes for a specific meal type */}
+      {showDishList && selectedDay && selectedMealType && (
+        <DishListModal
           isOpen={showDishList}
           onClose={() => {
             setShowDishList(false);
+            setSelectedMealType(null);
+            setSelectedDay(null);
+          }}
+          date={selectedDay}
+          mealType={selectedMealType}
+          meal={getMealForDayAndType(selectedDay, selectedMealType)}
+          onDishClick={(dish) => {
+            const meal = getMealForDayAndType(selectedDay, selectedMealType);
+            if (meal) {
+              setSelectedDish({ dish, meal });
+              setShowDishList(false);
+              setShowMealDetailModal(true);
+            }
+          }}
+          onAddDish={() => {
+            setShowDishList(false);
+            setShowIngredientPicker(true);
+          }}
+        />
+      )}
+
+      {/* Day Meals Modal - Shows all meals for a day (only when clicking day, not meal indicator) */}
+      {showDayMealsModal && selectedDay && (
+        <DayMealsModal
+          isOpen={showDayMealsModal}
+          onClose={() => {
+            setShowDayMealsModal(false);
             setSelectedDay(null);
           }}
           date={selectedDay}
           meals={getMealsForDay(selectedDay)}
           onDishClick={(dish, meal) => {
             setSelectedDish({ dish, meal });
-            setShowDishList(false);
+            setShowDayMealsModal(false);
             setShowMealDetailModal(true);
           }}
           onAddDish={handleAddDish}
