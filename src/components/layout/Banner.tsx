@@ -84,11 +84,6 @@ const Banner: React.FC<BannerProps> = ({
               TimeToUseIt
             </h1>
           )}
-          {!showLogo && showHomeIcon && (
-            <span style={{ margin: 0, fontSize: '1rem', fontWeight: '500', color: '#ffffff' }}>
-              timetouseit.com
-            </span>
-          )}
         </div>
         <button
           onClick={onMenuClick}

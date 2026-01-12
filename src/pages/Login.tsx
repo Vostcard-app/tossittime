@@ -57,6 +57,8 @@ const Login: React.FC = () => {
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const [recaptchaVerified, setRecaptchaVerified] = useState(false);
   const navigate = useNavigate();
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
@@ -80,25 +82,78 @@ const Login: React.FC = () => {
 
   // Initialize reCAPTCHA verifier
   useEffect(() => {
-    if (!recaptchaVerifierRef.current && recaptchaContainerRef.current && isSignUp) {
-      try {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-          size: 'normal',
-          theme: 'light',
-          callback: () => {
-            console.log('✅ reCAPTCHA verified');
-          },
-          'expired-callback': () => {
-            console.warn('⚠️ reCAPTCHA expired');
-            setError('Security verification expired. Please try again.');
-          }
-        });
-      } catch (error) {
-        console.error('Failed to initialize reCAPTCHA:', error);
+    if (isSignUp && recaptchaContainerRef.current) {
+      // Reset states when switching to sign up
+      setRecaptchaReady(false);
+      setRecaptchaVerified(false);
+      
+      // Clear any existing verifier
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch (e) {
+          console.warn('Error clearing existing reCAPTCHA:', e);
+        }
+        recaptchaVerifierRef.current = null;
       }
-    }
-    
-    return () => {
+
+      // Small delay to ensure container is rendered
+      const initTimeout = setTimeout(() => {
+        if (recaptchaContainerRef.current && !recaptchaVerifierRef.current) {
+          try {
+            recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+              size: 'normal',
+              theme: 'light',
+              callback: () => {
+                console.log('✅ reCAPTCHA verified');
+                setRecaptchaVerified(true);
+                setError(null); // Clear any previous errors
+              },
+              'expired-callback': () => {
+                console.warn('⚠️ reCAPTCHA expired');
+                setRecaptchaVerified(false);
+                setError('Security verification expired. Please complete the verification again.');
+              },
+              'error-callback': () => {
+                console.error('⚠️ reCAPTCHA error');
+                setRecaptchaVerified(false);
+                setError('Security verification error. Please refresh the page and try again.');
+              }
+            });
+            
+            // Mark as ready after a short delay to ensure widget is rendered
+            setTimeout(() => {
+              setRecaptchaReady(true);
+            }, 500);
+          } catch (error) {
+            console.error('Failed to initialize reCAPTCHA:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('blocked') || errorMessage.includes('unauthorized-domain')) {
+              const currentDomain = window.location.hostname;
+              setError(`Domain authorization error: ${currentDomain} is not authorized in Firebase. Please add it to Firebase Console → Authentication → Settings → Authorized domains.`);
+            } else {
+              setError('Failed to load security verification. Please refresh the page and try again.');
+            }
+            setRecaptchaReady(false);
+          }
+        }
+      }, 100);
+
+      return () => {
+        clearTimeout(initTimeout);
+        if (recaptchaVerifierRef.current) {
+          try {
+            recaptchaVerifierRef.current.clear();
+          } catch (e) {
+            console.warn('Error clearing reCAPTCHA:', e);
+          }
+          recaptchaVerifierRef.current = null;
+        }
+        setRecaptchaReady(false);
+        setRecaptchaVerified(false);
+      };
+    } else if (!isSignUp) {
+      // Clean up when switching away from sign up
       if (recaptchaVerifierRef.current) {
         try {
           recaptchaVerifierRef.current.clear();
@@ -107,7 +162,9 @@ const Login: React.FC = () => {
         }
         recaptchaVerifierRef.current = null;
       }
-    };
+      setRecaptchaReady(false);
+      setRecaptchaVerified(false);
+    }
   }, [isSignUp]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,20 +189,40 @@ const Login: React.FC = () => {
         }
 
         // Verify reCAPTCHA
+        if (!recaptchaReady) {
+          setError('Security verification is still loading. Please wait a moment and try again.');
+          setLoading(false);
+          return;
+        }
+
         if (recaptchaVerifierRef.current) {
-          try {
-            await recaptchaVerifierRef.current.verify();
-            console.log('✅ reCAPTCHA verified');
-          } catch (recaptchaError: unknown) {
-            console.error('reCAPTCHA verification failed:', recaptchaError);
-            setError('Please complete the security verification.');
-            setLoading(false);
-            return;
+          // If already verified via callback, we can proceed
+          if (!recaptchaVerified) {
+            try {
+              // Force verification check
+              await recaptchaVerifierRef.current.verify();
+              setRecaptchaVerified(true);
+              console.log('✅ reCAPTCHA verified');
+            } catch (recaptchaError: unknown) {
+              console.error('reCAPTCHA verification failed:', recaptchaError);
+              const errorMessage = recaptchaError instanceof Error ? recaptchaError.message : String(recaptchaError);
+              if (errorMessage.includes('blocked') || errorMessage.includes('unauthorized-domain')) {
+                const currentDomain = window.location.hostname;
+                setError(`Domain authorization error: ${currentDomain} is not authorized in Firebase. Please add it to Firebase Console → Authentication → Settings → Authorized domains.`);
+              } else if (errorMessage.includes('expired') || errorMessage.includes('timeout')) {
+                setError('Security verification expired. Please complete the verification checkbox again.');
+              } else {
+                setError('Please complete the security verification by checking the box below.');
+              }
+              setLoading(false);
+              return;
+            }
           }
         } else {
           console.warn('⚠️ reCAPTCHA verifier not initialized');
-          // Allow registration to proceed if reCAPTCHA fails to initialize
-          // This is a fallback for cases where reCAPTCHA might not load
+          setError('Security verification failed to load. Please refresh the page and try again.');
+          setLoading(false);
+          return;
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -545,33 +622,67 @@ const Login: React.FC = () => {
                   I agree to the Terms and Conditions and Privacy Policy
                 </span>
               </label>
-              <div 
-                ref={recaptchaContainerRef}
-                id="recaptcha-container"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  marginBottom: '1rem',
-                  minHeight: '78px'
-                }}
-              />
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
+                  fontWeight: '500',
+                  fontSize: '0.875rem',
+                  color: '#374151'
+                }}>
+                  Security Verification {recaptchaVerified && '✓'}
+                </label>
+                <div 
+                  ref={recaptchaContainerRef}
+                  id="recaptcha-container"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    minHeight: '78px',
+                    padding: '0.5rem',
+                    border: recaptchaVerified ? '1px solid #10b981' : '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    backgroundColor: recaptchaVerified ? '#f0fdf4' : '#f9fafb'
+                  }}
+                />
+                {!recaptchaReady && (
+                  <p style={{ 
+                    margin: '0.5rem 0 0 0', 
+                    fontSize: '0.75rem', 
+                    color: '#6b7280',
+                    textAlign: 'center'
+                  }}>
+                    Loading security verification...
+                  </p>
+                )}
+                {recaptchaReady && !recaptchaVerified && (
+                  <p style={{ 
+                    margin: '0.5rem 0 0 0', 
+                    fontSize: '0.75rem', 
+                    color: '#6b7280',
+                    textAlign: 'center'
+                  }}>
+                    Please check the box above to verify you're not a robot
+                  </p>
+                )}
+              </div>
             </>
           )}
 
             <button
               type="submit"
-              disabled={loading || (isSignUp && !acceptedTerms)}
+              disabled={loading || (isSignUp && (!acceptedTerms || !recaptchaVerified))}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                backgroundColor: (isSignUp && !acceptedTerms) ? '#9ca3af' : '#002B4D',
+                backgroundColor: (isSignUp && (!acceptedTerms || !recaptchaVerified)) ? '#9ca3af' : '#002B4D',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '1rem',
                 fontWeight: '500',
-                cursor: (loading || (isSignUp && !acceptedTerms)) ? 'not-allowed' : 'pointer',
-                opacity: (loading || (isSignUp && !acceptedTerms)) ? 0.6 : 1,
+                cursor: (loading || (isSignUp && (!acceptedTerms || !recaptchaVerified))) ? 'not-allowed' : 'pointer',
+                opacity: (loading || (isSignUp && (!acceptedTerms || !recaptchaVerified))) ? 0.6 : 1,
                 marginBottom: '1rem'
               }}
             >
@@ -587,6 +698,8 @@ const Login: React.FC = () => {
                   setResetEmailSent(false);
                   setConfirmPassword('');
                   setAcceptedTerms(false);
+                  setRecaptchaVerified(false);
+                  setRecaptchaReady(false);
                 }}
                 style={{
                   background: 'none',

@@ -41,6 +41,50 @@ import { foodItemService } from './foodItemService';
 import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 
 /**
+ * Migrate legacy meal structure to nested dishes format
+ * This ensures meals created before the refactor are accessible
+ */
+function migrateLegacyMeal(meal: PlannedMeal): PlannedMeal {
+  // If meal already has dishes, return as-is
+  if (meal.dishes && meal.dishes.length > 0) {
+    return meal;
+  }
+
+  // Check if this is a legacy meal (has old structure)
+  const hasLegacyData = meal.mealName || meal.recipeTitle || 
+    (meal.recipeIngredients && meal.recipeIngredients.length > 0) || 
+    (meal.suggestedIngredients && meal.suggestedIngredients.length > 0);
+
+  if (hasLegacyData) {
+    // Create a dish from legacy meal data
+    const dish: Dish = {
+      id: meal.id + '-dish-0', // Generate a unique ID for the migrated dish
+      dishName: meal.mealName || meal.recipeTitle || 'Unnamed Dish',
+      recipeTitle: meal.recipeTitle || null,
+      recipeIngredients: meal.recipeIngredients || meal.suggestedIngredients || [],
+      recipeSourceUrl: meal.recipeSourceUrl || null,
+      recipeSourceDomain: meal.recipeSourceDomain || null,
+      recipeImageUrl: meal.recipeImageUrl || null,
+      reservedQuantities: meal.reservedQuantities || {},
+      claimedItemIds: meal.claimedItemIds || meal.usesBestBySoonItems || [],
+      claimedShoppingListItemIds: meal.claimedShoppingListItemIds || [],
+      completed: meal.completed || false
+    };
+
+    return {
+      ...meal,
+      dishes: [dish]
+    };
+  }
+
+  // No legacy data, ensure dishes array exists
+  return {
+    ...meal,
+    dishes: []
+  };
+}
+
+/**
  * Meal Planning Service
  */
 export const mealPlanningService = {
@@ -433,10 +477,14 @@ export const mealPlanningService = {
         id: doc.id,
         ...data,
         weekStartDate: data.weekStartDate.toDate(),
-        meals: data.meals.map((meal: any) => ({
-          ...meal,
-          date: startOfDay(meal.date.toDate()) // Normalize to start of day for consistent comparison
-        })),
+        meals: data.meals.map((meal: any) => {
+          const normalizedMeal: PlannedMeal = {
+            ...meal,
+            date: startOfDay(meal.date.toDate()) // Normalize to start of day for consistent comparison
+          };
+          // Migrate legacy meals to nested dishes structure
+          return migrateLegacyMeal(normalizedMeal);
+        }),
         createdAt: data.createdAt.toDate(),
         confirmedAt: data.confirmedAt?.toDate()
       } as MealPlan;
@@ -476,10 +524,14 @@ export const mealPlanningService = {
           id: doc.id,
           ...data,
           weekStartDate: data.weekStartDate.toDate(),
-          meals: data.meals.map((meal: any) => ({
-            ...meal,
-            date: startOfDay(meal.date.toDate()) // Normalize to start of day for consistent comparison
-          })),
+          meals: data.meals.map((meal: any) => {
+            const normalizedMeal: PlannedMeal = {
+              ...meal,
+              date: startOfDay(meal.date.toDate()) // Normalize to start of day for consistent comparison
+            };
+            // Migrate legacy meals to nested dishes structure
+            return migrateLegacyMeal(normalizedMeal);
+          }),
           createdAt: data.createdAt.toDate(),
           confirmedAt: data.confirmedAt?.toDate()
         } as MealPlan;
