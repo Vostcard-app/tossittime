@@ -6,11 +6,9 @@
  * 3. USDA/NCHFP (fallback for dry goods)
  */
 
-import { addDays } from 'date-fns';
 import { getSuggestedExpirationDate, findFoodItem } from './foodkeeperService';
 import { getEatByDateExpirationDate } from './eatbydateService';
 import { getDryGoodsShelfLife } from './shelfLifeService';
-import type { FoodKeeperItem } from '../types';
 
 export interface ShelfLifeResult {
   expirationDate: Date;
