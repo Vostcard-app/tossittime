@@ -12,7 +12,7 @@ import type { RecipeImportResult } from '../../types/recipeImport';
 import type { RecipeSite } from '../../types/recipeImport';
 import { isDryCannedItem } from '../../utils/storageUtils';
 import { addDays, startOfWeek, isSameDay } from 'date-fns';
-import { detectCategory, type FoodCategory } from '../../utils/categoryUtils';
+import { detectCategory } from '../../utils/categoryUtils';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
 import { IngredientChecklist } from './IngredientChecklist';
 import { GoogleSearchRecipeModal } from './GoogleSearchRecipeModal';
@@ -1097,6 +1097,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                               </div>
                             </div>
                           )}
+                          </div>
                         </div>
                       )}
                     </div>
