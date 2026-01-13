@@ -9,7 +9,8 @@ import { useFoodItems } from '../hooks/useFoodItems';
 import AddItemForm from '../components/forms/AddItemForm';
 import BarcodeScanner from '../components/features/BarcodeScanner';
 import type { BarcodeScanResult } from '../services/barcodeService';
-import { findFoodItems, getSuggestedExpirationDate } from '../services/foodkeeperService';
+import { findFoodItems } from '../services/foodkeeperService';
+import { getSuggestedExpirationDateMultiSource } from '../services/multiSourceShelfLifeService';
 import { differenceInDays } from 'date-fns';
 import { analyticsService } from '../services/analyticsService';
 
@@ -324,24 +325,21 @@ const AddItem: React.FC = () => {
       const isDryCanned = isDryCannedItem(item);
       const calcStorageType = isDryCanned ? 'pantry' : 'refrigerator';
       
-      // Try to get expiration date from FoodKeeper data
-      const suggestedDate = getSuggestedExpirationDate(item.name, calcStorageType);
+      // Try to get expiration date from multiple sources (FoodKeeper -> EatByDate -> USDA/NCHFP)
+      const suggestedDate = await getSuggestedExpirationDateMultiSource(item.name, calcStorageType);
       
       if (suggestedDate) {
         calculatedExpirationDate = suggestedDate;
       } else {
-        // Fall back: For dry/canned goods, getSuggestedExpirationDate now uses USDA/NCHFP-based shelf life
+        // Fall back: If no data found from any source, use defaults
         // For perishable items, use a default of 7 days
-        if (isDryCanned) {
-          // getSuggestedExpirationDate will handle dry/canned fallback via shelfLifeService
-          const fallbackDate = getSuggestedExpirationDate(item.name, calcStorageType);
-          calculatedExpirationDate = fallbackDate || undefined;
-        } else {
-          // Default for perishable items
+        if (!isDryCanned) {
           const defaultDays = 7;
           calculatedExpirationDate = new Date();
           calculatedExpirationDate.setDate(calculatedExpirationDate.getDate() + defaultDays);
         }
+        // For dry/canned goods, the multi-source service already tried all sources
+        // If it returns null, we'll leave calculatedExpirationDate as undefined
       }
     }
     
