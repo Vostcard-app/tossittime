@@ -12,6 +12,7 @@ import type { RecipeImportResult } from '../../types/recipeImport';
 import type { RecipeSite } from '../../types/recipeImport';
 import { isDryCannedItem } from '../../utils/storageUtils';
 import { addDays, startOfWeek, isSameDay } from 'date-fns';
+import { detectCategory, type FoodCategory } from '../../utils/categoryUtils';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
 import { IngredientChecklist } from './IngredientChecklist';
 import { GoogleSearchRecipeModal } from './GoogleSearchRecipeModal';
@@ -30,6 +31,7 @@ interface IngredientItem {
   name: string;
   source: 'bestBySoon' | 'shopList' | 'perishable' | 'dryCanned';
   bestByDate?: Date | null; // For sorting by best by date
+  category?: 'Proteins' | 'Vegetables' | 'Fruits' | 'Dairy' | 'Leftovers' | 'Other';
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -61,6 +63,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const [recipeImportError, setRecipeImportError] = useState(false);
   const [favoriteWebsites, setFavoriteWebsites] = useState<RecipeSite[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedFavoriteSite, setSelectedFavoriteSite] = useState<RecipeSite | null>(null);
   const [selectedSearchIngredients, setSelectedSearchIngredients] = useState<Set<string>>(new Set());
   const [showGoogleSearchRecipeModal, setShowGoogleSearchRecipeModal] = useState(false);
@@ -186,7 +189,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
             id: `perishable-${item.id}`,
             name: item.name,
             source: 'perishable',
-            bestByDate: item.bestByDate || item.thawDate || null
+            bestByDate: item.bestByDate || item.thawDate || null,
+            category: detectCategory(item.name)
           });
         });
 
@@ -474,6 +478,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       setSelectedSearchIngredients(new Set());
       setShowGoogleSearchRecipeModal(false);
       setShowSaveDishModal(false);
+      setCategoryFilter('all'); // Reset category filter when modal closes
     }
   }, [isOpen]);
 
@@ -506,14 +511,20 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       groups[ingredient.source].push(ingredient);
     });
 
+    // Filter perishable items by category if filter is set
+    let filteredPerishable = groups.perishable;
+    if (categoryFilter !== 'all') {
+      filteredPerishable = groups.perishable.filter(item => item.category === categoryFilter);
+    }
+
     // Sort each group by best by date (earliest first)
     return {
       bestBySoon: sortIngredientsByDate(groups.bestBySoon),
       shopList: groups.shopList, // Shop list items don't have dates, keep current order
-      perishable: sortIngredientsByDate(groups.perishable),
+      perishable: sortIngredientsByDate(filteredPerishable),
       dryCanned: sortIngredientsByDate(groups.dryCanned)
     };
-  }, [ingredients]);
+  }, [ingredients, categoryFilter]);
 
   const toggleIngredient = (ingredientId: string) => {
     const newSelected = new Set(selectedIngredients);
@@ -893,7 +904,44 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                       {loading ? (
                         <p style={{ textAlign: 'center', color: '#6b7280' }}>Loading ingredients...</p>
                       ) : (
-                        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        <div>
+                          {/* Category Filter Dropdown */}
+                          <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ 
+                              display: 'block', 
+                              marginBottom: '0.5rem', 
+                              fontSize: '0.875rem', 
+                              fontWeight: '500', 
+                              color: '#1f2937' 
+                            }}>
+                              Filter Perishables:
+                            </label>
+                            <select
+                              value={categoryFilter}
+                              onChange={(e) => setCategoryFilter(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem 0.75rem',
+                                backgroundColor: '#ffffff',
+                                color: '#1f2937',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="all">All Categories</option>
+                              <option value="Proteins">Proteins</option>
+                              <option value="Vegetables">Vegetables</option>
+                              <option value="Fruits">Fruits</option>
+                              <option value="Dairy">Dairy</option>
+                              <option value="Leftovers">Leftovers</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          
+                          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                           {/* Expiring Soon */}
                           {groupedIngredients.bestBySoon.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>

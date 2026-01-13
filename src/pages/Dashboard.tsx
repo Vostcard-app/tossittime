@@ -14,15 +14,18 @@ import type { FoodItem } from '../types';
 import { analyticsService } from '../services/analyticsService';
 import { isDryCannedItem } from '../utils/storageUtils';
 import { getStatusLabel } from '../utils/statusUtils';
+import { detectCategory, type FoodCategory } from '../utils/categoryUtils';
 
 type FilterType = 'all' | 'bestBySoon' | 'pastBestBy';
 type StorageTabType = 'perishable' | 'dryCanned';
+type CategoryFilterType = 'all' | FoodCategory;
 
 const Dashboard: React.FC = () => {
   const [user] = useAuthState(auth);
   const { foodItems, loading } = useFoodItems(user || null);
   const [filter, setFilter] = useState<FilterType>('all');
   const [storageTab, setStorageTab] = useState<StorageTabType>('perishable');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('all');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showIndexWarning, setShowIndexWarning] = useState(false);
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
@@ -97,11 +100,20 @@ const Dashboard: React.FC = () => {
       ? storageFiltered 
       : storageFiltered.filter(item => item.status === filter);
     
+    // Filter by category if perishable and category filter is set
+    let categoryFiltered = statusFiltered;
+    if (storageTab === 'perishable' && categoryFilter !== 'all') {
+      categoryFiltered = statusFiltered.filter(item => {
+        const itemCategory = detectCategory(item.name);
+        return itemCategory === categoryFilter;
+      });
+    }
+    
     // Separate items used by meals from items not used by meals
     const planned: FoodItem[] = [];
     const notPlanned: FoodItem[] = [];
     
-    statusFiltered.forEach(item => {
+    categoryFiltered.forEach(item => {
       if (item.usedByMeals && item.usedByMeals.length > 0) {
         planned.push(item);
       } else {
@@ -127,7 +139,7 @@ const Dashboard: React.FC = () => {
       everythingElse: sortByDate(everythingElse),
       planned: sortByDate(planned)
     };
-  }, [storageTab, itemsByStorageType, filter]);
+  }, [storageTab, itemsByStorageType, filter, categoryFilter]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     // Track engagement: core_action_used (toss)
@@ -385,7 +397,7 @@ const Dashboard: React.FC = () => {
         )}
 
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '5px', marginBottom: '5px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '5px', marginBottom: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
         {(['all', 'bestBySoon', 'pastBestBy'] as FilterType[]).map((filterType) => (
           <button
             key={filterType}
@@ -405,6 +417,33 @@ const Dashboard: React.FC = () => {
             {filterType === 'all' ? 'All' : getStatusLabel(filterType as any)} ({filterType === 'all' ? foodItems.length : foodItems.filter(i => i.status === filterType).length})
           </button>
         ))}
+        
+        {/* Category Filter - Only show for perishable items */}
+        {storageTab === 'perishable' && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilterType)}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#ffffff',
+              color: '#1f2937',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              minWidth: '150px'
+            }}
+          >
+            <option value="all">All Categories</option>
+            <option value="Proteins">Proteins</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Dairy">Dairy</option>
+            <option value="Leftovers">Leftovers</option>
+            <option value="Other">Other</option>
+          </select>
+        )}
       </div>
 
       {/* Today's Date */}
@@ -417,7 +456,10 @@ const Dashboard: React.FC = () => {
       {/* Storage Type Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
-          onClick={() => setStorageTab('perishable')}
+            onClick={() => {
+              setStorageTab('perishable');
+              setCategoryFilter('all'); // Reset category filter when switching tabs
+            }}
           style={{
             padding: '0.75rem 1.5rem',
             backgroundColor: storageTab === 'perishable' ? '#002B4D' : '#f9fafb',
@@ -437,7 +479,10 @@ const Dashboard: React.FC = () => {
           Perishable ({itemsByStorageType.perishableItems.length})
         </button>
         <button
-          onClick={() => setStorageTab('dryCanned')}
+            onClick={() => {
+              setStorageTab('dryCanned');
+              setCategoryFilter('all'); // Reset category filter when switching tabs
+            }}
           style={{
             padding: '0.75rem 1.5rem',
             backgroundColor: storageTab === 'dryCanned' ? '#002B4D' : '#f9fafb',
