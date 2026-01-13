@@ -417,33 +417,6 @@ const Dashboard: React.FC = () => {
             {filterType === 'all' ? 'All' : getStatusLabel(filterType as any)} ({filterType === 'all' ? foodItems.length : foodItems.filter(i => i.status === filterType).length})
           </button>
         ))}
-        
-        {/* Category Filter - Only show for perishable items */}
-        {storageTab === 'perishable' && (
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilterType)}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#ffffff',
-              color: '#1f2937',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              minWidth: '150px'
-            }}
-          >
-            <option value="all">All Categories</option>
-            <option value="Proteins">Proteins</option>
-            <option value="Vegetables">Vegetables</option>
-            <option value="Fruits">Fruits</option>
-            <option value="Dairy">Dairy</option>
-            <option value="Leftovers">Leftovers</option>
-            <option value="Other">Other</option>
-          </select>
-        )}
       </div>
 
       {/* Today's Date */}
@@ -532,6 +505,35 @@ const Dashboard: React.FC = () => {
           Add
         </button>
       </div>
+
+      {/* Category Filter - Only show for perishable items, positioned under Perishable tab */}
+      {storageTab === 'perishable' && (
+        <div style={{ marginBottom: '1rem', marginTop: '0.5rem' }}>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilterType)}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#ffffff',
+              color: '#1f2937',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              minWidth: '150px'
+            }}
+          >
+            <option value="all">All Categories</option>
+            <option value="Proteins">Proteins</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Dairy">Dairy</option>
+            <option value="Leftovers">Leftovers</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      )}
 
       {groupedAndFilteredItems.aboutToExpire.length === 0 && groupedAndFilteredItems.everythingElse.length === 0 && groupedAndFilteredItems.planned.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>

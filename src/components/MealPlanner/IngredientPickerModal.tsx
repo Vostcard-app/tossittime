@@ -689,11 +689,11 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   const getSourceLabel = (source: IngredientItem['source']): string => {
     switch (source) {
       case 'bestBySoon':
-        return 'Expiring Soon';
+        return 'Use Soon';
       case 'shopList':
         return 'Shop List';
       case 'perishable':
-        return 'Perishable Items';
+        return 'Perishables';
       case 'dryCanned':
         return 'Dry/Canned Items';
       default:
@@ -942,7 +942,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                           </div>
                           
                           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                          {/* Expiring Soon */}
+                          {/* Use Soon */}
                           {groupedIngredients.bestBySoon.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>
                               <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
