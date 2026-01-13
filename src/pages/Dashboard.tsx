@@ -64,16 +64,56 @@ const Dashboard: React.FC = () => {
     return { perishableItems, dryCannedItems };
   }, [foodItems, isDryCannedItem]);
 
-  // Combine storage tab filter with status filter
-  const filteredItems = useMemo(() => {
+  // Helper function to get date for sorting
+  const getSortDate = (item: FoodItem): Date | null => {
+    return item.bestByDate || item.thawDate || null;
+  };
+
+  // Helper function to sort items by best by date
+  const sortByDate = (items: FoodItem[]): FoodItem[] => {
+    return [...items].sort((a, b) => {
+      const dateA = getSortDate(a);
+      const dateB = getSortDate(b);
+      
+      // Items without dates go to the end
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      
+      // Sort by date (earliest first)
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
+  // Combine storage tab filter with status filter and group by expiration status
+  const groupedAndFilteredItems = useMemo(() => {
     // First filter by storage type
     const storageFiltered = storageTab === 'perishable' 
       ? itemsByStorageType.perishableItems 
       : itemsByStorageType.dryCannedItems;
     
-    // Then filter by status
-    if (filter === 'all') return storageFiltered;
-    return storageFiltered.filter(item => item.status === filter);
+    // Then filter by status if not 'all'
+    const statusFiltered = filter === 'all' 
+      ? storageFiltered 
+      : storageFiltered.filter(item => item.status === filter);
+    
+    // Group into "About to Expire" and "Everything else"
+    const aboutToExpire: FoodItem[] = [];
+    const everythingElse: FoodItem[] = [];
+    
+    statusFiltered.forEach(item => {
+      if (item.status === 'bestBySoon') {
+        aboutToExpire.push(item);
+      } else {
+        everythingElse.push(item);
+      }
+    });
+    
+    // Sort each group by best by date
+    return {
+      aboutToExpire: sortByDate(aboutToExpire),
+      everythingElse: sortByDate(everythingElse)
+    };
   }, [storageTab, itemsByStorageType, filter]);
 
   const handleDelete = useCallback(async (itemId: string) => {
@@ -435,7 +475,7 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      {filteredItems.length === 0 ? (
+      {groupedAndFilteredItems.aboutToExpire.length === 0 && groupedAndFilteredItems.everythingElse.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
             {filter === 'all' 
@@ -471,15 +511,67 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {filteredItems.map((item) => (
-            <SwipeableListItem
-              key={item.id}
-              item={item}
-              onDelete={() => handleDelete(item.id)}
-              onClick={() => handleItemClick(item)}
-              onFreeze={() => handleFreezeItem(item)}
-            />
-          ))}
+          {/* About to Expire Section */}
+          {groupedAndFilteredItems.aboutToExpire.length > 0 && (
+            <>
+              <div style={{ 
+                marginTop: '1rem', 
+                marginBottom: '0.75rem', 
+                padding: '0.5rem 0',
+                borderBottom: '2px solid #eab308'
+              }}>
+                <h3 style={{ 
+                  margin: 0, 
+                  fontSize: '1.125rem', 
+                  fontWeight: '600', 
+                  color: '#1f2937' 
+                }}>
+                  About to Expire
+                </h3>
+              </div>
+              {groupedAndFilteredItems.aboutToExpire.map((item) => (
+                <SwipeableListItem
+                  key={item.id}
+                  item={item}
+                  onDelete={() => handleDelete(item.id)}
+                  onClick={() => handleItemClick(item)}
+                  onFreeze={() => handleFreezeItem(item)}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Everything Else Section */}
+          {groupedAndFilteredItems.everythingElse.length > 0 && (
+            <>
+              {groupedAndFilteredItems.aboutToExpire.length > 0 && (
+                <div style={{ 
+                  marginTop: '1.5rem', 
+                  marginBottom: '0.75rem', 
+                  padding: '0.5rem 0',
+                  borderBottom: '2px solid #e5e7eb'
+                }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    fontSize: '1.125rem', 
+                    fontWeight: '600', 
+                    color: '#1f2937' 
+                  }}>
+                    Everything else
+                  </h3>
+                </div>
+              )}
+              {groupedAndFilteredItems.everythingElse.map((item) => (
+                <SwipeableListItem
+                  key={item.id}
+                  item={item}
+                  onDelete={() => handleDelete(item.id)}
+                  onClick={() => handleItemClick(item)}
+                  onFreeze={() => handleFreezeItem(item)}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
         </div>

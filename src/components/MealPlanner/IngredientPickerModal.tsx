@@ -29,6 +29,7 @@ interface IngredientItem {
   id: string;
   name: string;
   source: 'bestBySoon' | 'shopList' | 'perishable' | 'dryCanned';
+  bestByDate?: Date | null; // For sorting by best by date
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -153,7 +154,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
           allIngredients.push({
             id: `bestBySoon-${item.id}`,
             name: item.name,
-            source: 'bestBySoon'
+            source: 'bestBySoon',
+            bestByDate: item.bestByDate || item.thawDate || null
           });
         });
 
@@ -183,7 +185,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
           allIngredients.push({
             id: `perishable-${item.id}`,
             name: item.name,
-            source: 'perishable'
+            source: 'perishable',
+            bestByDate: item.bestByDate || item.thawDate || null
           });
         });
 
@@ -195,7 +198,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
           allIngredients.push({
             id: `dryCanned-${item.id}`,
             name: item.name,
-            source: 'dryCanned'
+            source: 'dryCanned',
+            bestByDate: item.bestByDate || item.thawDate || null
           });
         });
 
@@ -473,7 +477,23 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     }
   }, [isOpen]);
 
-  // Group ingredients by source
+  // Helper function to sort ingredients by best by date
+  const sortIngredientsByDate = (items: IngredientItem[]): IngredientItem[] => {
+    return [...items].sort((a, b) => {
+      const dateA = a.bestByDate;
+      const dateB = b.bestByDate;
+      
+      // Items without dates go to the end
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      
+      // Sort by date (earliest first)
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
+  // Group ingredients by source and sort by best by date
   const groupedIngredients = useMemo(() => {
     const groups = {
       bestBySoon: [] as IngredientItem[],
@@ -486,7 +506,13 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       groups[ingredient.source].push(ingredient);
     });
 
-    return groups;
+    // Sort each group by best by date (earliest first)
+    return {
+      bestBySoon: sortIngredientsByDate(groups.bestBySoon),
+      shopList: groups.shopList, // Shop list items don't have dates, keep current order
+      perishable: sortIngredientsByDate(groups.perishable),
+      dryCanned: sortIngredientsByDate(groups.dryCanned)
+    };
   }, [ingredients]);
 
   const toggleIngredient = (ingredientId: string) => {
@@ -907,45 +933,6 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                             </div>
                           )}
 
-                          {/* Shop List */}
-                          {groupedIngredients.shopList.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                              <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
-                                {getSourceLabel('shopList')}
-                              </h4>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {groupedIngredients.shopList.map(ingredient => (
-                                  <label
-                                    key={ingredient.id}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      padding: '0.75rem',
-                                      cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer',
-                                      borderRadius: '4px',
-                                      backgroundColor: selectedIngredients.has(ingredient.id) ? '#f0f8ff' : 'transparent',
-                                      opacity: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 0.5 : 1
-                                    }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedIngredients.has(ingredient.id)}
-                                      onChange={() => toggleIngredient(ingredient.id)}
-                                      disabled={selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id)}
-                                      style={{
-                                        marginRight: '0.75rem',
-                                        width: '1.25rem',
-                                        height: '1.25rem',
-                                        cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer'
-                                      }}
-                                    />
-                                    <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
                           {/* Perishable Items */}
                           {groupedIngredients.perishable.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>
@@ -993,6 +980,45 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                               </h4>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 {groupedIngredients.dryCanned.map(ingredient => (
+                                  <label
+                                    key={ingredient.id}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '0.75rem',
+                                      cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer',
+                                      borderRadius: '4px',
+                                      backgroundColor: selectedIngredients.has(ingredient.id) ? '#f0f8ff' : 'transparent',
+                                      opacity: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 0.5 : 1
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIngredients.has(ingredient.id)}
+                                      onChange={() => toggleIngredient(ingredient.id)}
+                                      disabled={selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id)}
+                                      style={{
+                                        marginRight: '0.75rem',
+                                        width: '1.25rem',
+                                        height: '1.25rem',
+                                        cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer'
+                                      }}
+                                    />
+                                    <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Shop List */}
+                          {groupedIngredients.shopList.length > 0 && (
+                            <div style={{ marginBottom: '1.5rem' }}>
+                              <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
+                                {getSourceLabel('shopList')}
+                              </h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {groupedIngredients.shopList.map(ingredient => (
                                   <label
                                     key={ingredient.id}
                                     style={{
