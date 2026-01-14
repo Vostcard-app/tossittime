@@ -33,6 +33,7 @@ interface IngredientItem {
   bestByDate?: Date | null; // For sorting by best by date
   category?: 'Proteins' | 'Vegetables' | 'Fruits' | 'Dairy' | 'Leftovers' | 'Other';
   originalItemId?: string; // Original FoodItem ID for perishable items (for category updates)
+  isReserved?: boolean; // Whether this item is reserved for a dish
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -134,17 +135,12 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       return;
     }
 
-    const loadIngredients = async () => {
-      try {
-        setLoading(true);
-        const allIngredients: IngredientItem[] = [];
+        const loadIngredients = async () => {
+          try {
+            setLoading(true);
+            const allIngredients: IngredientItem[] = [];
 
-        // Helper function to check if item is not claimed by any meal
-        const isNotClaimed = (item: { usedByMeals?: string[] }) => {
-          return !item.usedByMeals || item.usedByMeals.length === 0;
-        };
-
-        // 1. Load best by soon items (next 14 days)
+            // 1. Load best by soon items (next 14 days)
         const allFoodItems = await foodItemService.getFoodItems(user.uid);
         const now = new Date();
         const twoWeeksFromNow = addDays(now, 14);
@@ -152,7 +148,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         const bestBySoonItems = allFoodItems.filter(item => {
           const expDate = item.bestByDate || item.thawDate;
           if (!expDate) return false;
-          if (!isNotClaimed(item)) return false; // Exclude claimed items
+          // Include all items, even if reserved
           return expDate >= now && expDate <= twoWeeksFromNow;
         });
 
@@ -165,7 +161,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
             category: (item.category as FoodCategory) || detectCategory(item.name),
             // Only set originalItemId for perishable items (not dry/canned)
             // This ensures the edit icon only appears on perishable items
-            originalItemId: !isDryCannedItem(item) ? item.id : undefined
+            originalItemId: !isDryCannedItem(item) ? item.id : undefined,
+            isReserved: !!(item.usedByMeals && item.usedByMeals.length > 0)
           });
         });
 
@@ -175,21 +172,22 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
         
         if (defaultList) {
           const shopListItems = await shoppingListService.getShoppingListItems(user.uid, defaultList.id);
-          // Only include non-crossed-off items that aren't already claimed by other meals
+          // Include non-crossed-off items (even if reserved)
           shopListItems
-            .filter(item => !item.crossedOff && !item.mealId)
+            .filter(item => !item.crossedOff)
             .forEach(item => {
               allIngredients.push({
                 id: `shopList-${item.id}`,
                 name: item.name,
-                source: 'shopList'
+                source: 'shopList',
+                isReserved: !!item.mealId
               });
             });
         }
 
         // 3. Load perishable items (not dry/canned)
         const perishableItems = allFoodItems.filter(item => 
-          !isDryCannedItem(item) && isNotClaimed(item)
+          !isDryCannedItem(item)
         );
         perishableItems.forEach(item => {
           allIngredients.push({
@@ -198,20 +196,22 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
             source: 'perishable',
             bestByDate: item.bestByDate || item.thawDate || null,
             category: (item.category as FoodCategory) || detectCategory(item.name),
-            originalItemId: item.id
+            originalItemId: item.id,
+            isReserved: !!(item.usedByMeals && item.usedByMeals.length > 0)
           });
         });
 
         // 4. Load dry/canned items
         const dryCannedItems = allFoodItems.filter(item => 
-          isDryCannedItem(item) && isNotClaimed(item)
+          isDryCannedItem(item)
         );
         dryCannedItems.forEach(item => {
           allIngredients.push({
             id: `dryCanned-${item.id}`,
             name: item.name,
             source: 'dryCanned',
-            bestByDate: item.bestByDate || item.thawDate || null
+            bestByDate: item.bestByDate || item.thawDate || null,
+            isReserved: !!(item.usedByMeals && item.usedByMeals.length > 0)
           });
         });
 
@@ -1025,7 +1025,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                                       }}
                                     />
                                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.5rem' }}>
-                                      <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
+                                      <span style={{ flex: 1, fontSize: '1rem', color: ingredient.isReserved ? '#9ca3af' : '#1f2937' }}>{ingredient.name}</span>
                                       {ingredient.originalItemId && (
                                         <div style={{ position: 'relative' }}>
                                           <button
@@ -1128,7 +1128,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                                       }}
                                     />
                                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.5rem' }}>
-                                      <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
+                                      <span style={{ flex: 1, fontSize: '1rem', color: ingredient.isReserved ? '#9ca3af' : '#1f2937' }}>{ingredient.name}</span>
                                       {ingredient.originalItemId && (
                                         <div style={{ position: 'relative' }}>
                                           <button
@@ -1230,7 +1230,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                                         cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer'
                                       }}
                                     />
-                                    <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
+                                    <span style={{ flex: 1, fontSize: '1rem', color: ingredient.isReserved ? '#9ca3af' : '#1f2937' }}>{ingredient.name}</span>
                                   </label>
                                 ))}
                               </div>
@@ -1269,7 +1269,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                                         cursor: selectedIngredients.size >= 3 && !selectedIngredients.has(ingredient.id) ? 'not-allowed' : 'pointer'
                                       }}
                                     />
-                                    <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient.name}</span>
+                                    <span style={{ flex: 1, fontSize: '1rem', color: ingredient.isReserved ? '#9ca3af' : '#1f2937' }}>{ingredient.name}</span>
                                   </label>
                                 ))}
                               </div>

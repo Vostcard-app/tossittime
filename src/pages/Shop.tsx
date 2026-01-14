@@ -964,7 +964,7 @@ const Shop: React.FC = () => {
                               position: 'relative',
                               overflow: 'hidden',
                               borderRadius: '8px',
-                              backgroundColor: '#ffffff',
+                              backgroundColor: item.mealId ? '#f3f4f6' : '#ffffff',
                               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                             }}
                           >
@@ -1006,7 +1006,7 @@ const Shop: React.FC = () => {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: item.mealId ? '#f3f4f6' : '#ffffff',
                                 transform: `translateX(${translateX}px)`,
                                 transition: isDragging ? 'none' : 'transform 0.2s',
                                 cursor: 'grab',
@@ -1356,7 +1356,7 @@ const Shop: React.FC = () => {
                                       position: 'relative',
                                       overflow: 'hidden',
                                       borderRadius: '8px',
-                                      backgroundColor: '#ffffff',
+                                      backgroundColor: mergedItem.shoppingListItem?.mealId ? '#f3f4f6' : '#ffffff',
                                       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                                     }}
                                   >
@@ -1398,7 +1398,7 @@ const Shop: React.FC = () => {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                                        backgroundColor: '#ffffff',
+                                        backgroundColor: mergedItem.shoppingListItem?.mealId ? '#f3f4f6' : '#ffffff',
                                         transform: `translateX(${translateX}px)`,
                                         transition: isDragging ? 'none' : 'transform 0.2s',
                                         cursor: 'grab',

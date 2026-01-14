@@ -399,7 +399,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
       <div
         style={{
           position: 'relative',
-          backgroundColor: '#ffffff',
+          backgroundColor: (item.usedByMeals && item.usedByMeals.length > 0) ? '#f3f4f6' : '#ffffff',
           padding: '0.5rem 1rem',
           borderRadius: '8px',
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
