@@ -313,7 +313,22 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         };
         await mealPlanningService.addDishToMeal(user.uid, newPlannedMeal.id, updatedDishFull);
       } else {
-        // Same meal - just update the dish
+        // Same week and meal type - check if date changed
+        const dateChanged = !isSameDay(meal.date, newDate);
+        
+        if (dateChanged) {
+          // Update the meal's date
+          const mealIndex = oldMealPlan.meals.findIndex(m => m.id === meal.id);
+          if (mealIndex >= 0) {
+            oldMealPlan.meals[mealIndex] = {
+              ...oldMealPlan.meals[mealIndex],
+              date: newDate
+            };
+            await mealPlanningService.updateMealPlan(oldMealPlan.id, { meals: oldMealPlan.meals });
+          }
+        }
+        
+        // Update the dish
         await mealPlanningService.updateDishInMeal(user.uid, meal.id, currentDish.id, updatedDish);
       }
 
