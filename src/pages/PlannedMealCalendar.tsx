@@ -15,7 +15,7 @@ import { MealDetailModal } from '../components/MealPlanner/MealDetailModal';
 import { MealTypeSelectionModal } from '../components/MealPlanner/MealTypeSelectionModal';
 import { DayMealsModal } from '../components/MealPlanner/DayMealsModal';
 import { DishListModal } from '../components/MealPlanner/DishListModal';
-import { addDays, startOfWeek, format, isSameDay, startOfDay } from 'date-fns';
+import { addDays, startOfWeek, endOfWeek, format, isSameDay, startOfDay } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { showToast } from '../components/Toast';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -467,7 +467,7 @@ const PlannedMealCalendar: React.FC = () => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = startOfWeek(firstDay, { weekStartsOn: 0 });
-    const endDate = startOfWeek(lastDay, { weekStartsOn: 0 });
+    const endDate = endOfWeek(lastDay, { weekStartsOn: 0 });
     
     const days: Date[] = [];
     let current = startDate;
