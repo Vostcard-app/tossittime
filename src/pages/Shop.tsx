@@ -35,6 +35,8 @@ const Shop: React.FC = () => {
   const [editingNameValue, setEditingNameValue] = useState<string>('');
   const lastUsedListIdRef = useRef<string | null>(null);
   const settingsLoadedRef = useRef(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const cursorPositionRef = useRef<{ start: number; end: number } | null>(null);
 
   // Load user settings
   useEffect(() => {
@@ -292,6 +294,23 @@ const Shop: React.FC = () => {
     return merged;
   }, [crossedOffItems, previouslyUsedItems]);
 
+  // Restore cursor position after re-renders when editing name
+  useEffect(() => {
+    if (editingNameItemId && nameInputRef.current && cursorPositionRef.current) {
+      const { start, end } = cursorPositionRef.current;
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        if (nameInputRef.current) {
+          const textLength = nameInputRef.current.value.length;
+          // Ensure cursor position doesn't exceed text length
+          const safeStart = Math.min(start, textLength);
+          const safeEnd = Math.min(end, textLength);
+          nameInputRef.current.setSelectionRange(safeStart, safeEnd);
+        }
+      }, 0);
+    }
+  }, [editingNameItemId, editingNameValue, shoppingListItems]);
+
   // Handle adding previously used item to current list
   const handleAddPreviouslyUsedItem = async (itemName: string) => {
     if (!user || !selectedListId) {
@@ -417,6 +436,8 @@ const Shop: React.FC = () => {
     }
     setEditingNameItemId(item.id);
     setEditingNameValue(item.name);
+    // Reset cursor position when starting to edit
+    cursorPositionRef.current = null;
   };
 
   const handleNameChange = async (item: ShoppingListItem, newName: string) => {
@@ -1122,9 +1143,29 @@ const Shop: React.FC = () => {
                     )}
                     {editingNameItemId === item.id ? (
                       <input
+                        ref={nameInputRef}
                         type="text"
                         value={editingNameValue}
-                        onChange={(e) => setEditingNameValue(e.target.value)}
+                        onChange={(e) => {
+                          const input = e.target;
+                          // Save cursor position before state update
+                          cursorPositionRef.current = {
+                            start: input.selectionStart || 0,
+                            end: input.selectionEnd || 0
+                          };
+                          setEditingNameValue(e.target.value);
+                          // Restore cursor position after state update
+                          setTimeout(() => {
+                            if (nameInputRef.current && cursorPositionRef.current) {
+                              const { start, end } = cursorPositionRef.current;
+                              const textLength = nameInputRef.current.value.length;
+                              // Ensure cursor position doesn't exceed text length
+                              const safeStart = Math.min(start, textLength);
+                              const safeEnd = Math.min(end, textLength);
+                              nameInputRef.current.setSelectionRange(safeStart, safeEnd);
+                            }
+                          }, 0);
+                        }}
                         onBlur={() => handleNameInputBlur(item)}
                         onKeyDown={(e) => handleNameInputKeyDown(e, item)}
                         autoFocus
