@@ -14,6 +14,8 @@ import { isSameDay, startOfWeek } from 'date-fns';
 import { showToast } from '../Toast';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
 import { IngredientChecklist } from './IngredientChecklist';
+import { parseIngredientQuantity, cleanIngredientName } from '../../utils/ingredientQuantityParser';
+import { capitalizeItemName } from '../../utils/formatting';
 
 interface RecipeImportScreenProps {
   isOpen: boolean;
@@ -199,13 +201,26 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
       const newlyAddedItemIds: string[] = [];
       if (selectedItems.length > 0) {
         for (const ingredient of selectedItems) {
+          // Parse the ingredient to extract quantity and clean the name
+          const parsed = parseIngredientQuantity(ingredient);
+          
+          // Clean the item name (remove descriptors and duplicates)
+          const cleanedName = cleanIngredientName(parsed.itemName);
+          
+          // Capitalize the cleaned name
+          const capitalizedName = capitalizeItemName(cleanedName);
+          
+          // Use the parsed quantity, defaulting to 1 if no quantity was found
+          const quantity = parsed.quantity ?? 1;
+          
           const itemId = await shoppingListService.addShoppingListItem(
             user.uid,
             targetListId,
-            ingredient,
+            capitalizedName,
             false,
             'recipe_import',
-            dishId
+            dishId,
+            quantity
           );
           newlyAddedItemIds.push(itemId);
         }

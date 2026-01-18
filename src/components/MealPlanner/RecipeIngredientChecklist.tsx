@@ -12,6 +12,8 @@ import { recipeImportService } from '../../services';
 import { shoppingListService, shoppingListsService } from '../../services';
 import type { FoodItem } from '../../types';
 import { showToast } from '../Toast';
+import { parseIngredientQuantity, cleanIngredientName } from '../../utils/ingredientQuantityParser';
+import { capitalizeItemName } from '../../utils/formatting';
 
 interface RecipeIngredientChecklistProps {
   ingredients: string[];
@@ -136,13 +138,26 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
     try {
       // Add each selected ingredient to the shopping list
       for (const ingredient of selectedItems) {
+        // Parse the ingredient to extract quantity and clean the name
+        const parsed = parseIngredientQuantity(ingredient);
+        
+        // Clean the item name (remove descriptors and duplicates)
+        const cleanedName = cleanIngredientName(parsed.itemName);
+        
+        // Capitalize the cleaned name
+        const capitalizedName = capitalizeItemName(cleanedName);
+        
+        // Use the parsed quantity, defaulting to 1 if no quantity was found
+        const quantity = parsed.quantity ?? 1;
+        
         await shoppingListService.addShoppingListItem(
           user.uid,
           targetListId,
-          ingredient,
+          capitalizedName,
           false,
           'recipe_import',
-          mealId
+          mealId,
+          quantity
         );
       }
 

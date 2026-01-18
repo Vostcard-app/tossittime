@@ -18,6 +18,8 @@ import { IngredientChecklist } from './IngredientChecklist';
 import { GoogleSearchRecipeModal } from './GoogleSearchRecipeModal';
 import { SaveDishModal } from './SaveDishModal';
 import { showToast } from '../Toast';
+import { parseIngredientQuantity, cleanIngredientName } from '../../utils/ingredientQuantityParser';
+import { capitalizeItemName } from '../../utils/formatting';
 
 interface IngredientPickerModalProps {
   isOpen: boolean;
@@ -696,13 +698,26 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       
       if (itemsToAdd.length > 0 && data.targetListId) {
         for (const ingredient of itemsToAdd) {
+          // Parse the ingredient to extract quantity and clean the name
+          const parsed = parseIngredientQuantity(ingredient);
+          
+          // Clean the item name (remove descriptors and duplicates)
+          const cleanedName = cleanIngredientName(parsed.itemName);
+          
+          // Capitalize the cleaned name
+          const capitalizedName = capitalizeItemName(cleanedName);
+          
+          // Use the parsed quantity, defaulting to 1 if no quantity was found
+          const quantity = parsed.quantity ?? 1;
+          
           const itemId = await shoppingListService.addShoppingListItem(
             user.uid,
             data.targetListId,
-            ingredient,
+            capitalizedName,
             false,
             'meal_plan',
-            dishId
+            dishId,
+            quantity
           );
           newlyAddedItemIds.push(itemId);
         }
