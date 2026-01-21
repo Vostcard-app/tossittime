@@ -1,5 +1,6 @@
 import { doc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase/firebaseConfig';
 import type { UserInfo } from '../types';
 
 // Configure admin emails here
@@ -141,6 +142,23 @@ export const adminService = {
       ...userItemDeletes,
       ...userCategoryDeletes,
     ]);
+  },
+
+  // Populate missing emails and usernames from Firebase Auth
+  async populateUserEmails(userIds: string[]): Promise<{
+    processed: number;
+    updated: number;
+    errors: number;
+    details: Array<{ userId: string; status: string; email?: string; error?: string }>;
+  }> {
+    const populateUserEmailsFunction = httpsCallable(functions, 'populateUserEmails');
+    const result = await populateUserEmailsFunction({ userIds });
+    return result.data as {
+      processed: number;
+      updated: number;
+      errors: number;
+      details: Array<{ userId: string; status: string; email?: string; error?: string }>;
+    };
   },
 };
 

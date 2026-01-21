@@ -97,6 +97,7 @@ const Admin: React.FC = () => {
   const [masterFoodListCategoryFilter, setMasterFoodListCategoryFilter] = useState<string>('');
   const [masterFoodListCategories, setMasterFoodListCategories] = useState<string[]>([]);
   const [importingFromJSON, setImportingFromJSON] = useState(false);
+  const [populatingEmails, setPopulatingEmails] = useState(false);
 
   // Check admin status
   useEffect(() => {
@@ -573,6 +574,46 @@ const Admin: React.FC = () => {
       item.category === masterFoodListCategoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  // Populate missing emails/usernames
+  const handlePopulateMissingEmails = async () => {
+    if (!user?.email || !isAdmin) {
+      alert('You must be an admin to perform this action');
+      return;
+    }
+
+    // Get users without email or username
+    const usersNeedingUpdate = users.filter(u => !u.email || !u.username);
+    
+    if (usersNeedingUpdate.length === 0) {
+      showToast('All users already have email and username', 'info');
+      return;
+    }
+
+    if (!window.confirm(`This will populate missing emails and usernames for ${usersNeedingUpdate.length} user(s). Continue?`)) {
+      return;
+    }
+
+    setPopulatingEmails(true);
+    try {
+      const userIds = usersNeedingUpdate.map(u => u.uid);
+      const result = await adminService.populateUserEmails(userIds);
+      
+      showToast(
+        `Migration complete: ${result.updated} updated, ${result.errors} errors, ${result.processed - result.updated - result.errors} already had data`,
+        result.errors > 0 ? 'warning' : 'success'
+      );
+      
+      // Reload user data
+      await loadData();
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error populating emails:', error);
+      alert(`Failed to populate emails: ${errorInfo.message || 'Unknown error'}`);
+    } finally {
+      setPopulatingEmails(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -1967,9 +2008,27 @@ const Admin: React.FC = () => {
 
         {/* Users Section */}
         <div>
-          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
-            User Management
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: '0', fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
+              User Management
+            </h2>
+            <button
+              onClick={handlePopulateMissingEmails}
+              disabled={populatingEmails}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: populatingEmails ? '#9ca3af' : '#059669',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: populatingEmails ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {populatingEmails ? 'Populating...' : 'Populate Missing Emails/Usernames'}
+            </button>
+          </div>
           {loadingUsers ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
               <p>Loading users...</p>
