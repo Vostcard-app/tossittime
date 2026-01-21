@@ -121,7 +121,7 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
     }
   };
 
-  const saveEdit = (index: number) => {
+  const saveEdit = (_index: number) => {
     setEditingIngredientIndex(null);
   };
 

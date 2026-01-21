@@ -129,7 +129,7 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
     }
   };
 
-  const saveEdit = (index: number) => {
+  const saveEdit = (_index: number) => {
     setEditingIngredientIndex(null);
   };
 
@@ -506,7 +506,6 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
                     editedIngredients={editedIngredients}
                     onStartEditing={startEditing}
                     onSaveEdit={saveEdit}
-                    onCancelEdit={cancelEdit}
                     onUpdateEditedIngredient={updateEditedIngredient}
                     onEditKeyDown={handleEditKeyDown}
                   />

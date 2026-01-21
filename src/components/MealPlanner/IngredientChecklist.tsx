@@ -14,7 +14,6 @@ interface IngredientChecklistProps {
   editedIngredients?: Map<number, string>;
   onStartEditing?: (index: number) => void;
   onSaveEdit?: (index: number) => void;
-  onCancelEdit?: (index: number) => void;
   onUpdateEditedIngredient?: (index: number, value: string) => void;
   onEditKeyDown?: (e: React.KeyboardEvent, index: number) => void;
 }
@@ -27,7 +26,6 @@ export const IngredientChecklist: React.FC<IngredientChecklistProps> = ({
   editedIngredients = new Map(),
   onStartEditing,
   onSaveEdit,
-  onCancelEdit,
   onUpdateEditedIngredient,
   onEditKeyDown
 }) => {
