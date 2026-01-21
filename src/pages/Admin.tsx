@@ -29,6 +29,7 @@ import { clearFoodKeeperCache } from '../services/foodkeeperService';
 interface UserInfo {
   uid: string;
   email?: string;
+  username?: string;
   foodItemsCount: number;
   userItemsCount: number;
 }
@@ -192,8 +193,9 @@ const Admin: React.FC = () => {
         errors.push('Failed to load user items collection');
       }
 
-      // Load userSettings and collect emails
+      // Load userSettings and collect emails and usernames
       const userEmails = new Map<string, string>();
+      const userUsernames = new Map<string, string>();
       try {
         const userSettings = await getDocs(collection(db, 'userSettings'));
         userSettings.forEach(doc => {
@@ -204,13 +206,23 @@ const Admin: React.FC = () => {
             if (settingsData?.email) {
               userEmails.set(userId, settingsData.email);
             }
+            if (settingsData?.username) {
+              userUsernames.set(userId, settingsData.username);
+            }
           }
         });
         
-        // Also try to get email from current user's auth if available
+        // Also try to get email and username from current user's auth if available
         if (user && user.email && user.uid) {
           if (!userEmails.has(user.uid)) {
             userEmails.set(user.uid, user.email);
+          }
+          // Extract username from email if not already set
+          if (!userUsernames.has(user.uid) && user.email) {
+            const emailParts = user.email.split('@');
+            if (emailParts.length > 0 && emailParts[0]) {
+              userUsernames.set(user.uid, emailParts[0].toLowerCase().trim());
+            }
           }
         }
       } catch (settingsError: unknown) {
@@ -223,18 +235,26 @@ const Admin: React.FC = () => {
       for (const uid of userIds) {
         try {
           const stats = await adminService.getUserStats(uid);
+          const email = userEmails.get(uid);
+          const username = userUsernames.get(uid);
+          
           userInfos.push({
             uid,
-            email: userEmails.get(uid),
+            email: email,
+            username: username,
             ...stats,
           });
         } catch (userStatsError: unknown) {
           console.error(`Error loading stats for user ${uid}:`, userStatsError);
           // Skip this user but continue with others
           // Optionally add user with zero stats
+          const email = userEmails.get(uid);
+          const username = userUsernames.get(uid);
+          
           userInfos.push({
             uid,
-            email: userEmails.get(uid),
+            email: email,
+            username: username,
             foodItemsCount: 0,
             userItemsCount: 0,
           });
@@ -1978,7 +1998,7 @@ const Admin: React.FC = () => {
                 fontSize: '0.875rem'
               }}>
                 <div>User ID</div>
-                <div>Email</div>
+                <div>Username</div>
                 <div style={{ textAlign: 'center' }}>Food Items</div>
                 <div style={{ textAlign: 'center' }}>User Items</div>
                 <div style={{ textAlign: 'center' }}>Actions</div>
@@ -1999,7 +2019,7 @@ const Admin: React.FC = () => {
                     {userInfo.uid}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: '#374151' }}>
-                    {userInfo.email || 'N/A'}
+                    {userInfo.username || userInfo.email || 'Not available'}
                   </div>
                   <div style={{ textAlign: 'center', color: '#6b7280' }}>{userInfo.foodItemsCount}</div>
                   <div style={{ textAlign: 'center', color: '#6b7280' }}>{userInfo.userItemsCount}</div>

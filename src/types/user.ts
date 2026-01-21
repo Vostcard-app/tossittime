@@ -5,6 +5,7 @@
 export interface UserSettings {
   userId: string;
   email?: string; // User's email address
+  username?: string; // Username extracted from email (part before @)
   reminderDays: number; // Days before expiration to send reminder
   notificationsEnabled: boolean;
   defaultCategory?: string;
@@ -44,5 +45,6 @@ export interface UserCategoryData {
 export interface UserInfo {
   uid: string;
   email?: string;
+  username?: string;
 }
 

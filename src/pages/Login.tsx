@@ -11,6 +11,25 @@ import { userSettingsService, shoppingListsService } from '../services';
 import { analyticsService } from '../services/analyticsService';
 import { getErrorInfo } from '../types';
 
+// Helper function to extract username from email (part before @)
+const extractUsernameFromEmail = (email: string): string => {
+  if (!email || typeof email !== 'string') {
+    return email || '';
+  }
+  
+  const trimmedEmail = email.trim().toLowerCase();
+  const atIndex = trimmedEmail.indexOf('@');
+  
+  // If no @ found, return the email as-is
+  if (atIndex === -1) {
+    return trimmedEmail;
+  }
+  
+  // Return part before @
+  const username = trimmedEmail.substring(0, atIndex).trim();
+  return username || trimmedEmail; // Fallback to full email if username is empty
+};
+
 // Helper function to get user-friendly error messages
 const getErrorMessage = (errorCode: string, errorMessage?: string): string => {
   // Check for API key errors
@@ -269,9 +288,13 @@ const Login: React.FC = () => {
           });
           
           try {
+            const userEmail = userCredential.user.email || email;
+            const username = extractUsernameFromEmail(userEmail);
+            
             await userSettingsService.updateUserSettings({
               userId,
-              email: userCredential.user.email || email,
+              email: userEmail,
+              username: username,
               reminderDays: 7,
               notificationsEnabled: true
             });
