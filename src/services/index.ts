@@ -15,6 +15,7 @@ export { analyticsService } from './analyticsService';
 export { analyticsAggregationService } from './analyticsAggregationService';
 export { barcodeService } from './barcodeService';
 export { findFoodItems } from './foodkeeperService';
+export * from './masterFoodListService';
 export { notificationService } from './notificationService';
 
 // Meal planning services

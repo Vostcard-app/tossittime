@@ -130,5 +130,15 @@ service cloud.firestore {
       // Allow collection-level queries for authenticated users
       allow list: if request.auth != null;
     }
+
+    // Master Food List - public read, admin write
+    match /masterFoodList/{itemId} {
+      // Public read access (anyone can read master food list)
+      allow read: if true;
+      // Only admins can create, update, or delete
+      allow write: if request.auth != null && isAdmin();
+      // Allow collection-level queries for everyone
+      allow list: if true;
+    }
   }
 }

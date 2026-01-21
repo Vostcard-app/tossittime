@@ -12,6 +12,19 @@ import { analyticsAggregationService } from '../services/analyticsAggregationSer
 import type { DashboardOverview, RetentionMetrics, FunnelMetrics, EngagementMetrics } from '../types/analytics';
 import type { RecipeSite, RecipeSiteData } from '../types/recipeImport';
 import { getErrorInfo } from '../types';
+import { showToast } from '../components/Toast';
+import {
+  getAllMasterFoodItems,
+  createMasterFoodItem,
+  updateMasterFoodItem,
+  deleteMasterFoodItem,
+  getMasterFoodListCategories,
+  importFromJSON,
+  type MasterFoodListItem
+} from '../services/masterFoodListService';
+import type { FoodKeeperItem } from '../types';
+import foodkeeperData from '../data/foodkeeper.json';
+import { clearFoodKeeperCache } from '../services/foodkeeperService';
 
 interface UserInfo {
   uid: string;
@@ -64,6 +77,25 @@ const Admin: React.FC = () => {
     enabled: true
   });
   const [savingRecipeSite, setSavingRecipeSite] = useState(false);
+
+  // Master Food List state
+  const [masterFoodItems, setMasterFoodItems] = useState<MasterFoodListItem[]>([]);
+  const [loadingMasterFoodList, setLoadingMasterFoodList] = useState(false);
+  const [masterFoodListError, setMasterFoodListError] = useState<string | null>(null);
+  const [showMasterFoodListForm, setShowMasterFoodListForm] = useState(false);
+  const [editingMasterFoodItem, setEditingMasterFoodItem] = useState<MasterFoodListItem | null>(null);
+  const [masterFoodListForm, setMasterFoodListForm] = useState<FoodKeeperItem>({
+    name: '',
+    category: '',
+    refrigeratorDays: null,
+    freezerDays: null,
+    pantryDays: null
+  });
+  const [savingMasterFoodItem, setSavingMasterFoodItem] = useState(false);
+  const [masterFoodListSearch, setMasterFoodListSearch] = useState('');
+  const [masterFoodListCategoryFilter, setMasterFoodListCategoryFilter] = useState<string>('');
+  const [masterFoodListCategories, setMasterFoodListCategories] = useState<string[]>([]);
+  const [importingFromJSON, setImportingFromJSON] = useState(false);
 
   // Check admin status
   useEffect(() => {
@@ -231,6 +263,7 @@ const Admin: React.FC = () => {
     loadData();
     loadAnalytics();
     loadRecipeSites();
+    loadMasterFoodList();
   }, [isAdmin]);
 
   // Load analytics data
@@ -368,6 +401,158 @@ const Admin: React.FC = () => {
       alert('Failed to delete recipe site. Please try again.');
     }
   };
+
+  // Master Food List handlers
+  const loadMasterFoodList = async () => {
+    if (!isAdmin || !user?.email) return;
+    setLoadingMasterFoodList(true);
+    setMasterFoodListError(null);
+    try {
+      const items = await getAllMasterFoodItems();
+      setMasterFoodItems(items);
+      
+      // Load categories
+      const categories = await getMasterFoodListCategories();
+      setMasterFoodListCategories(categories);
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error loading master food list:', error);
+      setMasterFoodListError(`Failed to load master food list: ${errorInfo.message || 'Unknown error'}`);
+    } finally {
+      setLoadingMasterFoodList(false);
+    }
+  };
+
+  const handleCreateMasterFoodItem = () => {
+    setEditingMasterFoodItem(null);
+    setMasterFoodListForm({
+      name: '',
+      category: '',
+      refrigeratorDays: null,
+      freezerDays: null,
+      pantryDays: null
+    });
+    setShowMasterFoodListForm(true);
+  };
+
+  const handleEditMasterFoodItem = (item: MasterFoodListItem) => {
+    setEditingMasterFoodItem(item);
+    setMasterFoodListForm({
+      name: item.name,
+      category: item.category,
+      refrigeratorDays: item.refrigeratorDays ?? null,
+      freezerDays: item.freezerDays ?? null,
+      pantryDays: item.pantryDays ?? null
+    });
+    setShowMasterFoodListForm(true);
+  };
+
+  const handleSaveMasterFoodItem = async () => {
+    if (!user?.email) {
+      alert('You must be logged in to save food items');
+      return;
+    }
+
+    if (!masterFoodListForm.name || !masterFoodListForm.name.trim()) {
+      alert('Food item name is required');
+      return;
+    }
+
+    if (!masterFoodListForm.category || !masterFoodListForm.category.trim()) {
+      alert('Food item category is required');
+      return;
+    }
+
+    setSavingMasterFoodItem(true);
+    try {
+      if (editingMasterFoodItem) {
+        // Update existing item
+        await updateMasterFoodItem(editingMasterFoodItem.id, masterFoodListForm, user.email);
+        showToast('Food item updated successfully', 'success');
+      } else {
+        // Create new item
+        await createMasterFoodItem(masterFoodListForm, user.email);
+        showToast('Food item created successfully', 'success');
+      }
+      
+      // Clear cache so changes are reflected immediately
+      clearFoodKeeperCache();
+      
+      await loadMasterFoodList();
+      setShowMasterFoodListForm(false);
+      setEditingMasterFoodItem(null);
+      setMasterFoodListForm({
+        name: '',
+        category: '',
+        refrigeratorDays: null,
+        freezerDays: null,
+        pantryDays: null
+      });
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error saving master food item:', error);
+      alert(`Failed to save food item: ${errorInfo.message || 'Unknown error'}`);
+    } finally {
+      setSavingMasterFoodItem(false);
+    }
+  };
+
+  const handleDeleteMasterFoodItem = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}" from the master food list?`)) {
+      return;
+    }
+
+    try {
+      await deleteMasterFoodItem(id);
+      showToast('Food item deleted successfully', 'success');
+      
+      // Clear cache so changes are reflected immediately
+      clearFoodKeeperCache();
+      
+      await loadMasterFoodList();
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error deleting master food item:', error);
+      alert(`Failed to delete food item: ${errorInfo.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleImportFromJSON = async () => {
+    if (!user?.email) {
+      alert('You must be logged in to import food items');
+      return;
+    }
+
+    if (!window.confirm(`This will import ${(foodkeeperData as FoodKeeperItem[]).length} food items from the JSON file. Items that already exist will be skipped. Continue?`)) {
+      return;
+    }
+
+    setImportingFromJSON(true);
+    try {
+      const result = await importFromJSON(foodkeeperData as FoodKeeperItem[], user.email);
+      showToast(`Import complete: ${result.imported} imported, ${result.skipped} skipped, ${result.errors} errors`, 'success');
+      
+      // Clear cache so changes are reflected immediately
+      clearFoodKeeperCache();
+      
+      await loadMasterFoodList();
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error importing from JSON:', error);
+      alert(`Failed to import from JSON: ${errorInfo.message || 'Unknown error'}`);
+    } finally {
+      setImportingFromJSON(false);
+    }
+  };
+
+  // Filter master food items based on search and category
+  const filteredMasterFoodItems = masterFoodItems.filter(item => {
+    const matchesSearch = !masterFoodListSearch || 
+      item.name.toLowerCase().includes(masterFoodListSearch.toLowerCase());
+    const matchesCategory = !masterFoodListCategoryFilter || 
+      item.category === masterFoodListCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   if (loading) {
     return (
@@ -1352,6 +1537,410 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Master Food List Management Section */}
+        <div style={{ marginBottom: '3rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: '0', fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
+              Master Food List Management
+            </h2>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={handleImportFromJSON}
+                disabled={importingFromJSON}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: importingFromJSON ? '#9ca3af' : '#059669',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: importingFromJSON ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {importingFromJSON ? 'Importing...' : 'Import from JSON'}
+              </button>
+              <button
+                onClick={handleCreateMasterFoodItem}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#002B4D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Add Food Item
+              </button>
+            </div>
+          </div>
+
+          {masterFoodListError && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#fee2e2',
+              border: '1px solid #ef4444',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              color: '#991b1b'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{masterFoodListError}</span>
+                <button
+                  onClick={loadMasterFoodList}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#991b1b',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.875rem',
+                    marginLeft: '1rem'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search and Filter */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap'
+          }}>
+            <input
+              type="text"
+              placeholder="Search food items..."
+              value={masterFoodListSearch}
+              onChange={(e) => setMasterFoodListSearch(e.target.value)}
+              style={{
+                flex: '1',
+                minWidth: '200px',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem'
+              }}
+            />
+            <select
+              value={masterFoodListCategoryFilter}
+              onChange={(e) => setMasterFoodListCategoryFilter(e.target.value)}
+              style={{
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                minWidth: '150px'
+              }}
+            >
+              <option value="">All Categories</option>
+              {masterFoodListCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Add/Edit Form */}
+          {showMasterFoodListForm && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1.5rem',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: '600' }}>
+                {editingMasterFoodItem ? 'Edit Food Item' : 'Add New Food Item'}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={masterFoodListForm.name}
+                    onChange={(e) => setMasterFoodListForm({ ...masterFoodListForm, name: e.target.value })}
+                    placeholder="e.g., Milk"
+                    disabled={!!editingMasterFoodItem}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      backgroundColor: editingMasterFoodItem ? '#f3f4f6' : '#ffffff'
+                    }}
+                  />
+                  {editingMasterFoodItem && (
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                      Name cannot be changed after creation
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                    Category *
+                  </label>
+                  <input
+                    type="text"
+                    value={masterFoodListForm.category}
+                    onChange={(e) => setMasterFoodListForm({ ...masterFoodListForm, category: e.target.value })}
+                    placeholder="e.g., Dairy"
+                    list="category-suggestions"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '1rem'
+                    }}
+                  />
+                  <datalist id="category-suggestions">
+                    {masterFoodListCategories.map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                      Refrigerator Days
+                    </label>
+                    <input
+                      type="number"
+                      value={masterFoodListForm.refrigeratorDays ?? ''}
+                      onChange={(e) => setMasterFoodListForm({ 
+                        ...masterFoodListForm, 
+                        refrigeratorDays: e.target.value ? parseInt(e.target.value) : null 
+                      })}
+                      placeholder="Days"
+                      min="0"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                      Freezer Days
+                    </label>
+                    <input
+                      type="number"
+                      value={masterFoodListForm.freezerDays ?? ''}
+                      onChange={(e) => setMasterFoodListForm({ 
+                        ...masterFoodListForm, 
+                        freezerDays: e.target.value ? parseInt(e.target.value) : null 
+                      })}
+                      placeholder="Days"
+                      min="0"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                      Pantry Days
+                    </label>
+                    <input
+                      type="number"
+                      value={masterFoodListForm.pantryDays ?? ''}
+                      onChange={(e) => setMasterFoodListForm({ 
+                        ...masterFoodListForm, 
+                        pantryDays: e.target.value ? parseInt(e.target.value) : null 
+                      })}
+                      placeholder="Days"
+                      min="0"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => {
+                      setShowMasterFoodListForm(false);
+                      setEditingMasterFoodItem(null);
+                      setMasterFoodListForm({
+                        name: '',
+                        category: '',
+                        refrigeratorDays: null,
+                        freezerDays: null,
+                        pantryDays: null
+                      });
+                    }}
+                    disabled={savingMasterFoodItem}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#f3f4f6',
+                      color: '#1f2937',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      fontWeight: '500',
+                      cursor: savingMasterFoodItem ? 'not-allowed' : 'pointer',
+                      opacity: savingMasterFoodItem ? 0.5 : 1
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveMasterFoodItem}
+                    disabled={savingMasterFoodItem}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: savingMasterFoodItem ? '#9ca3af' : '#002B4D',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      fontWeight: '500',
+                      cursor: savingMasterFoodItem ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {savingMasterFoodItem ? 'Saving...' : (editingMasterFoodItem ? 'Update' : 'Create')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Master Food List Table */}
+          {loadingMasterFoodList ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+              <p>Loading master food list...</p>
+            </div>
+          ) : filteredMasterFoodItems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+              <p>
+                {masterFoodItems.length === 0 
+                  ? 'No food items in master list. Click "Import from JSON" to import the default list, or "Add Food Item" to create one.'
+                  : 'No food items match your search/filter criteria.'}
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              maxHeight: '600px',
+              overflowY: 'auto'
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr',
+                gap: '1rem',
+                padding: '1rem',
+                backgroundColor: '#f9fafb',
+                borderBottom: '1px solid #e5e7eb',
+                fontWeight: '600',
+                color: '#374151',
+                fontSize: '0.875rem',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10
+              }}>
+                <div>Name</div>
+                <div>Category</div>
+                <div style={{ textAlign: 'center' }}>Refrigerator</div>
+                <div style={{ textAlign: 'center' }}>Freezer</div>
+                <div style={{ textAlign: 'center' }}>Pantry</div>
+                <div style={{ textAlign: 'center' }}>Actions</div>
+              </div>
+              {filteredMasterFoodItems.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr',
+                    gap: '1rem',
+                    padding: '1rem',
+                    borderBottom: '1px solid #e5e7eb',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div style={{ fontWeight: '500', color: '#1f2937' }}>{item.name}</div>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{item.category}</div>
+                  <div style={{ textAlign: 'center', color: '#6b7280' }}>
+                    {item.refrigeratorDays ?? '-'}
+                  </div>
+                  <div style={{ textAlign: 'center', color: '#6b7280' }}>
+                    {item.freezerDays ?? '-'}
+                  </div>
+                  <div style={{ textAlign: 'center', color: '#6b7280' }}>
+                    {item.pantryDays ?? '-'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => handleEditMasterFoodItem(item)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#002B4D',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMasterFoodItem(item.id, item.name)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <div style={{
+                padding: '1rem',
+                backgroundColor: '#f9fafb',
+                borderTop: '1px solid #e5e7eb',
+                fontSize: '0.875rem',
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                Showing {filteredMasterFoodItems.length} of {masterFoodItems.length} items
+              </div>
             </div>
           )}
         </div>
