@@ -903,6 +903,55 @@ export const mealPlanningService = {
   },
 
   /**
+   * Load 21 meals starting from a given date
+   * Returns an array of up to 21 PlannedMeal objects in chronological order
+   */
+  async loadMealsFromDate(userId: string, startDate: Date, limit: number = 21): Promise<PlannedMeal[]> {
+    logServiceOperation('loadMealsFromDate', 'mealPlans', { userId, startDate, limit });
+
+    try {
+      const normalizedStartDate = startOfDay(startDate);
+      const allMeals: PlannedMeal[] = [];
+      
+      // Start from the week containing the start date
+      let weekStart = startOfWeek(normalizedStartDate, { weekStartsOn: 0 });
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // Load meals until we have enough or reach reasonable limit (4 weeks ahead)
+      const maxWeeks = 4;
+      let weeksChecked = 0;
+      
+      while (allMeals.length < limit && weeksChecked < maxWeeks) {
+        const plan = await this.getMealPlan(userId, weekStart);
+        if (plan) {
+          // Filter meals that are on or after the start date
+          const relevantMeals = plan.meals.filter(meal => {
+            const mealDate = startOfDay(meal.date);
+            return mealDate >= normalizedStartDate && meal.dishes && meal.dishes.length > 0;
+          });
+          allMeals.push(...relevantMeals);
+        }
+        weekStart = addDays(weekStart, 7);
+        weeksChecked++;
+      }
+      
+      // Sort by date and meal type, then take first 21
+      allMeals.sort((a, b) => {
+        const dateDiff = a.date.getTime() - b.date.getTime();
+        if (dateDiff !== 0) return dateDiff;
+        // If same date, order by meal type: breakfast, lunch, dinner
+        const mealTypeOrder: Record<MealType, number> = { breakfast: 0, lunch: 1, dinner: 2 };
+        return mealTypeOrder[a.mealType] - mealTypeOrder[b.mealType];
+      });
+      
+      return allMeals.slice(0, limit);
+    } catch (error) {
+      logServiceError('loadMealsFromDate', 'mealPlans', error, { userId, startDate, limit });
+      throw toServiceError(error, 'mealPlans');
+    }
+  },
+
+  /**
    * Get PlannedMeal for a specific date and meal type
    */
   async getMealForDateAndType(userId: string, date: Date, mealType: MealType): Promise<PlannedMeal | null> {
