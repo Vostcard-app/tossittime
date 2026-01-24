@@ -6,9 +6,12 @@ import type { FoodItemData, FoodItem, UserItem } from '../../types';
 import { getSuggestedExpirationDate, findFoodItems, findFoodItem } from '../../services/foodkeeperService';
 import { getDryGoodsShelfLife } from '../../services/shelfLifeService';
 import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type FreezeCategory } from '../../data/freezeGuidelines';
-import { userItemsService } from '../../services';
+import { userItemsService, userSettingsService, categoryService } from '../../services';
 import { addMonths, addDays } from 'date-fns';
 import { analyticsService } from '../../services/analyticsService';
+import LabelScanner from '../features/LabelScanner';
+import type { LabelScanResult } from '../../types/labelScanner';
+import { capitalizeItemName } from '../../utils/formatting';
 
 // Quantity unit options for all items
 const QUANTITY_UNITS = [
@@ -79,6 +82,9 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const [showNameDropdown, setShowNameDropdown] = useState(false);
   const [nameInputFocused, setNameInputFocused] = useState(false);
+  const [showLabelScanner, setShowLabelScanner] = useState(false);
+  const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +103,26 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     return () => unsubscribe();
   }, [user]);
 
+  // Check premium status on mount
+  useEffect(() => {
+    if (!user) {
+      setIsPremium(false);
+      return;
+    }
+
+    const checkPremiumStatus = async () => {
+      try {
+        const premium = await userSettingsService.isPremiumUser(user.uid);
+        setIsPremium(premium);
+      } catch (error) {
+        console.error('Error checking premium status:', error);
+        setIsPremium(false);
+      }
+    };
+
+    checkPremiumStatus();
+  }, [user]);
+
   const handleDismissFreezeWarning = () => {
     setShowFreezeWarning(false);
     setIsFrozenState(false);
@@ -107,6 +133,63 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
     setShowFreezeWarning(false);
     setIsFrozenState(true);
     setFormData(prev => ({ ...prev, isFrozen: true }));
+  };
+
+  // Handle scan icon click
+  const handleScanClick = () => {
+    if (isPremium) {
+      setShowLabelScanner(true);
+    } else {
+      setShowUpgradeMessage(true);
+    }
+  };
+
+  // Handle label scan result
+  const handleLabelScanResult = async (result: LabelScanResult) => {
+    try {
+      const capitalizedName = capitalizeItemName(result.itemName);
+      
+      // Detect category using AI
+      let detectedCategory = '';
+      if (user) {
+        detectedCategory = await categoryService.detectCategoryWithAI(capitalizedName, user.uid);
+      }
+
+      // Populate form fields
+      setFormData(prev => ({
+        ...prev,
+        name: capitalizedName,
+        quantity: result.quantity || 1,
+        bestByDate: result.expirationDate || prev.bestByDate || new Date(),
+        category: detectedCategory || prev.category
+      }));
+
+      // Track analytics
+      if (user) {
+        analyticsService.trackEngagement(user.uid, 'label_scanned', {
+          feature: 'label_scanner',
+          hasQuantity: result.quantity !== null && result.quantity !== undefined,
+          hasExpirationDate: result.expirationDate !== null && result.expirationDate !== undefined
+        });
+      }
+
+      setShowLabelScanner(false);
+    } catch (error) {
+      console.error('Error processing label scan result:', error);
+      alert('Failed to process scanned label. Please try again.');
+    }
+  };
+
+  // Handle label scanner error
+  const handleLabelScannerError = (error: Error) => {
+    console.error('Label scanner error:', error);
+    alert(`Error scanning label: ${error.message}`);
+    setShowLabelScanner(false);
+  };
+
+  // Handle label scanner close
+  const handleLabelScannerClose = () => {
+    setShowLabelScanner(false);
   };
 
   // Update form data when initialItem or initialName changes
@@ -405,51 +488,83 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); }} style={{ maxWidth: '600px', margin: '0 auto' }}>
-      {/* Back button and Toss button at top */}
-      {(onCancel || onToss) && (
-        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {onCancel && (
+      {/* Back button, Scan icon, and Toss button at top */}
+      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#002B4D',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              padding: '0.5rem 0'
+            }}
+          >
+            ← Back
+          </button>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: onCancel ? 'auto' : '0' }}>
+          {/* Scan icon button - always visible */}
+          <button
+            type="button"
+            onClick={handleScanClick}
+            style={{
+              padding: '0.5rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '44px',
+              minHeight: '44px'
+            }}
+            aria-label="Scan label"
+            title="Scan label with AI"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ display: 'inline-block', verticalAlign: 'middle' }}
+            >
+              <path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 4H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+          </button>
+          {onToss && (
             <button
               type="button"
-              onClick={onCancel}
+              onClick={onToss}
               style={{
-                background: 'none',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
                 border: 'none',
-                color: '#002B4D',
-                fontSize: '1rem',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
                 fontWeight: '500',
                 cursor: 'pointer',
-                padding: '0.5rem 0'
+                minWidth: '60px',
+                minHeight: '36px'
               }}
+              aria-label="Remove item"
             >
-              ← Back
+              Remove
             </button>
           )}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {onToss && (
-              <button
-                type="button"
-                onClick={onToss}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  minWidth: '60px',
-                  minHeight: '36px'
-                }}
-                aria-label="Remove item"
-              >
-                Remove
-              </button>
-            )}
-          </div>
         </div>
-      )}
+      </div>
       
       {/* 1. Item Name Field */}
       <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
@@ -1095,6 +1210,52 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
         />
       )}
 
+      {/* Label Scanner Modal */}
+      {showLabelScanner && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={handleLabelScannerClose}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <LabelScanner
+              onScan={handleLabelScanResult}
+              onError={handleLabelScannerError}
+              onClose={handleLabelScannerClose}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Message Modal */}
+      {showUpgradeMessage && (
+        <UpgradeMessageModal
+          onClose={() => setShowUpgradeMessage(false)}
+        />
+      )}
+
     </form>
   );
 };
@@ -1205,6 +1366,102 @@ const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDis
             }}
           >
             Proceed Anyway
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// Upgrade Message Modal Component
+interface UpgradeMessageModalProps {
+  onClose: () => void;
+}
+
+const UpgradeMessageModal: React.FC<UpgradeMessageModalProps> = ({ onClose }) => {
+  const [modalJustOpened, setModalJustOpened] = useState(true);
+  
+  // Prevent backdrop clicks immediately after modal opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModalJustOpened(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Use portal to render outside normal DOM hierarchy and ensure it's on top
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999
+      }}
+      onClick={(e) => {
+        // Prevent dismissal if modal just opened
+        if (modalJustOpened) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        // Only dismiss if clicking directly on backdrop (not child elements)
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      onMouseDown={(e) => {
+        // Prevent mouse down from triggering click if modal just opened
+        if (modalJustOpened && e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+          minWidth: '300px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+          Premium Feature
+        </h3>
+
+        <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#374151', lineHeight: '1.5' }}>
+          Upgrade to Premium to use AI label scanning. Scan food labels to automatically populate item name, quantity, and expiration date.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Close
           </button>
         </div>
       </div>
