@@ -82,6 +82,27 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
     }
   }, [isOpen, initialRecipeUrl, user, importedRecipe]);
 
+  // Reset selections when recipe is imported
+  useEffect(() => {
+    if (importedRecipe) {
+      setSelectedIngredientIndices(new Set());
+      setEditedIngredients(new Map());
+    }
+  }, [importedRecipe]);
+
+  // Reset selections when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset state when modal closes
+      setSelectedIngredientIndices(new Set());
+      setEditedIngredients(new Map());
+      setImportedRecipe(null);
+    } else {
+      // Reset selections when modal opens
+      setSelectedIngredientIndices(new Set());
+    }
+  }, [isOpen]);
+
   // No auto-selection - user must explicitly choose ingredients
 
   const handleImportFromUrl = async () => {

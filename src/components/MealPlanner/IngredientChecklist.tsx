@@ -6,6 +6,7 @@
 import React from 'react';
 import type { IngredientStatus } from '../../hooks/useIngredientAvailability';
 import type { ParsedIngredient } from '../../types/recipeImport';
+import { parseIngredientQuantity } from '../../utils/ingredientQuantityParser';
 
 interface IngredientChecklistProps {
   ingredientStatuses: IngredientStatus[];
@@ -171,13 +172,54 @@ export const IngredientChecklist: React.FC<IngredientChecklistProps> = ({
                         .split(' ')
                         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                         .join(' ');
+                      // Construct formattedAmount from quantity and unit if not provided
+                      let formattedAmount = parsed.formattedAmount;
+                      if (!formattedAmount || !formattedAmount.trim()) {
+                        if (parsed.quantity !== null && parsed.quantity !== undefined && parsed.unit) {
+                          // Format unit with proper capitalization
+                          const unitMap: Record<string, string> = {
+                            'cup': 'Cups', 'cups': 'Cups', 'tbsp': 'Tbsp', 'tablespoon': 'Tbsp', 'tablespoons': 'Tbsp',
+                            'tsp': 'Tsp', 'teaspoon': 'Tsp', 'teaspoons': 'Tsp',
+                            'oz': 'Oz', 'ounce': 'Oz', 'ounces': 'Oz',
+                            'lb': 'Lbs', 'lbs': 'Lbs', 'pound': 'Lbs', 'pounds': 'Lbs',
+                            'g': 'G', 'gram': 'G', 'grams': 'G',
+                            'kg': 'Kg', 'kilogram': 'Kg', 'kilograms': 'Kg',
+                            'ml': 'Ml', 'milliliter': 'Ml', 'milliliters': 'Ml',
+                            'l': 'L', 'liter': 'L', 'liters': 'L'
+                          };
+                          const capitalizedUnit = unitMap[parsed.unit.toLowerCase()] || parsed.unit.charAt(0).toUpperCase() + parsed.unit.slice(1).toLowerCase();
+                          formattedAmount = `${parsed.quantity} ${capitalizedUnit}`;
+                        }
+                      }
                       // Show formatted amount if available (not empty), otherwise just the name
-                      return parsed.formattedAmount && parsed.formattedAmount.trim() 
-                        ? `${parsed.formattedAmount} ${capitalizedName}`
+                      return formattedAmount && formattedAmount.trim() 
+                        ? `${formattedAmount} ${capitalizedName}`
                         : capitalizedName;
                     }
                   }
-                  // Fallback to original ingredient string
+                  // Fallback: Try to parse amount from original ingredient string
+                  const parsed = parseIngredientQuantity(ingredient);
+                  if (parsed.quantity !== null && parsed.quantity !== undefined && parsed.unit) {
+                    // Format unit with proper capitalization
+                    const unitMap: Record<string, string> = {
+                      'cup': 'Cups', 'cups': 'Cups', 'tbsp': 'Tbsp', 'tablespoon': 'Tbsp', 'tablespoons': 'Tbsp',
+                      'tsp': 'Tsp', 'teaspoon': 'Tsp', 'teaspoons': 'Tsp',
+                      'oz': 'Oz', 'ounce': 'Oz', 'ounces': 'Oz',
+                      'lb': 'Lbs', 'lbs': 'Lbs', 'pound': 'Lbs', 'pounds': 'Lbs',
+                      'g': 'G', 'gram': 'G', 'grams': 'G',
+                      'kg': 'Kg', 'kilogram': 'Kg', 'kilograms': 'Kg',
+                      'ml': 'Ml', 'milliliter': 'Ml', 'milliliters': 'Ml',
+                      'l': 'L', 'liter': 'L', 'liters': 'L'
+                    };
+                    const capitalizedUnit = unitMap[parsed.unit.toLowerCase()] || parsed.unit.charAt(0).toUpperCase() + parsed.unit.slice(1).toLowerCase();
+                    const formattedAmount = `${parsed.quantity} ${capitalizedUnit}`;
+                    const itemName = parsed.itemName
+                      .split(' ')
+                      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                      .join(' ');
+                    return `${formattedAmount} ${itemName}`;
+                  }
+                  // Final fallback to original ingredient string
                   return ingredient;
                 })()}
               </span>
