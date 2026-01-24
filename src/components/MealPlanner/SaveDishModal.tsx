@@ -103,7 +103,7 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
     if (ingredientStatuses.length === 0) return;
     
     const availableIndices = ingredientStatuses
-      .filter(item => (item.status === 'available' || item.status === 'partial') && item.status !== 'reserved')
+      .filter(item => item.status === 'available' || item.status === 'partial')
       .map(item => item.index);
     
     // Always set available items to be checked (for reservation)
