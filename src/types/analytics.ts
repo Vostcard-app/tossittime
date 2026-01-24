@@ -50,7 +50,8 @@ export type EngagementEventType =
   | 'calendar_viewed'
   | 'barcode_scanned'
   | 'label_scanned'
-  | 'label_scanned_item_added';
+  | 'label_scanned_item_added'
+  | 'label_scanned_item_updated';
 
 // Funnel Events
 export type FunnelEventType = 

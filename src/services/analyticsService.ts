@@ -122,7 +122,7 @@ export const trackReferral = async (
 // Engagement tracking
 export const trackEngagement = async (
   userId: string,
-  eventType: 'core_action_used' | 'item_added' | 'item_updated' | 'feature_used' | 'shopping_list_item_added' | 'shopping_list_item_crossed_off' | 'calendar_viewed' | 'barcode_scanned' | 'label_scanned' | 'label_scanned_item_added',
+  eventType: 'core_action_used' | 'item_added' | 'item_updated' | 'feature_used' | 'shopping_list_item_added' | 'shopping_list_item_crossed_off' | 'calendar_viewed' | 'barcode_scanned' | 'label_scanned' | 'label_scanned_item_added' | 'label_scanned_item_updated',
   metadata?: EngagementEventMetadata
 ): Promise<void> => {
   await trackEvent(userId, eventType, 'engagement', metadata || {});

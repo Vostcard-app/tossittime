@@ -4,18 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { useFoodItems } from '../hooks/useFoodItems';
-import { foodItemService, mealPlanningService } from '../services';
+import { foodItemService, mealPlanningService, userSettingsService } from '../services';
 import { formatDate } from '../utils/dateUtils';
 import { notRecommendedToFreeze } from '../data/freezeGuidelines';
 import SwipeableListItem from '../components/ui/SwipeableListItem';
+import LabelScanner from '../components/features/LabelScanner';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
-import type { FoodItem } from '../types';
+import type { FoodItem, LabelScanResult } from '../types';
 import { analyticsService } from '../services/analyticsService';
 import { isDryCannedItem } from '../utils/storageUtils';
-import { getStatusLabel } from '../utils/statusUtils';
+import { getStatusLabel, getFoodItemStatus } from '../utils/statusUtils';
 import { detectCategory, type FoodCategory } from '../utils/categoryUtils';
 import type { PlannedMeal } from '../types';
+import { capitalizeItemName } from '../utils/formatting';
 
 type FilterType = 'all' | 'bestBySoon' | 'pastBestBy';
 type StorageTabType = 'perishable' | 'dryCanned';
@@ -32,6 +34,9 @@ const Dashboard: React.FC = () => {
   const [showFreezeWarning, setShowFreezeWarning] = useState(false);
   const [pendingFreezeItem, setPendingFreezeItem] = useState<FoodItem | null>(null);
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
+  const [showLabelScanner, setShowLabelScanner] = useState(false);
+  const [scanningItem, setScanningItem] = useState<FoodItem | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean>(false);
   const navigate = useNavigate();
 
   // Debug: Track state changes
@@ -70,6 +75,24 @@ const Dashboard: React.FC = () => {
     };
 
     loadPlannedMeals();
+  }, [user]);
+
+  // Check premium status
+  useEffect(() => {
+    const checkPremium = async () => {
+      if (!user) {
+        setIsPremium(false);
+        return;
+      }
+      try {
+        const premium = await userSettingsService.isPremiumUser(user.uid);
+        setIsPremium(premium);
+      } catch (error) {
+        console.error('Error checking premium status:', error);
+        setIsPremium(false);
+      }
+    };
+    checkPremium();
   }, [user]);
 
 
@@ -209,6 +232,57 @@ const Dashboard: React.FC = () => {
   const handleItemClick = useCallback((item: typeof foodItems[0]) => {
     navigate('/add', { state: { editingItem: item } });
   }, [navigate]);
+
+  const handleScanLabel = useCallback((item: typeof foodItems[0]) => {
+    setScanningItem(item);
+    setShowLabelScanner(true);
+  }, []);
+
+  const handleLabelScanResult = useCallback(async (result: LabelScanResult) => {
+    if (!user || !scanningItem) return;
+
+    try {
+      // Update the existing item with scanned data
+      const capitalizedName = capitalizeItemName(result.itemName);
+      const updates: Partial<FoodItem> = {
+        name: capitalizedName,
+        ...(result.quantity !== undefined && { quantity: result.quantity }),
+        ...(result.expirationDate && { bestByDate: result.expirationDate })
+      };
+
+      // Calculate status if expiration date is provided
+      const status = result.expirationDate ? getFoodItemStatus(result.expirationDate) : scanningItem.status;
+      
+      await foodItemService.updateFoodItem(scanningItem.id, { ...updates, status });
+
+      // Note: Category detection could be added here if needed for future updates
+
+      // Track engagement
+      await analyticsService.trackEngagement(user.uid, 'label_scanned_item_updated', {
+        itemId: scanningItem.id,
+        itemName: capitalizedName,
+        hasQuantity: result.quantity !== undefined,
+        hasExpirationDate: result.expirationDate !== null
+      });
+
+      // Close scanner
+      setShowLabelScanner(false);
+      setScanningItem(null);
+    } catch (error) {
+      console.error('Error updating scanned item:', error);
+      alert('Failed to update item. Please try again.');
+    }
+  }, [user, scanningItem]);
+
+  const handleLabelScannerError = useCallback((error: Error) => {
+    console.error('Label scanner error:', error);
+    alert(error.message || 'Failed to scan label. Please try again.');
+  }, []);
+
+  const handleLabelScannerClose = useCallback(() => {
+    setShowLabelScanner(false);
+    setScanningItem(null);
+  }, []);
 
   const handleFreezeItem = useCallback((item: typeof foodItems[0]) => {
     console.log('🔍 ===== FREEZE BUTTON CLICKED =====');
@@ -640,6 +714,8 @@ const Dashboard: React.FC = () => {
                   onDelete={() => handleDelete(item.id)}
                   onClick={() => handleItemClick(item)}
                   onFreeze={() => handleFreezeItem(item)}
+                  onScan={() => handleScanLabel(item)}
+                  showScanButton={isPremium}
                   isReserved={isItemReserved(item)}
                 />
               ))}
@@ -673,6 +749,8 @@ const Dashboard: React.FC = () => {
                   onDelete={() => handleDelete(item.id)}
                   onClick={() => handleItemClick(item)}
                   onFreeze={() => handleFreezeItem(item)}
+                  onScan={() => handleScanLabel(item)}
+                  showScanButton={isPremium}
                   isReserved={isItemReserved(item)}
                 />
               ))}
@@ -704,6 +782,8 @@ const Dashboard: React.FC = () => {
                   onDelete={() => handleDelete(item.id)}
                   onClick={() => handleItemClick(item)}
                   onFreeze={() => handleFreezeItem(item)}
+                  onScan={() => handleScanLabel(item)}
+                  showScanButton={isPremium}
                   isReserved={isItemReserved(item)}
                 />
               ))}
@@ -716,6 +796,45 @@ const Dashboard: React.FC = () => {
 
       {/* Hamburger Menu */}
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+
+      {/* Label Scanner Modal */}
+      {showLabelScanner && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={handleLabelScannerClose}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <LabelScanner
+              onScan={handleLabelScanResult}
+              onError={handleLabelScannerError}
+              onClose={handleLabelScannerClose}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Freeze Warning Modal */}
       {showFreezeWarning && pendingFreezeItem && (() => {
