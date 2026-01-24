@@ -1,6 +1,6 @@
-# TossItTime - Food Expiration Tracker
+# TimeToUseIt - Food Expiration Tracker
 
-A Progressive Web App (PWA) that helps you remember to use food before it expires. Track your food items, scan barcodes, and receive reminders before it's toss it time!
+A Progressive Web App (PWA) that helps you remember to use food before it expires. Track your food items, scan barcodes, and receive reminders before it's time to use it!
 
 ## Features
 
@@ -31,7 +31,7 @@ A Progressive Web App (PWA) that helps you remember to use food before it expire
 
 1. Clone the repository:
 ```bash
-cd tossittime-web
+cd timetouseit-web-app
 npm install
 ```
 
@@ -122,7 +122,7 @@ You'll need to create app icons and place them in `public/icons/`:
 ## Project Structure
 
 ```
-tossittime-web/
+timetouseit-web-app/
 ├── src/
 │   ├── components/      # Reusable React components
 │   ├── pages/          # Page components
