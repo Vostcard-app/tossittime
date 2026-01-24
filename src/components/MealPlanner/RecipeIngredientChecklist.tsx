@@ -399,13 +399,16 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
                       // If premium user with parsed data, display formatted
                       if (parsedIngredients && parsedIngredients[index]) {
                         const parsed = parsedIngredients[index];
-                        if (parsed.formattedAmount && parsed.name) {
+                        if (parsed.name) {
                           // Capitalize the ingredient name
                           const capitalizedName = parsed.name
                             .split(' ')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                             .join(' ');
-                          return `${parsed.formattedAmount} ${capitalizedName}`;
+                          // Show formatted amount if available (not empty), otherwise just the name
+                          return parsed.formattedAmount && parsed.formattedAmount.trim() 
+                            ? `${parsed.formattedAmount} ${capitalizedName}`
+                            : capitalizedName;
                         }
                       }
                       // Fallback to original ingredient string

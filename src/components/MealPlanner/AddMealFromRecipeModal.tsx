@@ -101,12 +101,7 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
     }
   }, [isOpen]);
 
-  // Set default selected ingredients when recipe is imported
-  useEffect(() => {
-    if (importedRecipe) {
-      setSelectedIngredients(new Set(importedRecipe.ingredients.map((_, index) => index)));
-    }
-  }, [importedRecipe]);
+  // No auto-selection - user must explicitly choose ingredients
 
   // Toggle best by soon item selection
   const toggleExpiringItem = (itemId: string) => {
@@ -536,7 +531,27 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
                           cursor: 'pointer'
                         }}
                       />
-                      <span style={{ flex: 1, fontSize: '1rem' }}>{ingredient}</span>
+                      <span style={{ flex: 1, fontSize: '1rem' }}>
+                        {(() => {
+                          // If premium user with parsed data, display formatted
+                          if (importedRecipe?.parsedIngredients && importedRecipe.parsedIngredients[index]) {
+                            const parsed = importedRecipe.parsedIngredients[index];
+                            if (parsed.name) {
+                              // Capitalize the ingredient name
+                              const capitalizedName = parsed.name
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                .join(' ');
+                              // Show formatted amount if available (not empty), otherwise just the name
+                              return parsed.formattedAmount && parsed.formattedAmount.trim() 
+                                ? `${parsed.formattedAmount} ${capitalizedName}`
+                                : capitalizedName;
+                            }
+                          }
+                          // Fallback to original ingredient string
+                          return ingredient;
+                        })()}
+                      </span>
                     </label>
                   ))}
                 </div>
