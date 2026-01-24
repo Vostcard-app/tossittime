@@ -32,7 +32,6 @@ const PlannedMealCalendar: React.FC = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<'week' | 'month'>('month');
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -508,20 +507,6 @@ const PlannedMealCalendar: React.FC = () => {
     }
   };
 
-  // Generate calendar days for current week
-  const calendarDays = useMemo(() => {
-    const startDate = startOfWeek(currentDate, { weekStartsOn: 0 });
-    const endDate = endOfWeek(currentDate, { weekStartsOn: 0 });
-    
-    const days: Date[] = [];
-    let current = startDate;
-    while (current <= endDate) {
-      days.push(new Date(current));
-      current = addDays(current, 1);
-    }
-    return days;
-  }, [currentDate]);
-
   // Generate calendar days for current month
   const monthCalendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -531,22 +516,14 @@ const PlannedMealCalendar: React.FC = () => {
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   }, [currentDate]);
 
-  // Navigate periods (weeks or months)
+  // Navigate periods (months)
   const navigatePeriod = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
-    if (currentView === 'week') {
-      if (direction === 'prev') {
-        newDate.setDate(newDate.getDate() - 7);
-      } else {
-        newDate.setDate(newDate.getDate() + 7);
-      }
+    // Navigate by month
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
     } else {
-      // Navigate by month
-      if (direction === 'prev') {
-        newDate.setMonth(newDate.getMonth() - 1);
-      } else {
-        newDate.setMonth(newDate.getMonth() + 1);
-      }
+      newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
   };
@@ -646,45 +623,13 @@ const PlannedMealCalendar: React.FC = () => {
               fontSize: '1rem'
             }}
           >
-            ← {currentView === 'week' ? 'Previous Week' : 'Previous Month'}
+            ← Previous Month
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
-              {currentView === 'week' 
-                ? `${format(startOfWeek(currentDate, { weekStartsOn: 0 }), 'MMMM d')} - ${format(endOfWeek(currentDate, { weekStartsOn: 0 }), 'd, yyyy')}`
-                : format(currentDate, 'MMMM yyyy')}
+              {format(currentDate, 'MMMM yyyy')}
             </h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={() => setCurrentView('week')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: currentView === 'week' ? '#002B4D' : '#f3f4f6',
-                  color: currentView === 'week' ? 'white' : '#1f2937',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                Week View
-              </button>
-              <button
-                onClick={() => setCurrentView('month')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: currentView === 'month' ? '#002B4D' : '#f3f4f6',
-                  color: currentView === 'month' ? 'white' : '#1f2937',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                Month View
-              </button>
               <button
                 onClick={() => navigate(`/print-meal-list?date=${format(currentDate, 'yyyy-MM-dd')}`)}
                 style={{
@@ -714,7 +659,7 @@ const PlannedMealCalendar: React.FC = () => {
               fontSize: '1rem'
             }}
           >
-            {currentView === 'week' ? 'Next Week' : 'Next Month'} →
+            Next Month →
           </button>
         </div>
 
@@ -746,11 +691,11 @@ const PlannedMealCalendar: React.FC = () => {
           ))}
 
           {/* Calendar Days */}
-          {(currentView === 'week' ? calendarDays : monthCalendarDays).map((day, index) => {
+          {monthCalendarDays.map((day, index) => {
             const normalizedDay = startOfDay(day);
             const dayMeals = getMealsForDay(normalizedDay);
             const isToday = isSameDay(normalizedDay, startOfDay(new Date()));
-            const isCurrentMonth = currentView === 'week' || (
+            const isCurrentMonth = (
               normalizedDay.getMonth() === currentDate.getMonth() && 
               normalizedDay.getFullYear() === currentDate.getFullYear()
             );
@@ -786,7 +731,7 @@ const PlannedMealCalendar: React.FC = () => {
                   }
                 }}
                 style={{
-                  minHeight: currentView === 'week' ? '100px' : '80px',
+                  minHeight: '80px',
                   padding: '0.5rem',
                   border: isDropTarget ? '2px solid #10b981' : (isInvalidDrop ? '2px solid #ef4444' : '1px solid #e5e7eb'),
                   borderRadius: '4px',
@@ -810,7 +755,7 @@ const PlannedMealCalendar: React.FC = () => {
                 }}
               >
                 <div style={{
-                  fontSize: currentView === 'week' ? '0.875rem' : '0.75rem',
+                  fontSize: '0.75rem',
                   fontWeight: isToday ? '700' : (isCurrentMonth ? '500' : '400'),
                   color: isCurrentMonth ? '#1f2937' : '#9ca3af',
                   marginBottom: '0.25rem'
@@ -854,15 +799,15 @@ const PlannedMealCalendar: React.FC = () => {
                             }}
                             style={{
                               position: 'relative',
-                              width: currentView === 'week' ? '28px' : '24px',
-                              height: currentView === 'week' ? '28px' : '24px',
+                              width: '24px',
+                              height: '24px',
                               borderRadius: '50%',
                               backgroundColor: '#002B4D',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: currentView === 'week' ? '0.75rem' : '0.65rem',
+                              fontSize: '0.65rem',
                               fontWeight: '600',
                               cursor: isDragging ? 'default' : 'pointer',
                               userSelect: 'none',
