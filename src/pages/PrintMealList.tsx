@@ -10,8 +10,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase/firebaseConfig';
 import { mealPlanningService } from '../services';
 import type { PlannedMeal, MealType } from '../types';
-import Banner from '../components/layout/Banner';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
+import Banner from '../components/layout/Banner';
 import { format, parseISO, startOfDay } from 'date-fns';
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
@@ -140,8 +140,8 @@ const PrintMealList: React.FC = () => {
 
   return (
     <>
+      <Banner showLogo={false} onMenuClick={() => setMenuOpen(true)} />
       <div className="no-print">
-        <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
         <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
       </div>
       
