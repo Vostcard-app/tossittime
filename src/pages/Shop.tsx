@@ -4,7 +4,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { shoppingListService, shoppingListsService, userSettingsService, userItemsService, foodItemService } from '../services';
 import { findFoodItems } from '../services/foodkeeperService';
-import type { ShoppingListItem, ShoppingList, UserItem, LabelScanResult } from '../types';
+import type { ShoppingListItem, ShoppingList, LabelScanResult } from '../types';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import LabelScanner from '../components/features/LabelScanner';
@@ -31,7 +31,6 @@ const Shop: React.FC = () => {
   const [inputFocused, setInputFocused] = useState(false);
   const [showAddListToast, setShowAddListToast] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [userItems, setUserItems] = useState<UserItem[]>([]);
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [editingQuantityValue, setEditingQuantityValue] = useState<string>('');
   const [editingNameItemId, setEditingNameItemId] = useState<string | null>(null);
@@ -170,22 +169,6 @@ const Shop: React.FC = () => {
     return () => unsubscribe();
   }, [user, selectedListId]);
 
-  // Load user items for previously used items
-  useEffect(() => {
-    if (!user) {
-      setUserItems([]);
-      return;
-    }
-
-    const unsubscribe = userItemsService.subscribeToUserItems(
-      user.uid,
-      (items) => {
-        setUserItems(items);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
 
   // Debug: Log foodItems and shopping list items changes
   useEffect(() => {
@@ -199,51 +182,10 @@ const Shop: React.FC = () => {
   }, [foodItems, user, shoppingListItems]);
 
   // Separate items into active and crossed off based on crossedOff field
-  const { regularItems, crossedOffItems } = useMemo(() => {
-    const regular: ShoppingListItem[] = [];
-    const crossedOff: ShoppingListItem[] = [];
-    
-    // Separate shopping list items based on crossedOff field
-    shoppingListItems.forEach(item => {
-      if (item.crossedOff === true) {
-        // Item is marked as crossed off
-        crossedOff.push(item);
-      } else {
-        // Item is not crossed off (crossedOff is false or undefined)
-        regular.push(item);
-      }
-    });
-    
-    return { regularItems: regular, crossedOffItems: crossedOff };
+  const regularItems = useMemo(() => {
+    return shoppingListItems.filter(item => item.crossedOff !== true);
   }, [shoppingListItems]);
 
-  // Filter and sort previously used items (exclude items already in current list)
-  const previouslyUsedItems = useMemo(() => {
-    if (!selectedListId || shoppingListItems.length === 0) {
-      return userItems;
-    }
-    
-    const currentListNames = new Set(shoppingListItems.map(item => item.name.toLowerCase()));
-    return userItems
-      .filter(item => !currentListNames.has(item.name.toLowerCase()))
-      .sort((a, b) => {
-        if (!a.lastUsed && !b.lastUsed) return 0;
-        if (!a.lastUsed) return 1;
-        if (!b.lastUsed) return -1;
-        return b.lastUsed.getTime() - a.lastUsed.getTime();
-      });
-  }, [userItems, shoppingListItems, selectedListId]);
-
-  // Filter previously used items based on search query
-  const filteredPreviouslyUsedItems = useMemo(() => {
-    if (!newItemName.trim()) {
-      return [];
-    }
-    const query = newItemName.toLowerCase();
-    return previouslyUsedItems
-      .filter(item => item.name.toLowerCase().includes(query))
-      .slice(0, 5); // Limit to 5 items
-  }, [previouslyUsedItems, newItemName]);
 
   // Get FoodKeeper suggestions based on search query
   const foodKeeperSuggestions = useMemo(() => {
@@ -253,56 +195,6 @@ const Shop: React.FC = () => {
     return findFoodItems(newItemName.trim(), 5); // Limit to 5 suggestions
   }, [newItemName]);
 
-  // Merge crossed-off items and previously used items into one unified list
-  type MergedItem = {
-    id: string;
-    name: string;
-    isCrossedOff: boolean;
-    type: 'shoppingListItem' | 'userItem';
-    expirationLength?: number;
-    shoppingListItemId?: string;
-    shoppingListItem?: ShoppingListItem;
-    userItem?: UserItem;
-  };
-
-  const mergedItems = useMemo(() => {
-    const merged: MergedItem[] = [];
-    const processedNames = new Set<string>();
-    
-    // Add crossed-off items first
-    crossedOffItems.forEach(item => {
-      const nameLower = item.name.toLowerCase();
-      if (!processedNames.has(nameLower)) {
-        processedNames.add(nameLower);
-        merged.push({
-          id: item.id,
-          name: item.name,
-          isCrossedOff: true,
-          type: 'shoppingListItem',
-          shoppingListItemId: item.id,
-          shoppingListItem: item
-        });
-      }
-    });
-    
-    // Add previously used items (only if not already added)
-    previouslyUsedItems.forEach(item => {
-      const nameLower = item.name.toLowerCase();
-      if (!processedNames.has(nameLower)) {
-        processedNames.add(nameLower);
-        merged.push({
-          id: item.id,
-          name: item.name,
-          isCrossedOff: false,
-          type: 'userItem',
-          expirationLength: item.expirationLength,
-          userItem: item
-        });
-      }
-    });
-    
-    return merged;
-  }, [crossedOffItems, previouslyUsedItems]);
 
   // Restore cursor position after re-renders when editing name
   useEffect(() => {
@@ -321,30 +213,6 @@ const Shop: React.FC = () => {
     }
   }, [editingNameItemId, editingNameValue, shoppingListItems]);
 
-  // Handle adding previously used item to current list
-  const handleAddPreviouslyUsedItem = async (itemName: string) => {
-    if (!user || !selectedListId) {
-      alert('Please select a list first');
-      return;
-    }
-
-    try {
-      const capitalizedName = capitalizeItemName(itemName);
-      await shoppingListService.addShoppingListItem(user.uid, selectedListId, capitalizedName, false, undefined, undefined, 1);
-      // Update lastUsed for the userItem
-      const userItem = userItems.find(ui => ui.name.toLowerCase() === itemName.toLowerCase());
-      if (userItem) {
-        await userItemsService.createOrUpdateUserItem(user.uid, {
-          name: userItem.name,
-          expirationLength: userItem.expirationLength,
-          category: userItem.category
-        });
-      }
-    } catch (error) {
-      console.error('Error adding previously used item:', error);
-      alert('Failed to add item to list. Please try again.');
-    }
-  };
 
   // Handle marking item as crossed off (swipe action)
   const handleMarkAsCrossedOff = async (item: ShoppingListItem) => {
@@ -365,24 +233,6 @@ const Shop: React.FC = () => {
     }
   };
 
-  // Handle uncrossing item (swipe action on crossed-off items)
-  const handleUncrossItem = async (item: ShoppingListItem) => {
-    if (!user) return;
-    
-    try {
-      await shoppingListService.updateShoppingListItemCrossedOff(item.id, false);
-      // Track engagement
-      if (user) {
-        await analyticsService.trackEngagement(user.uid, 'shopping_list_item_crossed_off', {
-          action: 'swipe_to_uncross',
-          itemName: item.name,
-        });
-      }
-    } catch (error) {
-      console.error('Error uncrossing item:', error);
-      alert('Failed to update item. Please try again.');
-    }
-  };
 
   const handleQuantityClick = (item: ShoppingListItem) => {
     // Cancel name editing if active
@@ -890,7 +740,7 @@ const Shop: React.FC = () => {
             <button
               onClick={handleCreateListClick}
               style={{
-                padding: '0.75rem 1.5rem',
+                padding: '0.75rem',
                 backgroundColor: '#002B4D',
                 color: 'white',
                 border: 'none',
@@ -898,7 +748,6 @@ const Shop: React.FC = () => {
                 fontSize: '1.25rem',
                 fontWeight: '500',
                 cursor: 'pointer',
-                minHeight: '44px',
                 minWidth: '100px'
               }}
             >
@@ -937,8 +786,8 @@ const Shop: React.FC = () => {
                   outline: 'none'
                 }}
               />
-              {/* Dropdown with previously used items and FoodKeeper suggestions */}
-              {showDropdown && (inputFocused || newItemName.trim()) && (filteredPreviouslyUsedItems.length > 0 || foodKeeperSuggestions.length > 0) && (
+              {/* Dropdown with FoodKeeper suggestions */}
+              {showDropdown && (inputFocused || newItemName.trim()) && foodKeeperSuggestions.length > 0 && (
                 <div
                   style={{
                     position: 'absolute',
@@ -958,63 +807,8 @@ const Shop: React.FC = () => {
                     e.preventDefault();
                   }}
                 >
-                  {/* Previously used items */}
-                  {filteredPreviouslyUsedItems.length > 0 && (
-                    <>
-                      {filteredPreviouslyUsedItems.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setNewItemName(item.name);
-                            setShowDropdown(false);
-                            setInputFocused(false);
-                          }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                          }}
-                          style={{
-                            padding: '0.75rem 1rem',
-                            borderBottom: '1px solid #f3f4f6',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.2s',
-                            backgroundColor: '#ffffff'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#f9fafb';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#ffffff';
-                          }}
-                        >
-                          <div style={{ fontSize: '1rem', fontWeight: '500', color: '#1f2937' }}>
-                            {item.name}
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  
                   {/* FoodKeeper suggestions */}
-                  {foodKeeperSuggestions.length > 0 && (
-                    <>
-                      {filteredPreviouslyUsedItems.length > 0 && (
-                        <div style={{ 
-                          padding: '0.5rem 1rem', 
-                          backgroundColor: '#f9fafb', 
-                          borderTop: '1px solid #e5e7eb',
-                          borderBottom: '1px solid #e5e7eb',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          color: '#6b7280',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em'
-                        }}>
-                          Suggested Items
-                        </div>
-                      )}
-                      {foodKeeperSuggestions.map((suggestion, index) => (
+                  {foodKeeperSuggestions.map((suggestion, index) => (
                         <div
                           key={`foodkeeper-${suggestion.name}-${index}`}
                           onClick={(e) => {
@@ -1049,8 +843,6 @@ const Shop: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                    </>
-                  )}
                 </div>
               )}
             </div>
@@ -1058,7 +850,7 @@ const Shop: React.FC = () => {
               <button
                 type="submit"
                 style={{
-                  padding: '0.75rem 1.5rem',
+                  padding: '0.5rem',
                   backgroundColor: '#002B4D',
                   color: 'white',
                   border: 'none',
@@ -1470,334 +1262,6 @@ const Shop: React.FC = () => {
                 </div>
               )}
 
-                {/* Merged List: Crossed Off and Previously Used Items */}
-                {mergedItems.length > 0 && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <h3 style={{ 
-                    fontSize: '1.125rem', 
-                    fontWeight: '600', 
-                      color: '#1f2937', 
-                      marginBottom: '0.5rem' 
-                  }}>
-                      Previously Used
-                  </h3>
-                    <div style={{ 
-                      marginBottom: '1rem',
-                      fontSize: '1.25rem', 
-                      color: '#1f2937',
-                      textAlign: 'center',
-                      fontStyle: 'italic'
-                    }}>
-                      Swipe to add
-                    </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {mergedItems.map((mergedItem) => {
-                        // Only make userItems swipeable (not crossed-off shopping list items)
-                        if (mergedItem.type === 'userItem') {
-                          const SwipeablePreviouslyUsedItem = () => {
-                            const [translateX, setTranslateX] = useState(0);
-                            const [isDragging, setIsDragging] = useState(false);
-                            const [startX, setStartX] = useState(0);
-                            const itemRef = useRef<HTMLDivElement>(null);
-                            const SWIPE_THRESHOLD = 100;
-
-                            const handleTouchStart = (e: React.TouchEvent) => {
-                              setStartX(e.touches[0].clientX);
-                              setIsDragging(true);
-                            };
-
-                            const handleTouchMove = (e: React.TouchEvent) => {
-                              if (!isDragging) return;
-                              const currentX = e.touches[0].clientX;
-                              const diff = currentX - startX;
-                              // Allow swiping both left and right
-                              const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
-                              setTranslateX(clampedDiff);
-                            };
-
-                            const handleTouchEnd = () => {
-                              setIsDragging(false);
-                              if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
-                                handleAddPreviouslyUsedItem(mergedItem.name);
-                                setTranslateX(0);
-                                return;
-                              } else {
-                                setTranslateX(0);
-                              }
-                            };
-
-                            const handleMouseDown = (e: React.MouseEvent) => {
-                              setStartX(e.clientX);
-                              setIsDragging(true);
-                            };
-
-                            useEffect(() => {
-                              if (isDragging) {
-                                const handleGlobalMouseMove = (e: MouseEvent) => {
-                                  const diff = e.clientX - startX;
-                                  // Allow swiping both left and right
-                                  const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
-                                  setTranslateX(clampedDiff);
-                                };
-
-                                const handleGlobalMouseUp = () => {
-                                  setIsDragging(false);
-                                  if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
-                                    handleAddPreviouslyUsedItem(mergedItem.name);
-                                    setTranslateX(0);
-                                    return;
-                                  } else {
-                                    setTranslateX(0);
-                                  }
-                                };
-
-                                document.addEventListener('mousemove', handleGlobalMouseMove);
-                                document.addEventListener('mouseup', handleGlobalMouseUp);
-
-                                return () => {
-                                  document.removeEventListener('mousemove', handleGlobalMouseMove);
-                                  document.removeEventListener('mouseup', handleGlobalMouseUp);
-                                };
-                              }
-                            }, [isDragging, startX, translateX, mergedItem]);
-
-                            const swipeOpacity = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1);
-                            const isSwiped = Math.abs(translateX) >= SWIPE_THRESHOLD;
-                            const isLeftSwipe = translateX < 0;
-
-                            return (
-                              <div
-                                ref={itemRef}
-                        style={{
-                                  position: 'relative',
-                                  overflow: 'hidden',
-                                  borderRadius: '8px',
-                                  backgroundColor: '#ffffff',
-                                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                                }}
-                              >
-                                {/* Swipe background indicator */}
-                                {translateX !== 0 && (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      ...(isLeftSwipe ? { right: 0 } : { left: 0 }),
-                                      top: 0,
-                                      bottom: 0,
-                                      width: `${Math.min(Math.abs(translateX), SWIPE_THRESHOLD)}px`,
-                                      backgroundColor: '#10b981',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: isLeftSwipe ? 'flex-end' : 'flex-start',
-                                      ...(isLeftSwipe ? { paddingRight: '1rem' } : { paddingLeft: '1rem' }),
-                                      color: 'white',
-                                      fontSize: '0.875rem',
-                                      fontWeight: '500',
-                                      opacity: swipeOpacity,
-                                      transition: isDragging ? 'none' : 'opacity 0.2s'
-                                    }}
-                                  >
-                                    {isSwiped ? '✓ Added' : (isLeftSwipe ? '← Swipe' : '→ Swipe')}
-                                  </div>
-                                )}
-                                
-                                {/* Item content */}
-                                <div
-                                  onTouchStart={handleTouchStart}
-                                  onTouchMove={handleTouchMove}
-                                  onTouchEnd={handleTouchEnd}
-                                  onMouseDown={handleMouseDown}
-                                  style={{
-                                    padding: '0.25rem 0.75rem',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                                    backgroundColor: '#ffffff',
-                                    transform: `translateX(${translateX}px)`,
-                                    transition: isDragging ? 'none' : 'transform 0.2s',
-                                    cursor: 'grab',
-                                    userSelect: 'none'
-                        }}
-                      >
-                        <div style={{ 
-                                    fontSize: '1.25rem', 
-                          fontWeight: '500', 
-                                    color: '#1f2937',
-                                    textDecoration: mergedItem.isCrossedOff ? 'line-through' : 'none'
-                        }}>
-                                    {mergedItem.name}
-                        </div>
-                                  {mergedItem.expirationLength !== undefined && (
-                                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                      {mergedItem.expirationLength} days
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          };
-                          return <SwipeablePreviouslyUsedItem key={mergedItem.id} />;
-                        } else {
-                          // For crossed-off shopping list items, make them swipeable to uncross
-                          return (
-                            (() => {
-                              const SwipeableCrossedOffItem = () => {
-                                const [translateX, setTranslateX] = useState(0);
-                                const [isDragging, setIsDragging] = useState(false);
-                                const [startX, setStartX] = useState(0);
-                                const itemRef = useRef<HTMLDivElement>(null);
-                                const SWIPE_THRESHOLD = 100;
-
-                                const handleTouchStart = (e: React.TouchEvent) => {
-                                  setStartX(e.touches[0].clientX);
-                                  setIsDragging(true);
-                                };
-
-                                const handleTouchMove = (e: React.TouchEvent) => {
-                                  if (!isDragging) return;
-                                  const currentX = e.touches[0].clientX;
-                                  const diff = currentX - startX;
-                                  const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
-                                  setTranslateX(clampedDiff);
-                                };
-
-                                const handleTouchEnd = () => {
-                                  setIsDragging(false);
-                                  if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
-                                    handleUncrossItem(mergedItem.shoppingListItem!);
-                                    setTranslateX(0);
-                                    return;
-                                  } else {
-                                    setTranslateX(0);
-                                  }
-                                };
-
-                                const handleMouseDown = (e: React.MouseEvent) => {
-                                  setStartX(e.clientX);
-                                  setIsDragging(true);
-                                };
-
-                                useEffect(() => {
-                                  if (isDragging) {
-                                    const handleGlobalMouseMove = (e: MouseEvent) => {
-                                      const diff = e.clientX - startX;
-                                      const clampedDiff = Math.max(-SWIPE_THRESHOLD * 2, Math.min(diff, SWIPE_THRESHOLD * 2));
-                                      setTranslateX(clampedDiff);
-                                    };
-
-                                    const handleGlobalMouseUp = () => {
-                                      setIsDragging(false);
-                                      if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
-                                        handleUncrossItem(mergedItem.shoppingListItem!);
-                                        setTranslateX(0);
-                                        return;
-                                      } else {
-                                        setTranslateX(0);
-                                      }
-                                    };
-
-                                    document.addEventListener('mousemove', handleGlobalMouseMove);
-                                    document.addEventListener('mouseup', handleGlobalMouseUp);
-
-                                    return () => {
-                                      document.removeEventListener('mousemove', handleGlobalMouseMove);
-                                      document.removeEventListener('mouseup', handleGlobalMouseUp);
-                                    };
-                                  }
-                                }, [isDragging, startX, translateX, mergedItem]);
-
-                                const swipeOpacity = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1);
-                                const isSwiped = Math.abs(translateX) >= SWIPE_THRESHOLD;
-                                const isLeftSwipe = translateX < 0;
-
-                                return (
-                                  <div
-                                    ref={itemRef}
-                                    style={{
-                                      position: 'relative',
-                                      overflow: 'hidden',
-                                      borderRadius: '8px',
-                                      backgroundColor: mergedItem.shoppingListItem?.mealId ? '#f3f4f6' : '#ffffff',
-                                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                                    }}
-                                  >
-                                    {/* Swipe background indicator */}
-                                    {translateX !== 0 && (
-                                      <div
-                            style={{
-                                          position: 'absolute',
-                                          ...(isLeftSwipe ? { right: 0 } : { left: 0 }),
-                                          top: 0,
-                                          bottom: 0,
-                                          width: `${Math.min(Math.abs(translateX), SWIPE_THRESHOLD)}px`,
-                                          backgroundColor: '#10b981',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: isLeftSwipe ? 'flex-end' : 'flex-start',
-                                          ...(isLeftSwipe ? { paddingRight: '1rem' } : { paddingLeft: '1rem' }),
-                              color: 'white',
-                              fontSize: '0.875rem',
-                              fontWeight: '500',
-                                          opacity: swipeOpacity,
-                                          transition: isDragging ? 'none' : 'opacity 0.2s'
-                            }}
-                                      >
-                                        {isSwiped ? '✓ Active' : (isLeftSwipe ? '← Swipe' : '→ Swipe')}
-                </div>
-              )}
-
-                                    {/* Item content */}
-                                    <div
-                                      onTouchStart={handleTouchStart}
-                                      onTouchMove={handleTouchMove}
-                                      onTouchEnd={handleTouchEnd}
-                                      onMouseDown={handleMouseDown}
-                  style={{
-                                        padding: '0.25rem 0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                                        backgroundColor: mergedItem.shoppingListItem?.mealId ? '#f3f4f6' : '#ffffff',
-                                        transform: `translateX(${translateX}px)`,
-                                        transition: isDragging ? 'none' : 'transform 0.2s',
-                                        cursor: 'grab',
-                                        userSelect: 'none'
-                  }}
-                >
-                                      <div style={{ 
-                                        fontSize: '1.25rem', 
-                                        fontWeight: '500', 
-                                        color: '#1f2937',
-                                        textDecoration: 'line-through',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem'
-                                      }}>
-                                        <span style={{
-                                          fontSize: '1.25rem',
-                                          fontWeight: '600',
-                                          color: '#6b7280'
-                                        }}>
-                                          {mergedItem.shoppingListItem?.quantity || 1}
-                                        </span>
-                                        <span>{mergedItem.name}</span>
-                  </div>
-                    </div>
-                  </div>
-                                );
-                              };
-                              return <SwipeableCrossedOffItem key={mergedItem.id} />;
-                            })()
-                          );
-                        }
-                      })}
-            </div>
-          </div>
-                )}
 
               </>
         )}
