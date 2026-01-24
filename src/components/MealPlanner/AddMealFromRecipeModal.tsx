@@ -101,6 +101,13 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
     }
   }, [isOpen]);
 
+  // Reset selections when recipe is imported
+  useEffect(() => {
+    if (importedRecipe) {
+      setSelectedIngredients(new Set());
+    }
+  }, [importedRecipe]);
+
   // No auto-selection - user must explicitly choose ingredients
 
   // Toggle best by soon item selection
@@ -168,6 +175,12 @@ export const AddMealFromRecipeModal: React.FC<AddMealFromRecipeModalProps> = ({
     try {
       const recipe = await recipeImportService.importRecipe(urlInput.trim(), user?.uid);
       setImportedRecipe(recipe);
+      setSelectedIngredients(new Set()); // Reset selections when recipe is imported
+      console.log('Recipe imported:', { 
+        ingredientsCount: recipe.ingredients?.length, 
+        parsedIngredientsCount: recipe.parsedIngredients?.length,
+        parsedIngredients: recipe.parsedIngredients 
+      });
       showToast('Recipe imported successfully', 'success');
     } catch (error: any) {
       console.error('Error importing recipe:', error);

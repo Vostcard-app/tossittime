@@ -65,10 +65,15 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
         if (!user) return;
         setImporting(true);
         try {
-          const recipe = await recipeImportService.importRecipe(initialRecipeUrl.trim(), user.uid);
-          setImportedRecipe(recipe);
-          setSelectedIngredientIndices(new Set());
-          showToast('Recipe imported successfully', 'success');
+      const recipe = await recipeImportService.importRecipe(initialRecipeUrl.trim(), user.uid);
+      setImportedRecipe(recipe);
+      setSelectedIngredientIndices(new Set());
+      console.log('Recipe auto-imported:', { 
+        ingredientsCount: recipe.ingredients?.length, 
+        parsedIngredientsCount: recipe.parsedIngredients?.length,
+        parsedIngredients: recipe.parsedIngredients 
+      });
+      showToast('Recipe imported successfully', 'success');
         } catch (error: any) {
           console.error('Error auto-importing recipe:', error);
           showToast(error.message || 'Failed to import recipe', 'error');
@@ -121,6 +126,11 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
       const recipe = await recipeImportService.importRecipe(urlInput.trim(), user.uid);
       setImportedRecipe(recipe);
       setSelectedIngredientIndices(new Set()); // Reset selections
+      console.log('Recipe imported:', { 
+        ingredientsCount: recipe.ingredients?.length, 
+        parsedIngredientsCount: recipe.parsedIngredients?.length,
+        parsedIngredients: recipe.parsedIngredients 
+      });
       showToast('Recipe imported successfully', 'success');
     } catch (error: any) {
       console.error('Error importing recipe:', error);

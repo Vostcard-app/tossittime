@@ -247,12 +247,22 @@ exports.handler = async (event) => {
             });
             // Also store structured data for easier access
             recipeData.parsedIngredients = parsedResult.parsedIngredients;
+            console.log('AI parsing successful:', {
+              ingredientsCount: recipeData.ingredients.length,
+              parsedIngredientsCount: recipeData.parsedIngredients.length,
+              sampleParsed: recipeData.parsedIngredients[0]
+            });
           }
         }
       } catch (parseError) {
         console.error('AI ingredient parsing failed, using original ingredients:', parseError);
         // Continue with original ingredients if parsing fails
       }
+    }
+
+    // Ensure parsedIngredients is always an array (even if empty)
+    if (!recipeData.parsedIngredients) {
+      recipeData.parsedIngredients = [];
     }
 
     return {
