@@ -24,7 +24,7 @@ interface RecipeIngredientChecklistProps {
 interface IngredientStatus {
   ingredient: string;
   index: number;
-  status: 'available' | 'missing' | 'partial';
+  status: 'available' | 'missing' | 'partial' | 'reserved';
   matchingItems: FoodItem[];
   count: number;
 }
@@ -215,6 +215,7 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
 
   const availableCount = ingredientStatuses.filter(item => item.status === 'available' || item.status === 'partial').length;
   const missingCount = ingredientStatuses.filter(item => item.status === 'missing').length;
+  const reservedCount = ingredientStatuses.filter(item => item.status === 'reserved').length;
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
@@ -238,6 +239,11 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
           <span style={{ color: '#059669' }}>
             <strong>In Dashboard:</strong> {availableCount}
           </span>
+          {reservedCount > 0 && (
+            <span style={{ color: '#6b7280' }}>
+              <strong>Reserved:</strong> {reservedCount}
+            </span>
+          )}
           <span style={{ color: '#dc2626' }}>
             <strong>Missing:</strong> {missingCount}
           </span>
@@ -276,12 +282,25 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
           {ingredientStatuses.map(({ ingredient, index, status, count }) => {
             // Determine styling based on status
             const isAvailable = status === 'available' || status === 'partial';
-            const backgroundColor = isAvailable 
-              ? (selectedIngredients.has(index) ? '#d1fae5' : '#ecfdf5')
-              : (selectedIngredients.has(index) ? '#fee2e2' : '#fef2f2');
-            const borderColor = isAvailable ? '#10b981' : '#ef4444';
-            const badgeBg = isAvailable ? '#10b981' : '#ef4444';
-            const badgeText = '#ffffff';
+            const isReserved = status === 'reserved';
+            
+            let backgroundColor, borderColor, badgeBg, badgeText;
+            if (isReserved) {
+              backgroundColor = selectedIngredients.has(index) ? '#d1d5db' : '#f3f4f6';
+              borderColor = '#9ca3af';
+              badgeBg = '#9ca3af';
+              badgeText = '#ffffff';
+            } else if (isAvailable) {
+              backgroundColor = selectedIngredients.has(index) ? '#d1fae5' : '#ecfdf5';
+              borderColor = '#10b981';
+              badgeBg = '#10b981';
+              badgeText = '#ffffff';
+            } else {
+              backgroundColor = selectedIngredients.has(index) ? '#fee2e2' : '#fef2f2';
+              borderColor = '#ef4444';
+              badgeBg = '#ef4444';
+              badgeText = '#ffffff';
+            }
 
             return (
               <label
@@ -298,14 +317,18 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
                   transition: 'background-color 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  if (isAvailable) {
+                  if (isReserved) {
+                    e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#9ca3af' : '#e5e7eb';
+                  } else if (isAvailable) {
                     e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#a7f3d0' : '#d1fae5';
                   } else {
                     e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#fecaca' : '#fee2e2';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (isAvailable) {
+                  if (isReserved) {
+                    e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#d1d5db' : '#f3f4f6';
+                  } else if (isAvailable) {
                     e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#d1fae5' : '#ecfdf5';
                   } else {
                     e.currentTarget.style.backgroundColor = selectedIngredients.has(index) ? '#fee2e2' : '#fef2f2';
@@ -393,7 +416,7 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
                     color: badgeText
                   }}
                 >
-                  {isAvailable ? (status === 'partial' ? 'Partial Match' : 'Available') : 'Missing'}
+                  {isReserved ? 'Reserved' : isAvailable ? (status === 'partial' ? 'Partial Match' : 'Available') : 'Missing'}
                 </span>
               </label>
             );

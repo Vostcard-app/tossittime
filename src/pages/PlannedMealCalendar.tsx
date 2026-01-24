@@ -42,7 +42,6 @@ const PlannedMealCalendar: React.FC = () => {
   const [selectedDish, setSelectedDish] = useState<{ dish: any; meal: PlannedMeal } | null>(null);
   const [showMealDetailModal, setShowMealDetailModal] = useState(false);
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const unsubscribeRef = useRef<Map<string, () => void>>(new Map());
   const loadedWeeksRef = useRef<Set<string>>(new Set());
   const cleanupDoneRef = useRef<boolean>(false);
@@ -64,9 +63,6 @@ const PlannedMealCalendar: React.FC = () => {
       try {
         const premium = await userSettingsService.isPremiumUser(user.uid);
         setIsPremium(premium);
-        if (!premium) {
-          setShowUpgradeModal(true);
-        }
       } catch (error) {
         console.error('Error checking premium status:', error);
         setIsPremium(false);
