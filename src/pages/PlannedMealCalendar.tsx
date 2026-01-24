@@ -606,7 +606,7 @@ const PlannedMealCalendar: React.FC = () => {
       <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
       
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', width: '100%', boxSizing: 'border-box' }}>
         <h2 style={{ marginBottom: '1rem' }}>Planned Meal Calendar</h2>
         
         {/* Navigation and View Controls */}
@@ -666,24 +666,30 @@ const PlannedMealCalendar: React.FC = () => {
         {/* Calendar Grid */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(7, 1fr)', 
-          gap: '0.5rem',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', 
+          gap: '0.25rem',
           border: '1px solid #e5e7eb',
           borderRadius: '8px',
-          padding: '0.5rem',
-          backgroundColor: '#ffffff'
+          padding: '0.25rem',
+          backgroundColor: '#ffffff',
+          width: '100%',
+          boxSizing: 'border-box',
+          overflowX: 'auto'
         }}>
           {/* Day Headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div
               key={day}
               style={{
-                padding: '0.75rem',
+                padding: '0.5rem 0.25rem',
                 textAlign: 'center',
                 fontWeight: '600',
-                fontSize: '0.875rem',
+                fontSize: '0.75rem',
                 color: '#6b7280',
-                borderBottom: '1px solid #e5e7eb'
+                borderBottom: '1px solid #e5e7eb',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
               }}
             >
               {day}
@@ -732,14 +738,16 @@ const PlannedMealCalendar: React.FC = () => {
                 }}
                 style={{
                   minHeight: '80px',
-                  padding: '0.5rem',
+                  padding: '0.25rem',
                   border: isDropTarget ? '2px solid #10b981' : (isInvalidDrop ? '2px solid #ef4444' : '1px solid #e5e7eb'),
                   borderRadius: '4px',
                   backgroundColor: isDropTarget ? '#f0fdf4' : (isInvalidDrop ? '#fef2f2' : (isToday ? '#f0f8ff' : (isCurrentMonth ? '#ffffff' : '#f9fafb'))),
                   cursor: isDragging ? (isDropTarget ? 'copy' : (isInvalidDrop ? 'not-allowed' : 'pointer')) : 'pointer',
                   transition: 'all 0.2s',
                   position: 'relative',
-                  opacity: isCurrentMonth ? 1 : 0.5
+                  opacity: isCurrentMonth ? 1 : 0.5,
+                  minWidth: 0,
+                  overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => {
                   if (!isDragging) {
