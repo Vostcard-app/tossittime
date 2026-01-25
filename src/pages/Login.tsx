@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  RecaptchaVerifier
+  RecaptchaVerifier,
+  signInWithPopup,
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { userSettingsService, shoppingListsService } from '../services';
@@ -78,6 +80,7 @@ const Login: React.FC = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
   const [recaptchaVerified, setRecaptchaVerified] = useState(false);
+  const [signingInWithGoogle, setSigningInWithGoogle] = useState(false);
   const navigate = useNavigate();
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
@@ -337,6 +340,117 @@ const Login: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setSigningInWithGoogle(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      if (user && user.uid) {
+        const userId = user.uid;
+        const userEmail = user.email;
+
+        if (!userEmail) {
+          throw new Error('Google account does not have an email address');
+        }
+
+        // Check if this is a new user (first time signing in)
+        const existingSettings = await userSettingsService.getUserSettings(userId).catch(() => null);
+        const isNewUser = !existingSettings;
+
+        if (isNewUser) {
+          // New user - initialize default settings
+          const username = extractUsernameFromEmail(userEmail);
+          
+          // Track new user creation
+          const acquisitionSource = analyticsService.detectAcquisitionSource();
+          await analyticsService.trackAcquisition(userId, 'new_user_created', {
+            source: acquisitionSource
+          });
+          
+          // Track funnel: signup
+          await analyticsService.trackFunnel(userId, 'funnel_signup', {
+            funnelStep: 'signup'
+          });
+
+          try {
+            await userSettingsService.updateUserSettings({
+              userId,
+              email: userEmail,
+              username: username,
+              reminderDays: 7,
+              notificationsEnabled: true
+            });
+            
+            // Create default shopping list for new user
+            await shoppingListsService.getDefaultShoppingList(userId);
+          } catch (initError) {
+            console.error('Error initializing user settings:', initError);
+            // Track error
+            await analyticsService.trackQuality(userId, 'error_occurred', {
+              errorType: 'initialization_error',
+              errorMessage: initError instanceof Error ? initError.message : 'Unknown error',
+              action: 'user_initialization',
+            });
+            // Don't block sign-in if initialization fails
+          }
+        } else {
+          // Existing user - update email if it's missing or different
+          if (!existingSettings.email || existingSettings.email !== userEmail) {
+            try {
+              await userSettingsService.updateUserSettings({
+                userId,
+                email: userEmail,
+                username: existingSettings.username || extractUsernameFromEmail(userEmail),
+                reminderDays: existingSettings.reminderDays ?? 7,
+                notificationsEnabled: existingSettings.notificationsEnabled ?? true
+              });
+            } catch (updateError) {
+              console.error('Error updating user email:', updateError);
+              // Don't block sign-in if update fails
+            }
+          }
+
+          // Track session started
+          await analyticsService.trackAcquisition(userId, 'session_started', {
+            source: analyticsService.detectAcquisitionSource()
+          });
+        }
+
+        navigate('/shop');
+      }
+    } catch (err: unknown) {
+      const errorInfo = getErrorInfo(err);
+      let errorMessage = 'Failed to sign in with Google. Please try again.';
+      
+      // Provide more specific error messages
+      if (errorInfo.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in was cancelled. Please try again.';
+      } else if (errorInfo.code === 'auth/unauthorized-domain') {
+        errorMessage = 'This domain is not authorized for Google sign-in. Please contact support.';
+      } else if (errorInfo.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'An account already exists with this email using a different sign-in method.';
+      } else if (errorInfo.message) {
+        errorMessage = errorInfo.message;
+      }
+
+      setError(errorMessage);
+      
+      // Track error
+      const userId = 'anonymous';
+      analyticsService.trackQuality(userId, 'error_occurred', {
+        errorType: 'google_signin_error',
+        errorMessage: errorInfo.message || errorMessage,
+        action: 'google_signin',
+      });
+    } finally {
+      setSigningInWithGoogle(false);
     }
   };
 
@@ -775,6 +889,51 @@ const Login: React.FC = () => {
             </div>
           </form>
         )}
+
+        {/* Google Sign-In Button */}
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>Or</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={signingInWithGoogle || loading}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              backgroundColor: signingInWithGoogle || loading ? '#9ca3af' : '#ffffff',
+              color: signingInWithGoogle || loading ? '#ffffff' : '#1f2937',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: signingInWithGoogle || loading ? 'not-allowed' : 'pointer',
+              opacity: signingInWithGoogle || loading ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+            }}
+          >
+            {signingInWithGoogle ? (
+              'Signing in...'
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                  <g fill="#000" fillRule="evenodd">
+                    <path d="M9 3.48c1.69 0 2.83.73 3.48 1.34l2.54-2.48C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l2.91 2.26C4.6 5.05 6.62 3.48 9 3.48z" fill="#EA4335"/>
+                    <path d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.21 1.18-.84 2.18-1.79 2.91l2.75 2.13c1.63-1.5 2.72-3.7 2.72-6.54z" fill="#4285F4"/>
+                    <path d="M3.88 10.78A5.54 5.54 0 0 1 3.58 9c0-.62.11-1.22.29-1.78L.96 4.96A9.008 9.008 0 0 0 0 9c0 1.45.35 2.82.96 4.04l2.92-2.26z" fill="#FBBC05"/>
+                    <path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.75-2.13c-.76.53-1.78.9-3.21.9-2.38 0-4.4-1.57-5.12-3.74L.96 13.04C2.45 15.98 5.48 18 9 18z" fill="#34A853"/>
+                  </g>
+                </svg>
+                Sign in with Google
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
