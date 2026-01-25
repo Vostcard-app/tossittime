@@ -614,13 +614,17 @@ IMPORTANT FOR PREMIUM USERS:
 1. Remove ALL cooking descriptors from ingredient names:
    - Remove: chopped, diced, minced, sliced, grated, crushed, whole, ground, dried, fresh, frozen, canned, raw, cooked, peeled, seeded, stemmed, trimmed, julienned, cubed, shredded, crumbled, mashed, pureed, whipped, beaten, softened, melted, warmed, cooled, room temperature, large, small, medium, extra large, extra small, thin, thick, fine, coarse, rough, smooth, optional, to taste, as needed, for garnish
    - Example: "3 lbs chopped fresh cilantro" → name: "cilantro" (not "chopped fresh cilantro")
-2. Format amounts with proper capitalization and spacing:
-   - Use capitalized unit abbreviations: "Lbs", "Oz", "Cups", "Tbsp", "Tsp", "G", "Kg", "Ml", "L"
-   - Include space between number and unit: "3 Lbs" (not "3lbs" or "3 lb")
-   - Example: "3 lbs" → formattedAmount: "3 Lbs"
-3. Return clean, normalized ingredient names without descriptors.` : '';
+2. Return clean, normalized ingredient names without descriptors.` : '';
     
-    const prompt = `Parse these recipe ingredients and extract the ingredient name, quantity, unit, and formatted amount separately.
+    const prompt = `Parse these recipe ingredients and extract the ingredient name, quantity, and unit separately.
+
+CRITICAL UNIT RULES:
+- ONLY return standard unit abbreviations: c, pt, qt, gal, oz, lb, g, kg, ml, l (or L)
+- Standard units mapping:
+  * Volume: cup/cups → c, pint/pints → pt, quart/quarts → qt, gallon/gallons → gal, ounce/ounces → oz, milliliter/milliliters → ml, liter/liters/litre/litres → l (or L)
+  * Weight/Mass: pound/pounds/lbs → lb, gram/grams → g, kilogram/kilograms → kg
+- If the unit is NOT one of these standard measurements (e.g., "Sprig", "piece", "clove", "bunch", "head", "can", "package", "box", "bag", "bottle", "jar"), return null for unit
+- DO NOT populate the unit field for non-standard measurements
 
 Ingredients to parse:
 ${ingredientStrings.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
@@ -628,17 +632,20 @@ ${ingredientStrings.map((ing, i) => `${i + 1}. ${ing}`).join('\n')}
 For each ingredient, extract:
 - name: The clean ingredient name (remove cooking descriptors like "chopped", "diced", "minced", etc.)
 - quantity: The numeric quantity (e.g., 2, 1.5, 0.5) or null if no quantity specified
-- unit: The unit of measurement (e.g., "cup", "tbsp", "tsp", "oz", "lb", "g", "kg", "ml", "l", "piece", "pieces", "clove", "cloves") or null if no unit
-- formattedAmount: A formatted string combining quantity and unit with proper capitalization (e.g., "3 Lbs", "1/2 Cup", "2 Tbsp") or empty string if no quantity/unit
+- unit: ONLY standard unit abbreviations (c, pt, qt, gal, oz, lb, g, kg, ml, l/L) or null if not a standard measurement
 
 ${premiumInstructions}
 
 Examples:
-- "2 cups flour" → {name: "flour", quantity: 2, unit: "cup", formattedAmount: "2 Cups"}
-- "1 tablespoon olive oil" → {name: "olive oil", quantity: 1, unit: "tbsp", formattedAmount: "1 Tbsp"}
-- "3 lbs chopped fresh cilantro" → {name: "cilantro", quantity: 3, unit: "lb", formattedAmount: "3 Lbs"}
-- "salt, to taste" → {name: "salt", quantity: null, unit: null, formattedAmount: ""}
-- "1/2 cup diced onions" → {name: "onions", quantity: 0.5, unit: "cup", formattedAmount: "1/2 Cup"}
+- "2 cups flour" → {name: "flour", quantity: 2, unit: "c"}
+- "1 pint milk" → {name: "milk", quantity: 1, unit: "pt"}
+- "3 lbs chopped fresh cilantro" → {name: "cilantro", quantity: 3, unit: "lb"}
+- "salt, to taste" → {name: "salt", quantity: null, unit: null}
+- "1/2 cup diced onions" → {name: "onions", quantity: 0.5, unit: "c"}
+- "2 sprigs rosemary" → {name: "rosemary", quantity: 2, unit: null}  // Non-standard unit
+- "1 can tomatoes" → {name: "tomatoes", quantity: 1, unit: null}  // Non-standard unit
+- "500 g flour" → {name: "flour", quantity: 500, unit: "g"}
+- "1 liter water" → {name: "water", quantity: 1, unit: "l"}
 
 Return a JSON object with this structure:
 {
@@ -646,8 +653,7 @@ Return a JSON object with this structure:
     {
       "name": "ingredient name",
       "quantity": 2.0,
-      "unit": "cup",
-      "formattedAmount": "2 Cups"
+      "unit": "c"
     }
   ]
 }
@@ -689,6 +695,43 @@ Return only valid JSON.`;
     }
 
     const parsed = JSON.parse(content);
+    
+    // Normalize units to standard abbreviations and filter out non-standard units
+    const standardUnits = {
+      'cup': 'c', 'cups': 'c', 'c.': 'c',
+      'pint': 'pt', 'pints': 'pt', 'pt.': 'pt',
+      'quart': 'qt', 'quarts': 'qt', 'qt.': 'qt',
+      'gallon': 'gal', 'gallons': 'gal', 'gal.': 'gal',
+      'ounce': 'oz', 'ounces': 'oz', 'oz.': 'oz',
+      'milliliter': 'ml', 'milliliters': 'ml', 'ml.': 'ml',
+      'liter': 'l', 'liters': 'l', 'litre': 'l', 'litres': 'l', 'l.': 'l', 'L.': 'l', 'L': 'l',
+      'pound': 'lb', 'pounds': 'lb', 'lbs': 'lb', 'lb.': 'lb',
+      'gram': 'g', 'grams': 'g', 'g.': 'g',
+      'kilogram': 'kg', 'kilograms': 'kg', 'kg.': 'kg'
+    };
+    
+    if (parsed.parsedIngredients && Array.isArray(parsed.parsedIngredients)) {
+      parsed.parsedIngredients = parsed.parsedIngredients.map(ing => {
+        let normalizedUnit = null;
+        
+        if (ing.unit) {
+          const unitLower = ing.unit.toLowerCase().trim();
+          // Check if it's already a standard abbreviation
+          if (['c', 'pt', 'qt', 'gal', 'oz', 'lb', 'g', 'kg', 'ml', 'l'].includes(unitLower)) {
+            normalizedUnit = unitLower === 'l' ? 'l' : unitLower;
+          } else if (standardUnits[unitLower]) {
+            // Map full name to abbreviation
+            normalizedUnit = standardUnits[unitLower];
+          }
+          // If not in standard units, leave as null (non-standard measurement)
+        }
+        
+        return {
+          ...ing,
+          unit: normalizedUnit
+        };
+      });
+    }
     
     // Include usage data if available
     if (data.usage) {

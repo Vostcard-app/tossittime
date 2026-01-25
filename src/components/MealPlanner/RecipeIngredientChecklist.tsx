@@ -175,26 +175,39 @@ export const RecipeIngredientChecklist: React.FC<RecipeIngredientChecklistProps>
     try {
       // Add each selected ingredient to the shopping list
       for (const ingredient of selectedItems) {
-        // Parse the ingredient to extract quantity and clean the name
-        const parsed = parseIngredientQuantity(ingredient);
+        // Find the parsed ingredient if available
+        const ingredientIndex = ingredients.indexOf(ingredient);
+        const parsedIngredient = parsedIngredients && ingredientIndex >= 0 
+          ? parsedIngredients[ingredientIndex]
+          : null;
         
-        // Clean the item name (remove descriptors and duplicates)
-        const cleanedName = cleanIngredientName(parsed.itemName);
+        let itemName: string;
+        let quantity: number | undefined;
+        let quantityUnit: string | undefined;
         
-        // Capitalize the cleaned name
-        const capitalizedName = capitalizeItemName(cleanedName);
-        
-        // Use the parsed quantity, defaulting to 1 if no quantity was found
-        const quantity = parsed.quantity ?? 1;
+        if (parsedIngredient) {
+          // Use AI-parsed data
+          itemName = capitalizeItemName(parsedIngredient.name);
+          quantity = parsedIngredient.quantity ?? undefined;
+          quantityUnit = parsedIngredient.unit ?? undefined;
+        } else {
+          // Fallback to manual parsing
+          const parsed = parseIngredientQuantity(ingredient);
+          const cleanedName = cleanIngredientName(parsed.itemName);
+          itemName = capitalizeItemName(cleanedName);
+          quantity = parsed.quantity ?? 1;
+          // No unit for manual parsing (non-standard)
+        }
         
         await shoppingListService.addShoppingListItem(
           user.uid,
           targetListId,
-          capitalizedName,
+          itemName,
           false,
           'recipe_import',
           mealId,
-          quantity
+          quantity,
+          quantityUnit
         );
       }
 

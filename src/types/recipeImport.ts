@@ -15,7 +15,7 @@ export interface RecipeSite {
 export interface ParsedIngredient {
   name: string; // Clean ingredient name (descriptors removed)
   quantity: number | null;
-  unit: string | null;
+  unit: string | null; // Standard unit abbreviation only: c, pt, qt, gal, oz, lb, g, kg, ml, l (or L). Null for non-standard measurements (e.g., "Sprig", "piece", "clove")
   formattedAmount?: string; // e.g., "3 Lbs"
 }
 

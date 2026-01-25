@@ -18,6 +18,7 @@ export interface ShoppingListItem {
   createdAt: Date;
   crossedOff?: boolean;
   quantity?: number; // Quantity of the item (defaults to 1)
+  quantityUnit?: string; // Unit abbreviation (c, pt, qt, gal, oz, lb, g, kg, ml, l/L) - only standard measurements
   // Recipe import tracking
   source?: string; // e.g., "recipe_import"
   mealId?: string; // Link to planned meal

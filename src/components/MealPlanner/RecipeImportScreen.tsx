@@ -272,17 +272,20 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
           
           let itemName: string;
           let quantity: number | undefined;
+          let quantityUnit: string | undefined;
           
           if (parsedIngredient) {
             // Use AI-parsed data - capitalize the name
             itemName = capitalizeItemName(parsedIngredient.name);
             quantity = parsedIngredient.quantity ?? undefined;
+            quantityUnit = parsedIngredient.unit ?? undefined;
           } else {
             // Fallback to manual parsing
             const parsed = parseIngredientQuantity(ingredient);
             const cleanedName = cleanIngredientName(parsed.itemName);
             itemName = capitalizeItemName(cleanedName);
             quantity = parsed.quantity ?? undefined;
+            // No unit for manual parsing (non-standard)
           }
           
           const itemId = await shoppingListService.addShoppingListItem(
@@ -292,7 +295,8 @@ export const RecipeImportScreen: React.FC<RecipeImportScreenProps> = ({
             false,
             'recipe_import',
             dishId,
-            quantity
+            quantity,
+            quantityUnit
           );
           newlyAddedItemIds.push(itemId);
         }

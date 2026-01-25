@@ -764,17 +764,20 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
           
           let itemName: string;
           let quantity: number | undefined;
+          let quantityUnit: string | undefined;
           
           if (parsedIngredient) {
             // Use AI-parsed data
             itemName = parsedIngredient.name;
             quantity = parsedIngredient.quantity ?? undefined;
+            quantityUnit = parsedIngredient.unit ?? undefined;
           } else {
             // Fallback to manual parsing
             const parsed = parseIngredientQuantity(ingredient);
             const cleanedName = cleanIngredientName(parsed.itemName);
             itemName = capitalizeItemName(cleanedName);
             quantity = parsed.quantity ?? undefined;
+            // No unit for manual parsing (non-standard)
           }
           
           const itemId = await shoppingListService.addShoppingListItem(
@@ -784,7 +787,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
             false,
             'meal_plan',
             dishId,
-            quantity
+            quantity,
+            quantityUnit
           );
           newlyAddedItemIds.push(itemId);
         }

@@ -1080,6 +1080,7 @@ const Shop: React.FC = () => {
                   }}
                 >
                               <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {/* Amount field */}
                     {editingQuantityItemId === item.id ? (
                       <input
                         type="number"
@@ -1124,6 +1125,20 @@ const Shop: React.FC = () => {
                         {item.quantity || 1}
                       </span>
                     )}
+                    {/* Unit field - display only if present */}
+                    {item.quantityUnit && (
+                      <span
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          padding: '0.25rem 0.5rem'
+                        }}
+                      >
+                        {item.quantityUnit}
+                      </span>
+                    )}
+                    {/* Name field */}
                     {editingNameItemId === item.id ? (
                       <input
                         ref={nameInputRef}

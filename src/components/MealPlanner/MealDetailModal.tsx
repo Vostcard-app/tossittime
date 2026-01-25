@@ -263,13 +263,36 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
         
         // Add missing ingredients to shopping list
         for (const ingredient of ingredientsToAdd) {
+          // Try to find matching parsed ingredient from original dish
+          const ingredientIndex = parsedIngredients.indexOf(ingredient);
+          const parsedIngredient = currentDish.parsedIngredients && ingredientIndex >= 0 
+            ? currentDish.parsedIngredients[ingredientIndex]
+            : null;
+          
+          let itemName: string;
+          let quantity: number | undefined;
+          let quantityUnit: string | undefined;
+          
+          if (parsedIngredient) {
+            // Use AI-parsed data
+            itemName = parsedIngredient.name;
+            quantity = parsedIngredient.quantity ?? undefined;
+            quantityUnit = parsedIngredient.unit ?? undefined;
+          } else {
+            // Fallback to using ingredient string as-is
+            itemName = ingredient;
+            // No quantity/unit for non-parsed ingredients
+          }
+          
           await shoppingListService.addShoppingListItem(
             user.uid,
             targetListId,
-            ingredient,
+            itemName,
             false,
             'dish_edit',
-            currentDish.id
+            currentDish.id,
+            quantity,
+            quantityUnit
           );
         }
         

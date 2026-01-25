@@ -418,12 +418,19 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
           cursor: isDragging ? 'grabbing' : 'grab'
         }}
       >
-        {/* First line: Quantity, Title, and Purchased date */}
+        {/* First line: Amount, Unit, Name, and Purchased date */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {/* Always show quantity for all items - with unit if specified, bold and before title */}
+          {/* Amount field */}
           <span style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: '700' }}>
-            {item.quantity || 1} {item.quantityUnit ? item.quantityUnit : ''}
+            {item.quantity || 1}
           </span>
+          {/* Unit field - display only if present */}
+          {item.quantityUnit && (
+            <span style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: '500' }}>
+              {item.quantityUnit}
+            </span>
+          )}
+          {/* Name field */}
           <span style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
             {item.name}
           </span>
