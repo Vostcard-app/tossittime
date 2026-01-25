@@ -30,8 +30,10 @@ import {
   handleSubscriptionError,
   cleanFirestoreData,
   logServiceOperation,
-  logServiceError
+  logServiceError,
+  getSubscriptionErrorMessage
 } from './baseService';
+import { showToast } from '../components/Toast';
 import { toServiceError } from './errors';
 import { addDays, startOfWeek, isSameDay, startOfDay } from 'date-fns';
 import { generateDailySuggestions, generateMealSuggestionsForWeek, createPlannedMealsFromSuggestions } from './mealPlanGenerator';
@@ -313,6 +315,13 @@ export const mealPlanningService = {
       },
       (error) => {
         handleSubscriptionError(error, 'mealPlans', userId, undefined, undefined);
+        
+        // Show user-visible error message
+        const errorMessage = getSubscriptionErrorMessage(error, 'meal plans');
+        if (errorMessage) {
+          showToast(errorMessage, 'error', 5000);
+        }
+        
         callback(null);
       }
     );

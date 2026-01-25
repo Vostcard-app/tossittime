@@ -1142,14 +1142,14 @@ const Calendar: React.FC = () => {
 
   return (
     <>
-      <Banner onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+      <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
 
       {/* Lists, Items, and Plan Buttons */}
       <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
         <button
           onClick={() => navigate('/shop')}
           style={{
-            padding: '0.75rem 2rem',
+            padding: '0.75rem 1.5rem',
             backgroundColor: '#f3f4f6',
             color: '#1f2937',
             border: '1px solid #d1d5db',
@@ -1157,8 +1157,7 @@ const Calendar: React.FC = () => {
             fontSize: '1rem',
             fontWeight: '500',
             cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
+            minHeight: '44px'
           }}
         >
           Lists
@@ -1166,7 +1165,7 @@ const Calendar: React.FC = () => {
         <button
           onClick={() => navigate('/dashboard')}
           style={{
-            padding: '0.75rem 2rem',
+            padding: '0.75rem 1.5rem',
             backgroundColor: '#f3f4f6',
             color: '#1f2937',
             border: '1px solid #d1d5db',
@@ -1174,8 +1173,7 @@ const Calendar: React.FC = () => {
             fontSize: '1rem',
             fontWeight: '500',
             cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
+            minHeight: '44px'
           }}
         >
           Items
@@ -1183,7 +1181,7 @@ const Calendar: React.FC = () => {
         <button
           onClick={() => navigate('/planned-meal-calendar')}
           style={{
-            padding: '0.75rem 2rem',
+            padding: '0.75rem 1.5rem',
             backgroundColor: '#f3f4f6',
             color: '#1f2937',
             border: '1px solid #d1d5db',
@@ -1191,8 +1189,7 @@ const Calendar: React.FC = () => {
             fontSize: '1rem',
             fontWeight: '500',
             cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '120px'
+            minHeight: '44px'
           }}
         >
           Plan

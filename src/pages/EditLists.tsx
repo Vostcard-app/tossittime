@@ -140,7 +140,7 @@ const EditLists: React.FC = () => {
 
   return (
     <>
-      <Banner onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+      <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
 
       {/* Lists, Items, and Plan Buttons */}
       <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>

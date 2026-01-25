@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../firebase/firebaseConfig';
 import { userItemsService, userCategoriesService, shoppingListService, shoppingListsService } from '../services';
@@ -21,6 +22,7 @@ type MergedEditItem = {
 
 const EditItems: React.FC = () => {
   const [user] = useAuthState(auth);
+  const navigate = useNavigate();
   const [userItems, setUserItems] = useState<UserItem[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [allShoppingListItems, setAllShoppingListItems] = useState<ShoppingListItem[]>([]);
@@ -224,7 +226,59 @@ const EditItems: React.FC = () => {
 
   return (
     <>
-      <Banner onMenuClick={() => setMenuOpen(true)} />
+      <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+
+      {/* Lists, Items, and Plan Buttons */}
+      <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <button
+          onClick={() => navigate('/shop')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Lists
+        </button>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Items
+        </button>
+        <button
+          onClick={() => navigate('/planned-meal-calendar')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Plan
+        </button>
+      </div>
 
       {/* Main Content */}
       <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem' }}>

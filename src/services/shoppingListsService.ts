@@ -15,7 +15,8 @@ import {
 import type { DocumentData } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import type { ShoppingList } from '../types';
-import { handleSubscriptionError, transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceError } from './baseService';
+import { handleSubscriptionError, transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceError, getSubscriptionErrorMessage } from './baseService';
+import { showToast } from '../components/Toast';
 import { toServiceError } from './errors';
 
 /**
@@ -68,6 +69,13 @@ export const shoppingListsService = {
           undefined,
           undefined
         );
+        
+        // Show user-visible error message
+        const errorMessage = getSubscriptionErrorMessage(error, 'shopping lists');
+        if (errorMessage) {
+          showToast(errorMessage, 'error', 5000);
+        }
+        
         callback([]);
       }
     );

@@ -66,7 +66,7 @@ const FavoriteRecipes: React.FC = () => {
   if (loading) {
     return (
       <>
-        <Banner onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+        <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
         <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         <div style={{ padding: '2rem', textAlign: 'center' }}>
           <p>Loading favorite recipes...</p>

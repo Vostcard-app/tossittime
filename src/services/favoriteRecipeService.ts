@@ -14,6 +14,8 @@ import { transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceE
 import { toServiceError } from './errors';
 import { buildUserQueryWithOrder } from './firestoreQueryBuilder';
 import { getDateFieldsForCollection } from '../utils/firestoreDateUtils';
+import { getSubscriptionErrorMessage } from './baseService';
+import { showToast } from '../components/Toast';
 import { collection, doc, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 
@@ -104,11 +106,25 @@ export const favoriteRecipeService = {
             callback(recipes);
           } catch (error) {
             handleSubscriptionError(error, 'favoriteRecipes', userId);
+            
+            // Show user-visible error message
+            const errorMessage = getSubscriptionErrorMessage(error, 'favorite recipes');
+            if (errorMessage) {
+              showToast(errorMessage, 'error', 5000);
+            }
+            
             callback([]);
           }
         },
         (error) => {
           handleSubscriptionError(error, 'favoriteRecipes', userId);
+          
+          // Show user-visible error message
+          const errorMessage = getSubscriptionErrorMessage(error, 'favorite recipes');
+          if (errorMessage) {
+            showToast(errorMessage, 'error', 5000);
+          }
+          
           callback([]);
         }
       );

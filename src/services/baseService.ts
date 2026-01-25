@@ -74,6 +74,36 @@ export function logServiceError(operation: string, collectionName: string, error
 }
 
 /**
+ * Get user-friendly error message for subscription errors
+ */
+export function getSubscriptionErrorMessage(error: unknown, context: string): string | null {
+  if (!(error instanceof Error)) {
+    return `Failed to load ${context}. Please try again.`;
+  }
+
+  const errorCode = 'code' in error && typeof error.code === 'string' ? error.code : '';
+  const errorMessage = error.message.toLowerCase();
+
+  // Check for index error (failed-precondition with index mention)
+  if (errorCode === 'failed-precondition' || errorMessage.includes('index') || errorMessage.includes('create_composite')) {
+    return `Database index required for ${context}. Please contact support or check Firebase Console.`;
+  }
+
+  // Check for permission error
+  if (errorCode === 'permission-denied' || errorCode === 'firestore/permission-denied') {
+    return `Permission denied: Unable to load ${context}. Please check your account permissions.`;
+  }
+
+  // Check for network errors
+  if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('timeout')) {
+    return `Network error: Unable to load ${context}. Please check your connection and try again.`;
+  }
+
+  // Generic error
+  return `Failed to load ${context}. Please try again.`;
+}
+
+/**
  * Handle subscription errors with fallback
  */
 export function handleSubscriptionError(
