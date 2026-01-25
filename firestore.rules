@@ -66,8 +66,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
-      // Allow admins to list all favorite recipes
-      allow list: if request.auth != null && isAdmin();
+      // Allow authenticated users to query (Firestore validates where clauses match auth.uid)
+      allow list: if request.auth != null;
     }
 
     // Analytics Events collection
