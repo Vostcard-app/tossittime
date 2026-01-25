@@ -22,3 +22,9 @@ export interface CalendarLocationState {
   defaultView?: 'month' | 'week' | 'day';
 }
 
+export interface PlannedMealCalendarLocationState {
+  favoriteRecipe?: import('./favoriteRecipe').FavoriteRecipe;
+  selectedDate?: Date;
+  selectedMealType?: import('./mealPlan').MealType;
+}
+

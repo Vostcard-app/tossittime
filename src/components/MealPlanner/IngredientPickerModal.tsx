@@ -6,10 +6,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
-import { foodItemService, shoppingListService, shoppingListsService, mealPlanningService, recipeImportService, recipeSiteService } from '../../services';
+import { foodItemService, shoppingListService, shoppingListsService, mealPlanningService, recipeImportService, recipeSiteService, favoriteRecipeService } from '../../services';
 import type { MealType, Dish } from '../../types';
 import type { RecipeImportResult } from '../../types/recipeImport';
 import type { RecipeSite } from '../../types/recipeImport';
+import type { FavoriteRecipe } from '../../types/favoriteRecipe';
 import { isDryCannedItem } from '../../utils/storageUtils';
 import { addDays, startOfWeek, isSameDay } from 'date-fns';
 import { detectCategory, type FoodCategory } from '../../utils/categoryUtils';
@@ -26,6 +27,7 @@ interface IngredientPickerModalProps {
   onClose: () => void;
   selectedDate: Date;
   initialMealType?: MealType;
+  favoriteRecipe?: FavoriteRecipe | null;
 }
 
 interface IngredientItem {
@@ -49,7 +51,8 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
   isOpen,
   onClose,
   selectedDate,
-  initialMealType
+  initialMealType,
+  favoriteRecipe
 }) => {
   const [user] = useAuthState(auth);
   const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
@@ -378,6 +381,38 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     }
   }, [isOpen, initialMealType]);
 
+  // Handle favorite recipe when modal opens
+  useEffect(() => {
+    if (isOpen && favoriteRecipe) {
+      // Pre-populate recipe data from favorite
+      if (favoriteRecipe.recipeSourceUrl) {
+        setRecipeUrl(favoriteRecipe.recipeSourceUrl);
+        setActiveTab('recipeUrl');
+      } else if (favoriteRecipe.recipeIngredients && favoriteRecipe.recipeIngredients.length > 0) {
+        // If no URL, use paste ingredients tab
+        const ingredientsText = favoriteRecipe.recipeIngredients.join('\n');
+        setPastedIngredients(ingredientsText);
+        setActiveTab('pasteIngredients');
+      }
+
+      // Create RecipeImportResult-like object from favorite recipe
+      const recipeData: RecipeImportResult = {
+        title: favoriteRecipe.recipeTitle || favoriteRecipe.dishName,
+        ingredients: favoriteRecipe.recipeIngredients,
+        sourceUrl: favoriteRecipe.recipeSourceUrl || '',
+        sourceDomain: favoriteRecipe.recipeSourceDomain || '',
+        imageUrl: favoriteRecipe.recipeImageUrl || undefined,
+        parsedIngredients: favoriteRecipe.parsedIngredients
+      };
+      setImportedRecipe(recipeData);
+
+      // If meal type is already selected, open SaveDishModal
+      if (selectedMealType && recipeData.ingredients && recipeData.ingredients.length > 0) {
+        setShowSaveDishModal(true);
+      }
+    }
+  }, [isOpen, favoriteRecipe, selectedMealType]);
+
   // Helper function to validate URL
   const isValidUrl = (url: string): boolean => {
     try {
@@ -625,6 +660,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
     ingredientsForShoppingList: string[];
     additionalIngredients: string[];
     targetListId: string;
+    isFavorite: boolean;
   }) => {
     if (!user || !selectedMealType) {
       showToast('Please select a meal type', 'error');
@@ -769,6 +805,33 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
       }
 
       await mealPlanningService.updateMealPlan(mealPlan.id, { meals: mealPlan.meals });
+
+      // Save to favorites if requested
+      if (data.isFavorite && user) {
+        try {
+          const favoriteRecipeUrl = importedRecipe?.sourceUrl || recipeUrl || null;
+          const recipeDomain = favoriteRecipeUrl ? (() => {
+            try {
+              return new URL(favoriteRecipeUrl).hostname;
+            } catch {
+              return null;
+            }
+          })() : null;
+
+          await favoriteRecipeService.saveFavoriteRecipe(user.uid, {
+            dishName: finalDishName,
+            recipeTitle: importedRecipe?.title || finalDishName,
+            recipeIngredients: allIngredients,
+            recipeSourceUrl: favoriteRecipeUrl,
+            recipeSourceDomain: recipeDomain,
+            recipeImageUrl: importedRecipe?.imageUrl || null,
+            parsedIngredients: importedRecipe?.parsedIngredients
+          });
+        } catch (error) {
+          console.error('Error saving favorite recipe:', error);
+          // Don't block the main save if favorites save fails
+        }
+      }
 
       if (itemsToAdd.length > 0) {
         showToast(`Dish saved and ${itemsToAdd.length} ingredient(s) added to shopping list!`, 'success');

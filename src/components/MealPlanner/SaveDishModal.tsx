@@ -20,6 +20,7 @@ interface SaveDishModalProps {
     ingredientsForShoppingList: string[];
     additionalIngredients: string[];
     targetListId: string;
+    isFavorite: boolean;
   }) => Promise<void>;
   ingredients: string[];
   parsedIngredients?: ParsedIngredient[]; // AI-parsed structured ingredient data
@@ -46,6 +47,7 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
   const [additionalIngredients, setAdditionalIngredients] = useState<string[]>([]);
   const [newIngredient, setNewIngredient] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Combine original ingredients with additional ones
   const allIngredients = [...ingredients, ...additionalIngredients];
@@ -71,6 +73,7 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
       setAdditionalIngredients([]);
       setNewIngredient('');
       setSaving(false);
+      setIsFavorite(false);
     } else if (importedRecipeTitle && !dishName.trim()) {
       // Initialize dish name from imported recipe if available, limit to 60 characters
       const truncatedTitle = importedRecipeTitle.length > 60 
@@ -163,7 +166,8 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
         ingredientsToReserve,
         ingredientsForShoppingList,
         additionalIngredients,
-        targetListId: targetListId || ''
+        targetListId: targetListId || '',
+        isFavorite
       });
     } catch (error) {
       console.error('Error saving dish:', error);
@@ -247,6 +251,25 @@ export const SaveDishModal: React.FC<SaveDishModalProps> = ({
                 boxSizing: 'border-box'
               }}
             />
+          </div>
+
+          {/* Favorites Checkbox */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                style={{
+                  width: '1.25rem',
+                  height: '1.25rem',
+                  cursor: 'pointer'
+                }}
+              />
+              <span style={{ fontSize: '1rem', fontWeight: '500' }}>
+                Add to Favorites
+              </span>
+            </label>
           </div>
 
           {/* Cancel and Save Buttons */}

@@ -61,6 +61,15 @@ service cloud.firestore {
       allow list: if request.auth != null && isAdmin();
     }
 
+    // Favorite Recipes - users can only access their own, admins can read all
+    match /favoriteRecipes/{recipeId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      // Allow admins to list all favorite recipes
+      allow list: if request.auth != null && isAdmin();
+    }
+
     // Analytics Events collection
     match /analyticsEvents/{eventId} {
       // Allow authenticated users to write their own analytics events

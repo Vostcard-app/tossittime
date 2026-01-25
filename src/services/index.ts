@@ -37,6 +37,9 @@ export { categoryService } from './categoryService';
 // Label scanner service
 export { labelScannerService } from './labelScannerService';
 
+// Favorite recipe service
+export { favoriteRecipeService } from './favoriteRecipeService';
+
 // Base utilities and error classes
 export * from './baseService';
 export * from './errors';

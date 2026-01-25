@@ -16,7 +16,8 @@ export const COLLECTION_DATE_FIELDS: Record<string, string[]> = {
   shoppingLists: ['createdAt', 'updatedAt'],
   userSettings: ['createdAt', 'updatedAt'],
   mealPlans: ['createdAt', 'date', 'updatedAt'],
-  mealProfiles: ['createdAt', 'updatedAt']
+  mealProfiles: ['createdAt', 'updatedAt'],
+  favoriteRecipes: ['createdAt']
 };
 
 /**

@@ -68,3 +68,9 @@ export type {
 export type {
   LabelScanResult
 } from './labelScanner';
+
+// Favorite Recipe Types
+export type {
+  FavoriteRecipe,
+  FavoriteRecipeData
+} from './favoriteRecipe';

@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { mealPlanningService, userSettingsService } from '../services';
-import type { MealPlan, PlannedMeal, MealType, Dish } from '../types';
+import type { MealPlan, PlannedMeal, MealType, Dish, FavoriteRecipe } from '../types';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import { IngredientPickerModal } from '../components/MealPlanner/IngredientPickerModal';
@@ -17,8 +17,9 @@ import { DayMealsModal } from '../components/MealPlanner/DayMealsModal';
 import { DishListModal } from '../components/MealPlanner/DishListModal';
 import { MealSelectionModal } from '../components/MealPlanner/MealSelectionModal';
 import { addDays, startOfWeek, endOfWeek, format, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { showToast } from '../components/Toast';
+import type { PlannedMealCalendarLocationState } from '../types/navigation';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 const MEAL_TYPE_ABBREVIATIONS: Record<MealType, string> = {
@@ -30,6 +31,7 @@ const MEAL_TYPE_ABBREVIATIONS: Record<MealType, string> = {
 const PlannedMealCalendar: React.FC = () => {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
@@ -44,6 +46,7 @@ const PlannedMealCalendar: React.FC = () => {
   const [showMealDetailModal, setShowMealDetailModal] = useState(false);
   const [showMealSelectionModal, setShowMealSelectionModal] = useState(false);
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
+  const [favoriteRecipe, setFavoriteRecipe] = useState<FavoriteRecipe | null>(null);
   const unsubscribeRef = useRef<Map<string, () => void>>(new Map());
   const loadedWeeksRef = useRef<Set<string>>(new Set());
   const cleanupDoneRef = useRef<boolean>(false);
@@ -53,6 +56,24 @@ const PlannedMealCalendar: React.FC = () => {
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [dragOverMealType, setDragOverMealType] = useState<MealType | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Check for favorite recipe in location state
+  useEffect(() => {
+    const locationState = location.state as PlannedMealCalendarLocationState | null;
+    if (locationState?.favoriteRecipe) {
+      setFavoriteRecipe(locationState.favoriteRecipe);
+      // Set selected date from state or default to today
+      const date = locationState.selectedDate || new Date();
+      setSelectedDay(date);
+      // Set meal type from state or show selection
+      if (locationState.selectedMealType) {
+        setSelectedMealType(locationState.selectedMealType);
+        setShowIngredientPicker(true);
+      } else {
+        setShowMealTypeSelection(true);
+      }
+    }
+  }, [location.state]);
 
 
   // Check premium status
@@ -998,10 +1019,12 @@ const PlannedMealCalendar: React.FC = () => {
             setShowIngredientPicker(false);
             setSelectedMealType(null);
             setSelectedDay(null);
+            setFavoriteRecipe(null);
             refreshMealPlans();
           }}
           selectedDate={selectedDay}
           initialMealType={selectedMealType}
+          favoriteRecipe={favoriteRecipe}
         />
       )}
 
