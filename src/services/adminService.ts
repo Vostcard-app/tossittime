@@ -162,9 +162,45 @@ export const adminService = {
     );
     const userCategoryDeletes = userCategoriesSnapshot.docs.map(doc => deleteDoc(doc.ref));
     
+    // Delete favorite recipes
+    const favoriteRecipesSnapshot = await getDocs(
+      query(collection(db, 'favoriteRecipes'), where('userId', '==', userId))
+    );
+    const favoriteRecipeDeletes = favoriteRecipesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
+    // Delete meal plans
+    const mealPlansSnapshot = await getDocs(
+      query(collection(db, 'mealPlans'), where('userId', '==', userId))
+    );
+    const mealPlanDeletes = mealPlansSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
+    // Delete meal profiles
+    const mealProfilesRef = doc(db, 'mealProfiles', userId);
+    const mealProfilesDelete = deleteDoc(mealProfilesRef).catch(() => {
+      // Ignore error if document doesn't exist
+    });
+    
+    // Delete leftover meals
+    const leftoverMealsSnapshot = await getDocs(
+      query(collection(db, 'leftoverMeals'), where('userId', '==', userId))
+    );
+    const leftoverMealDeletes = leftoverMealsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
+    // Delete unplanned events
+    const unplannedEventsSnapshot = await getDocs(
+      query(collection(db, 'unplannedEvents'), where('userId', '==', userId))
+    );
+    const unplannedEventDeletes = unplannedEventsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
+    // Delete AI usage records
+    const aiUsageSnapshot = await getDocs(
+      query(collection(db, 'aiUsage'), where('userId', '==', userId))
+    );
+    const aiUsageDeletes = aiUsageSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
     // Delete user settings
     const userSettingsRef = doc(db, 'userSettings', userId);
-    await deleteDoc(userSettingsRef);
+    const userSettingsDelete = deleteDoc(userSettingsRef);
     
     // Execute all deletes
     await Promise.all([
@@ -173,6 +209,13 @@ export const adminService = {
       ...shoppingListItemDeletes,
       ...userItemDeletes,
       ...userCategoryDeletes,
+      ...favoriteRecipeDeletes,
+      ...mealPlanDeletes,
+      mealProfilesDelete,
+      ...leftoverMealDeletes,
+      ...unplannedEventDeletes,
+      ...aiUsageDeletes,
+      userSettingsDelete,
     ]);
   },
 
@@ -191,6 +234,14 @@ export const adminService = {
       errors: number;
       details: Array<{ userId: string; status: string; email?: string; error?: string }>;
     };
+  },
+
+  // Check which users exist in Firebase Auth
+  async checkUserAuthStatus(userIds: string[]): Promise<Array<{ userId: string; existsInAuth: boolean; email?: string }>> {
+    const checkUserAuthStatusFunction = httpsCallable(functions, 'checkUserAuthStatus');
+    const result = await checkUserAuthStatusFunction({ userIds });
+    const data = result.data as { results: Array<{ userId: string; existsInAuth: boolean; email?: string }> };
+    return data.results;
   },
 };
 

@@ -150,3 +150,59 @@ export const populateUserEmails = functions.https.onCall(async (data, context) =
 
   return results;
 });
+
+/**
+ * Cloud Function to check which users exist in Firebase Auth
+ * Called from admin panel with a list of user IDs
+ */
+export const checkUserAuthStatus = functions.https.onCall(async (data, context) => {
+  // Verify the caller is an admin
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  // Check if user is admin
+  const adminEmails = ['info@vostcard.com'];
+  const callerEmail = context.auth.token.email;
+  
+  if (!callerEmail || !adminEmails.includes(callerEmail)) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can call this function');
+  }
+
+  const userIds: string[] = data.userIds || [];
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'userIds must be a non-empty array');
+  }
+
+  const results: Array<{ userId: string; existsInAuth: boolean; email?: string }> = [];
+  const auth = admin.auth();
+
+  for (const userId of userIds) {
+    try {
+      // Try to get user from Firebase Auth
+      const userRecord = await auth.getUser(userId);
+      results.push({
+        userId,
+        existsInAuth: true,
+        email: userRecord.email || undefined
+      });
+    } catch (authError: any) {
+      if (authError.code === 'auth/user-not-found') {
+        results.push({
+          userId,
+          existsInAuth: false
+        });
+      } else {
+        // For other errors, assume user doesn't exist
+        results.push({
+          userId,
+          existsInAuth: false
+        });
+        console.error(`Error checking user ${userId}:`, authError);
+      }
+    }
+  }
+
+  return { results };
+});

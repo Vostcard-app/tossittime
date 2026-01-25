@@ -32,6 +32,7 @@ interface UserInfo {
   username?: string;
   foodItemsCount: number;
   userItemsCount: number;
+  existsInAuth?: boolean; // Whether user exists in Firebase Auth
   tokenUsage?: {
     totalTokens: number;
     promptTokens: number;
@@ -58,6 +59,8 @@ const Admin: React.FC = () => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showOnlyAuthUsers, setShowOnlyAuthUsers] = useState(false);
+  const [cleaningUpOrphaned, setCleaningUpOrphaned] = useState(false);
   const [analyticsOverview, setAnalyticsOverview] = useState<DashboardOverview | null>(null);
   const [retentionMetrics, setRetentionMetrics] = useState<RetentionMetrics | null>(null);
   const [funnelMetrics, setFunnelMetrics] = useState<FunnelMetrics | null>(null);
@@ -269,6 +272,31 @@ const Admin: React.FC = () => {
             tokenUsage: undefined,
           });
         }
+      }
+
+      // Check which users exist in Firebase Auth
+      try {
+        const userIdsArray = Array.from(userIds);
+        const authStatusResults = await adminService.checkUserAuthStatus(userIdsArray);
+        const authStatusMap = new Map<string, boolean>();
+        authStatusResults.forEach(result => {
+          authStatusMap.set(result.userId, result.existsInAuth);
+          // Update email if we got it from Auth and don't have it in userSettings
+          if (result.existsInAuth && result.email) {
+            const userInfo = userInfos.find(u => u.uid === result.userId);
+            if (userInfo && !userInfo.email) {
+              userInfo.email = result.email;
+            }
+          }
+        });
+        
+        // Add auth status to each user
+        userInfos.forEach(userInfo => {
+          userInfo.existsInAuth = authStatusMap.get(userInfo.uid) ?? false;
+        });
+      } catch (authStatusError) {
+        console.error('Error checking auth status:', authStatusError);
+        // Continue without auth status - users will show as unknown
       }
 
       // Sort by food items count (descending)
@@ -621,6 +649,53 @@ const Admin: React.FC = () => {
       alert(`Failed to populate emails: ${errorInfo.message || 'Unknown error'}`);
     } finally {
       setPopulatingEmails(false);
+    }
+  };
+
+  // Clean up orphaned user data (users not in Firebase Auth)
+  const handleCleanupOrphanedUsers = async () => {
+    if (!user?.email || !isAdmin) {
+      alert('You must be an admin to perform this action');
+      return;
+    }
+
+    // Get orphaned users (users that don't exist in Auth)
+    const orphanedUsers = users.filter(u => u.existsInAuth === false);
+    
+    if (orphanedUsers.length === 0) {
+      showToast('No orphaned users found', 'info');
+      return;
+    }
+
+    if (!window.confirm(`This will permanently delete all data for ${orphanedUsers.length} orphaned user(s). This action cannot be undone. Continue?`)) {
+      return;
+    }
+
+    setCleaningUpOrphaned(true);
+    try {
+      let deletedCount = 0;
+      let errorCount = 0;
+
+      for (const orphanedUser of orphanedUsers) {
+        try {
+          await adminService.deleteUserData(orphanedUser.uid);
+          deletedCount++;
+        } catch (error) {
+          console.error(`Error deleting user ${orphanedUser.uid}:`, error);
+          errorCount++;
+        }
+      }
+
+      showToast(`Cleanup complete: ${deletedCount} user(s) deleted, ${errorCount} error(s)`, deletedCount > 0 ? 'success' : 'error');
+      
+      // Reload users to reflect changes
+      await loadData();
+    } catch (error: unknown) {
+      const errorInfo = getErrorInfo(error);
+      console.error('Error cleaning up orphaned users:', error);
+      alert(`Failed to cleanup orphaned users: ${errorInfo.message || 'Unknown error'}`);
+    } finally {
+      setCleaningUpOrphaned(false);
     }
   };
 
@@ -2052,10 +2127,44 @@ const Admin: React.FC = () => {
                 borderRadius: '6px',
                 fontSize: '0.875rem',
                 fontWeight: '500',
-                cursor: populatingEmails ? 'not-allowed' : 'pointer'
+                cursor: populatingEmails ? 'not-allowed' : 'pointer',
+                marginRight: '0.5rem'
               }}
             >
               {populatingEmails ? 'Populating...' : 'Populate Missing Emails/Usernames'}
+            </button>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              color: '#374151',
+              cursor: 'pointer',
+              marginRight: '0.5rem'
+            }}>
+              <input
+                type="checkbox"
+                checked={showOnlyAuthUsers}
+                onChange={(e) => setShowOnlyAuthUsers(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Show only users in Auth
+            </label>
+            <button
+              onClick={handleCleanupOrphanedUsers}
+              disabled={cleaningUpOrphaned || users.filter(u => u.existsInAuth === false).length === 0}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: cleaningUpOrphaned || users.filter(u => u.existsInAuth === false).length === 0 ? '#9ca3af' : '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: cleaningUpOrphaned || users.filter(u => u.existsInAuth === false).length === 0 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {cleaningUpOrphaned ? 'Cleaning up...' : `Delete Orphaned Users (${users.filter(u => u.existsInAuth === false).length})`}
             </button>
           </div>
           {loadingUsers ? (
@@ -2076,7 +2185,7 @@ const Admin: React.FC = () => {
             }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr',
+                gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr 1fr',
                 gap: '1rem',
                 padding: '1rem',
                 backgroundColor: '#f9fafb',
@@ -2092,14 +2201,17 @@ const Admin: React.FC = () => {
                 <div style={{ textAlign: 'center' }}>User Items</div>
                 <div style={{ textAlign: 'center' }}>AI Tokens</div>
                 <div style={{ textAlign: 'center' }}>AI Requests</div>
+                <div style={{ textAlign: 'center' }}>Auth Status</div>
                 <div style={{ textAlign: 'center' }}>Actions</div>
               </div>
-              {users.map((userInfo) => (
+              {users
+                .filter(userInfo => !showOnlyAuthUsers || userInfo.existsInAuth === true)
+                .map((userInfo) => (
                 <div
                   key={userInfo.uid}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr',
+                    gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr 1fr 1fr 1fr 1fr 1fr',
                     gap: '1rem',
                     padding: '1rem',
                     borderBottom: '1px solid #e5e7eb',
@@ -2122,6 +2234,15 @@ const Admin: React.FC = () => {
                   </div>
                   <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
                     {userInfo.tokenUsage ? userInfo.tokenUsage.requestCount.toLocaleString() : '0'}
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '0.875rem' }}>
+                    {userInfo.existsInAuth === undefined ? (
+                      <span style={{ color: '#9ca3af' }}>Unknown</span>
+                    ) : userInfo.existsInAuth ? (
+                      <span style={{ color: '#059669', fontWeight: '600' }}>✓ Active</span>
+                    ) : (
+                      <span style={{ color: '#dc2626', fontWeight: '600' }}>✗ Orphaned</span>
+                    )}
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <button

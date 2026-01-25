@@ -713,7 +713,8 @@ const Shop: React.FC = () => {
               onChange={handleListChange}
               style={{
                 flex: 1,
-                padding: '0.75rem',
+                height: '42px',
+                padding: '0.5rem 0.75rem',
                 border: '1px solid #d1d5db',
                 borderRadius: '6px',
                 fontSize: '1.25rem',
@@ -751,7 +752,8 @@ const Shop: React.FC = () => {
             <button
               onClick={handleCreateListClick}
               style={{
-                padding: '0.75rem',
+                height: '42px',
+                padding: '0.5rem 0.75rem',
                 backgroundColor: '#002B4D',
                 color: 'white',
                 border: 'none',
@@ -790,7 +792,8 @@ const Shop: React.FC = () => {
                 placeholder="Add item to list"
                 style={{
                   width: '100%',
-                  padding: '0.75rem',
+                  height: '42px',
+                  padding: '0.5rem 0.75rem',
                   border: '1px solid #d1d5db',
                   borderRadius: '6px',
                   fontSize: '1rem',
