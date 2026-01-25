@@ -6,8 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
-import { mealPlanningService, shoppingListService, foodItemService, recipeImportService } from '../../services';
-import type { PlannedMeal, MealType, Dish } from '../../types';
+import { mealPlanningService, shoppingListService, foodItemService, recipeImportService, favoriteRecipeService } from '../../services';
+import type { PlannedMeal, MealType, Dish, FavoriteRecipe } from '../../types';
 import { showToast } from '../Toast';
 import { format, isSameDay } from 'date-fns';
 import { useIngredientAvailability } from '../../hooks/useIngredientAvailability';
@@ -59,6 +59,7 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [selectedIngredientIndices, setSelectedIngredientIndices] = useState<Set<number>>(new Set());
   const [preparing, setPreparing] = useState(false);
+  const [favoriteRecipes, setFavoriteRecipes] = useState<FavoriteRecipe[]>([]);
 
   // Use dish data if available, otherwise fall back to legacy meal data
   // For legacy meals, check if they've been migrated (have dishes array)
@@ -108,6 +109,25 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
     }
   }, [currentDish, meal]);
 
+  // Load favorite recipes
+  useEffect(() => {
+    if (!user) {
+      setFavoriteRecipes([]);
+      return;
+    }
+
+    const loadFavorites = async () => {
+      try {
+        const favorites = await favoriteRecipeService.getFavoriteRecipes(user.uid);
+        setFavoriteRecipes(favorites);
+      } catch (error) {
+        console.error('Error loading favorite recipes:', error);
+      }
+    };
+
+    loadFavorites();
+  }, [user, isOpen]);
+
   // Note: Real-time subscriptions are handled by useIngredientAvailability hook
   // The hook subscribes to food items and loads shopping list items
   // ingredientStatuses will automatically update when pantry items or shopping list items change
@@ -124,6 +144,65 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
       setEditedDate(format(meal.date, 'yyyy-MM-dd'));
       setEditedMealType(meal.mealType);
       setEditedIngredients(currentDish.recipeIngredients || []);
+    }
+  };
+
+  // Get favorite status for a dish
+  const getFavoriteId = (dish: Dish): string | null => {
+    if (!dish.recipeSourceUrl) return null;
+    
+    // Match by recipeSourceUrl (primary) or dishName + recipeSourceUrl
+    const favorite = favoriteRecipes.find(fav => 
+      fav.recipeSourceUrl === dish.recipeSourceUrl ||
+      (fav.dishName === dish.dishName && fav.recipeSourceUrl === dish.recipeSourceUrl)
+    );
+    
+    return favorite?.id || null;
+  };
+
+  // Handle favorite toggle
+  const handleFavoriteToggle = async (dish: Dish, checked: boolean) => {
+    if (!user) return;
+
+    try {
+      if (checked) {
+        // Add to favorites
+        const recipeDomain = dish.recipeSourceDomain || (dish.recipeSourceUrl ? (() => {
+          try {
+            return new URL(dish.recipeSourceUrl).hostname;
+          } catch {
+            return null;
+          }
+        })() : null);
+
+        await favoriteRecipeService.saveFavoriteRecipe(user.uid, {
+          dishName: dish.dishName,
+          recipeTitle: dish.recipeTitle || dish.dishName,
+          recipeIngredients: dish.recipeIngredients,
+          recipeSourceUrl: dish.recipeSourceUrl || null,
+          recipeSourceDomain: recipeDomain,
+          recipeImageUrl: dish.recipeImageUrl || null,
+          parsedIngredients: dish.parsedIngredients
+        });
+
+        // Reload favorites to get the new ID
+        const favorites = await favoriteRecipeService.getFavoriteRecipes(user.uid);
+        setFavoriteRecipes(favorites);
+        showToast('Recipe added to favorites', 'success');
+      } else {
+        // Remove from favorites
+        const favoriteId = getFavoriteId(dish);
+        if (favoriteId) {
+          await favoriteRecipeService.deleteFavoriteRecipe(favoriteId);
+          
+          // Update local state
+          setFavoriteRecipes(prev => prev.filter(fav => fav.id !== favoriteId));
+          showToast('Recipe removed from favorites', 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      showToast('Failed to update favorite. Please try again.', 'error');
     }
   };
 
@@ -641,9 +720,9 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
             )}
           </div>
 
-          {/* Recipe Link */}
+          {/* Recipe Link and Favorite Checkbox */}
           {currentDish.recipeSourceUrl && !isEditing && (
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
               <a
                 href={currentDish.recipeSourceUrl}
                 target="_blank"
@@ -662,6 +741,19 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
               >
                 Recipe
               </a>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', color: '#1f2937' }}>
+                <input
+                  type="checkbox"
+                  checked={getFavoriteId(currentDish) !== null}
+                  onChange={(e) => handleFavoriteToggle(currentDish, e.target.checked)}
+                  style={{
+                    width: '1.25rem',
+                    height: '1.25rem',
+                    cursor: 'pointer'
+                  }}
+                />
+                Favorite
+              </label>
             </div>
           )}
 

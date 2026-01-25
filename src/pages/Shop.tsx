@@ -1198,6 +1198,7 @@ const Shop: React.FC = () => {
                           color: 'white',
                           border: 'none',
                           borderRadius: '8px',
+                          overflow: 'hidden',
                           fontSize: '0.875rem',
                           fontWeight: '500',
                           cursor: 'pointer',
