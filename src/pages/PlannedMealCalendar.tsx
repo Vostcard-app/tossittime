@@ -643,10 +643,21 @@ const PlannedMealCalendar: React.FC = () => {
 
   return (
     <>
-      <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
+      {/* Fixed Header: Banner */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        backgroundColor: '#002B4D',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
+        <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
+      </div>
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
       
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', width: '100%', boxSizing: 'border-box', marginTop: '80px' }}>
         <h2 style={{ marginBottom: '1rem' }}>Planned Meal Calendar</h2>
         
         {/* Navigation and View Controls */}

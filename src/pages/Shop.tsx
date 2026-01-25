@@ -635,10 +635,20 @@ const Shop: React.FC = () => {
 
   return (
     <>
-      <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+      {/* Fixed Header: Banner and Navigation Buttons */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        backgroundColor: '#002B4D',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
+        <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
 
-      {/* Lists, Items, and Plan Buttons */}
-      <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        {/* Lists, Items, and Plan Buttons */}
+        <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
         <button
           onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           style={{
@@ -688,10 +698,11 @@ const Shop: React.FC = () => {
         >
           Plan
         </button>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem', paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem', paddingTop: '1.5rem', paddingBottom: '2rem', marginTop: '160px' }}>
         {/* List Selector and Lists Button */}
         <div style={{ 
           marginBottom: '1.5rem'
@@ -869,40 +880,42 @@ const Shop: React.FC = () => {
               >
                 +
               </button>
-              {/* Scan icon button for adding new item */}
-              <button
-                type="button"
-                onClick={handleAddItemScanClick}
-                style={{
-                  padding: '0.5rem',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: '44px',
-                  minHeight: '44px'
-                }}
-                aria-label="Scan label to add item"
-                title="Scan label with AI to add item"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{ display: 'inline-block', verticalAlign: 'middle' }}
+              {/* Scan icon button for adding new item - Premium only */}
+              {isPremium && (
+                <button
+                  type="button"
+                  onClick={handleAddItemScanClick}
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '44px',
+                    minHeight: '44px'
+                  }}
+                  aria-label="Scan label to add item"
+                  title="Scan label with AI to add item"
                 >
-                  <path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 4H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
-                </svg>
-              </button>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={{ display: 'inline-block', verticalAlign: 'middle' }}
+                  >
+                    <path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 4H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </button>
+              )}
             </div>
           </form>
           <div style={{ 
