@@ -39,15 +39,6 @@ const FavoriteRecipes: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const handlePlanRecipe = (recipe: FavoriteRecipe) => {
-    // Navigate to planned meal calendar with recipe data
-    navigate('/planned-meal-calendar', {
-      state: {
-        favoriteRecipe: recipe
-      }
-    });
-  };
-
   const handleDeleteRecipe = async (recipeId: string) => {
     if (!user) return;
 
@@ -75,7 +66,7 @@ const FavoriteRecipes: React.FC = () => {
   if (loading) {
     return (
       <>
-        <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
+        <Banner onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
         <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         <div style={{ padding: '2rem', textAlign: 'center' }}>
           <p>Loading favorite recipes...</p>
@@ -86,7 +77,59 @@ const FavoriteRecipes: React.FC = () => {
 
   return (
     <>
-      <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
+      <Banner onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
+
+      {/* Lists, Items, and Plan Buttons */}
+      <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <button
+          onClick={() => navigate('/shop')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Lists
+        </button>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Items
+        </button>
+        <button
+          onClick={() => navigate('/planned-meal-calendar')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minHeight: '44px'
+          }}
+        >
+          Plan
+        </button>
+      </div>
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem' }}>
@@ -212,23 +255,6 @@ const FavoriteRecipes: React.FC = () => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => handlePlanRecipe(recipe)}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: '#002B4D',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Plan
-                  </button>
-                </div>
               </div>
             ))}
           </div>
