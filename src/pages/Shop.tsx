@@ -35,6 +35,8 @@ const Shop: React.FC = () => {
   const [newListName, setNewListName] = useState('');
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [editingQuantityValue, setEditingQuantityValue] = useState<string>('');
+  const [editingUnitItemId, setEditingUnitItemId] = useState<string | null>(null);
+  const [editingUnitValue, setEditingUnitValue] = useState<string>('');
   const [editingNameItemId, setEditingNameItemId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState<string>('');
   const [showLabelScanner, setShowLabelScanner] = useState(false);
@@ -237,10 +239,14 @@ const Shop: React.FC = () => {
 
 
   const handleQuantityClick = (item: ShoppingListItem) => {
-    // Cancel name editing if active
+    // Cancel name and unit editing if active
     if (editingNameItemId === item.id) {
       setEditingNameItemId(null);
       setEditingNameValue('');
+    }
+    if (editingUnitItemId === item.id) {
+      setEditingUnitItemId(null);
+      setEditingUnitValue('');
     }
     setEditingQuantityItemId(item.id);
     setEditingQuantityValue((item.quantity || 1).toString());
@@ -290,11 +296,45 @@ const Shop: React.FC = () => {
     }
   };
 
-  const handleNameClick = (item: ShoppingListItem) => {
-    // Cancel quantity editing if active
+  const handleUnitClick = (item: ShoppingListItem) => {
+    // Cancel quantity and name editing if active
     if (editingQuantityItemId === item.id) {
       setEditingQuantityItemId(null);
       setEditingQuantityValue('');
+    }
+    if (editingNameItemId === item.id) {
+      setEditingNameItemId(null);
+      setEditingNameValue('');
+    }
+    setEditingUnitItemId(item.id);
+    setEditingUnitValue(item.quantityUnit || '');
+  };
+
+  const handleUnitBlur = async (item: ShoppingListItem) => {
+    if (!user) return;
+
+    const newUnit = editingUnitValue.trim();
+    try {
+      await shoppingListService.updateShoppingListItem(user.uid, item.id, { 
+        quantityUnit: newUnit || undefined 
+      });
+      setEditingUnitItemId(null);
+      setEditingUnitValue('');
+    } catch (error) {
+      console.error('Error updating unit:', error);
+      alert('Failed to update unit. Please try again.');
+    }
+  };
+
+  const handleNameClick = (item: ShoppingListItem) => {
+    // Cancel quantity and unit editing if active
+    if (editingQuantityItemId === item.id) {
+      setEditingQuantityItemId(null);
+      setEditingQuantityValue('');
+    }
+    if (editingUnitItemId === item.id) {
+      setEditingUnitItemId(null);
+      setEditingUnitValue('');
     }
     setEditingNameItemId(item.id);
     setEditingNameValue(item.name);
@@ -780,6 +820,11 @@ const Shop: React.FC = () => {
                       onQuantityChange={setEditingQuantityValue}
                       onQuantityBlur={handleQuantityInputBlur}
                       onQuantityKeyDown={handleQuantityInputKeyDown}
+                      editingUnitItemId={editingUnitItemId}
+                      editingUnitValue={editingUnitValue}
+                      onUnitClick={handleUnitClick}
+                      onUnitChange={(value) => setEditingUnitValue(value)}
+                      onUnitBlur={handleUnitBlur}
                       editingNameItemId={editingNameItemId}
                       editingNameValue={editingNameValue}
                       onNameClick={handleNameClick}

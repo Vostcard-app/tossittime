@@ -13,36 +13,7 @@ import LabelScanner from '../features/LabelScanner';
 import type { LabelScanResult } from '../../types/labelScanner';
 import { capitalizeItemName } from '../../utils/formatting';
 
-// Quantity unit options for all items
-const QUANTITY_UNITS = [
-  { value: 'cans', label: 'Cans' },
-  { value: 'packages', label: 'Packages' },
-  { value: 'cups', label: 'Cups' },
-  { value: 'boxes', label: 'Boxes' },
-  { value: 'bags', label: 'Bags' },
-  { value: 'bottles', label: 'Bottles' },
-  { value: 'jars', label: 'Jars' },
-  { value: 'servings', label: 'Servings' },
-  { value: 'units', label: 'Units' }
-] as const;
-
-// Quantity unit options for pantry/dry canned goods
-const PANTRY_UNITS = [
-  // Volume (Cups & larger)
-  { value: 'c', label: 'c (cup)' },
-  { value: 'pt', label: 'pt (pint)' },
-  { value: 'qt', label: 'qt (quart)' },
-  { value: 'gal', label: 'gal (gallon)' },
-  // Weight / Mass - US / Imperial
-  { value: 'oz', label: 'oz (ounce)' },
-  { value: 'lb', label: 'lb (pound)' },
-  // Weight / Mass - Metric
-  { value: 'g', label: 'g (gram)' },
-  { value: 'kg', label: 'kg (kilogram)' },
-  // Volume - Metric
-  { value: 'ml', label: 'ml (milliliter)' },
-  { value: 'l', label: 'L (liter)' }
-] as const;
+import { PANTRY_UNITS } from '../../utils/units';
 
 interface AddItemFormProps {
   onSubmit: (data: FoodItemData, photoFile?: File, noBestBy?: boolean) => Promise<void>;
@@ -835,7 +806,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, ini
               cursor: 'pointer'
             }}
           >
-            {(formData.isDryCanned ? PANTRY_UNITS : QUANTITY_UNITS).map(unit => (
+            {PANTRY_UNITS.map(unit => (
               <option key={unit.value} value={unit.value}>
                 {unit.label}
               </option>

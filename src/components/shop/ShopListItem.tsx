@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { ShoppingListItem } from '../../types';
 import { buttonStyles, combineStyles } from '../../styles/componentStyles';
 import { colors, spacing } from '../../styles/designTokens';
+import { PANTRY_UNITS } from '../../utils/units';
 
 interface ShopListItemProps {
   item: ShoppingListItem;
@@ -17,6 +18,11 @@ interface ShopListItemProps {
   onQuantityChange: (value: string) => void;
   onQuantityBlur: (item: ShoppingListItem) => void;
   onQuantityKeyDown: (e: React.KeyboardEvent, item: ShoppingListItem) => void;
+  editingUnitItemId: string | null;
+  editingUnitValue: string;
+  onUnitClick: (item: ShoppingListItem) => void;
+  onUnitChange: (value: string) => void;
+  onUnitBlur: (item: ShoppingListItem) => void;
   editingNameItemId: string | null;
   editingNameValue: string;
   onNameClick: (item: ShoppingListItem) => void;
@@ -39,6 +45,11 @@ export const ShopListItem: React.FC<ShopListItemProps> = ({
   onQuantityChange,
   onQuantityBlur,
   onQuantityKeyDown,
+  editingUnitItemId,
+  editingUnitValue,
+  onUnitClick,
+  onUnitChange,
+  onUnitBlur,
   editingNameItemId,
   editingNameValue,
   onNameClick,
@@ -221,17 +232,54 @@ export const ShopListItem: React.FC<ShopListItemProps> = ({
               {item.quantity || 1}
             </span>
           )}
-          {/* Unit field */}
-          {item.quantityUnit && (
+          {/* Unit field - dropdown between amount and name */}
+          {editingUnitItemId === item.id ? (
+            <select
+              value={editingUnitValue}
+              onChange={(e) => onUnitChange(e.target.value)}
+              onBlur={() => onUnitBlur(item)}
+              autoFocus
+              style={{
+                padding: `${spacing.xs} ${spacing.sm}`,
+                border: `2px solid ${colors.primary}`,
+                borderRadius: '4px',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                backgroundColor: colors.white,
+                cursor: 'pointer',
+                outline: 'none',
+                minWidth: '80px'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="">No unit</option>
+              {PANTRY_UNITS.map(unit => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          ) : (
             <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnitClick(item);
+              }}
               style={{
                 fontSize: '0.875rem',
                 fontWeight: 500,
-                color: colors.gray[500],
-                padding: `${spacing.xs} ${spacing.sm}`
+                color: item.quantityUnit ? colors.gray[700] : colors.gray[400],
+                padding: `${spacing.xs} ${spacing.sm}`,
+                cursor: 'pointer',
+                borderRadius: '4px',
+                backgroundColor: item.quantityUnit ? '#f0f8ff' : 'transparent',
+                minWidth: '60px',
+                textAlign: 'center',
+                display: 'inline-block'
               }}
+              title="Tap to edit unit"
             >
-              {item.quantityUnit}
+              {item.quantityUnit || 'unit'}
             </span>
           )}
           {/* Name field */}
