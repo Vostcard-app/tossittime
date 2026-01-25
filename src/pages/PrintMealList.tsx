@@ -8,8 +8,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase/firebaseConfig';
-import { mealPlanningService } from '../services';
-import type { PlannedMeal, MealType } from '../types';
+import { mealPlanningService, favoriteRecipeService } from '../services';
+import type { PlannedMeal, MealType, FavoriteRecipe, Dish } from '../types';
 import HamburgerMenu from '../components/layout/HamburgerMenu';
 import Banner from '../components/layout/Banner';
 import { format, parseISO, startOfDay } from 'date-fns';
@@ -40,6 +40,7 @@ const PrintMealList: React.FC = () => {
   const [meals, setMeals] = useState<PlannedMeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [favoriteRecipes, setFavoriteRecipes] = useState<FavoriteRecipe[]>([]);
 
   // Load 21 meals starting from the selected date
   useEffect(() => {
@@ -69,6 +70,25 @@ const PrintMealList: React.FC = () => {
 
     loadMeals();
   }, [user, selectedDate]);
+
+  // Load favorite recipes
+  useEffect(() => {
+    if (!user) {
+      setFavoriteRecipes([]);
+      return;
+    }
+
+    const loadFavorites = async () => {
+      try {
+        const favorites = await favoriteRecipeService.getFavoriteRecipes(user.uid);
+        setFavoriteRecipes(favorites);
+      } catch (error) {
+        console.error('Error loading favorite recipes:', error);
+      }
+    };
+
+    loadFavorites();
+  }, [user]);
 
   // Toggle ingredients visibility
   const toggleIngredients = (itemId: string) => {
@@ -119,6 +139,62 @@ const PrintMealList: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Get favorite status for a dish
+  const getFavoriteId = (dish: Dish): string | null => {
+    if (!dish.recipeSourceUrl) return null;
+    
+    // Match by recipeSourceUrl (primary) or dishName + recipeSourceUrl
+    const favorite = favoriteRecipes.find(fav => 
+      fav.recipeSourceUrl === dish.recipeSourceUrl ||
+      (fav.dishName === dish.dishName && fav.recipeSourceUrl === dish.recipeSourceUrl)
+    );
+    
+    return favorite?.id || null;
+  };
+
+  // Handle favorite toggle
+  const handleFavoriteToggle = async (dish: Dish, checked: boolean) => {
+    if (!user) return;
+
+    try {
+      if (checked) {
+        // Add to favorites
+        const recipeDomain = dish.recipeSourceDomain || (dish.recipeSourceUrl ? (() => {
+          try {
+            return new URL(dish.recipeSourceUrl).hostname;
+          } catch {
+            return null;
+          }
+        })() : null);
+
+        await favoriteRecipeService.saveFavoriteRecipe(user.uid, {
+          dishName: dish.dishName,
+          recipeTitle: dish.recipeTitle || dish.dishName,
+          recipeIngredients: dish.recipeIngredients,
+          recipeSourceUrl: dish.recipeSourceUrl || null,
+          recipeSourceDomain: recipeDomain,
+          recipeImageUrl: dish.recipeImageUrl || null
+        });
+
+        // Reload favorites to get the new ID
+        const favorites = await favoriteRecipeService.getFavoriteRecipes(user.uid);
+        setFavoriteRecipes(favorites);
+      } else {
+        // Remove from favorites
+        const favoriteId = getFavoriteId(dish);
+        if (favoriteId) {
+          await favoriteRecipeService.deleteFavoriteRecipe(favoriteId);
+          
+          // Update local state
+          setFavoriteRecipes(prev => prev.filter(fav => fav.id !== favoriteId));
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      alert('Failed to update favorite. Please try again.');
+    }
   };
 
   if (!user) {
@@ -295,36 +371,49 @@ const PrintMealList: React.FC = () => {
                               </div>
                               {isExpanded && hasIngredients && (
                                 <div style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
-                                  {/* Recipe Link - Show at top if URL exists */}
+                                  {/* Recipe Link and Favorite Checkbox - Show at top if URL exists */}
                                   {dish.recipeSourceUrl && (
-                                    <a
-                                      href={dish.recipeSourceUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        display: 'block',
-                                        marginBottom: '0.75rem',
-                                        padding: '0.5rem 0.75rem',
-                                        backgroundColor: '#f0f8ff',
-                                        color: '#002B4D',
-                                        textDecoration: 'none',
-                                        borderRadius: '4px',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        border: '1px solid #002B4D',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#e0f2fe';
-                                        e.currentTarget.style.textDecoration = 'underline';
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#f0f8ff';
-                                        e.currentTarget.style.textDecoration = 'none';
-                                      }}
-                                    >
-                                      📖 View Recipe
-                                    </a>
+                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                      <a
+                                        href={dish.recipeSourceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                          padding: '0.5rem 0.75rem',
+                                          backgroundColor: '#f0f8ff',
+                                          color: '#002B4D',
+                                          textDecoration: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '0.875rem',
+                                          fontWeight: '500',
+                                          border: '1px solid #002B4D',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.backgroundColor = '#e0f2fe';
+                                          e.currentTarget.style.textDecoration = 'underline';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.backgroundColor = '#f0f8ff';
+                                          e.currentTarget.style.textDecoration = 'none';
+                                        }}
+                                      >
+                                        📖 View Recipe
+                                      </a>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', color: '#1f2937' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={getFavoriteId(dish) !== null}
+                                          onChange={(e) => handleFavoriteToggle(dish, e.target.checked)}
+                                          style={{
+                                            width: '1.25rem',
+                                            height: '1.25rem',
+                                            cursor: 'pointer'
+                                          }}
+                                        />
+                                        Favorite
+                                      </label>
+                                    </div>
                                   )}
                                   
                                   {/* Ingredients List */}

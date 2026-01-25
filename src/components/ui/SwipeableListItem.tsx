@@ -494,8 +494,14 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
                   <path d="M4 20V16H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   {/* Bottom-right corner bracket */}
                   <path d="M20 20V16H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  {/* Central horizontal line */}
-                  <line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  {/* Barcode pattern - vertical lines of varying widths */}
+                  <line x1="8" y1="8" x2="8" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="10" y1="8" x2="10" y2="16" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                  <line x1="11.5" y1="8" x2="11.5" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="13" y1="8" x2="13" y2="16" stroke="currentColor" strokeWidth="0.75" strokeLinecap="round"/>
+                  <line x1="14" y1="8" x2="14" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="15.5" y1="8" x2="15.5" y2="16" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                  <line x1="16.5" y1="8" x2="16.5" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
             )}
