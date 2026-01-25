@@ -175,7 +175,8 @@ const PrintMealList: React.FC = () => {
           recipeIngredients: dish.recipeIngredients,
           recipeSourceUrl: dish.recipeSourceUrl || null,
           recipeSourceDomain: recipeDomain,
-          recipeImageUrl: dish.recipeImageUrl || null
+          recipeImageUrl: dish.recipeImageUrl || null,
+          parsedIngredients: dish.parsedIngredients
         });
 
         // Reload favorites to get the new ID

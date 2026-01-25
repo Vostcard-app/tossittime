@@ -62,16 +62,12 @@ const PlannedMealCalendar: React.FC = () => {
     const locationState = location.state as PlannedMealCalendarLocationState | null;
     if (locationState?.favoriteRecipe) {
       setFavoriteRecipe(locationState.favoriteRecipe);
-      // Set selected date from state or default to today
-      const date = locationState.selectedDate || new Date();
-      setSelectedDay(date);
-      // Set meal type from state or show selection
-      if (locationState.selectedMealType) {
-        setSelectedMealType(locationState.selectedMealType);
-        setShowIngredientPicker(true);
-      } else {
-        setShowMealTypeSelection(true);
+      // Don't auto-select date - wait for user to click on calendar
+      // If a date is provided in state, navigate to that month but don't auto-select
+      if (locationState.selectedDate) {
+        setCurrentDate(locationState.selectedDate);
       }
+      // Don't auto-open modals - wait for user to select date on calendar
     }
   }, [location.state]);
 
@@ -370,9 +366,12 @@ const PlannedMealCalendar: React.FC = () => {
     setSelectedDay(normalizedDate);
     const dayMeals = getMealsForDay(normalizedDate);
     
-    // If there are meals for this day, show the day meals modal
+    // If we have a favorite recipe, always show meal type selection first
+    // Otherwise, if there are meals for this day, show the day meals modal
     // Otherwise, show the meal type selection modal
-    if (dayMeals.length > 0) {
+    if (favoriteRecipe) {
+      setShowMealTypeSelection(true);
+    } else if (dayMeals.length > 0) {
       setShowDayMealsModal(true);
     } else {
       setShowMealTypeSelection(true);
@@ -1066,6 +1065,10 @@ const PlannedMealCalendar: React.FC = () => {
           onClose={() => {
             setShowMealTypeSelection(false);
             setSelectedDay(null);
+            // Clear favorite recipe when closing meal type selection
+            if (favoriteRecipe) {
+              setFavoriteRecipe(null);
+            }
           }}
           onSelectMealType={handleMealTypeSelect}
           date={selectedDay}

@@ -80,6 +80,7 @@ export interface Dish {
   recipeSourceUrl?: string | null;
   recipeSourceDomain?: string | null;
   recipeImageUrl?: string | null;
+  parsedIngredients?: import('./recipeImport').ParsedIngredient[]; // AI-parsed structured ingredient data
   reservedQuantities?: Record<string, number>; // Reserved quantities for this dish
   claimedItemIds?: string[]; // IDs of items from dashboard/pantry that are claimed for this dish
   claimedShoppingListItemIds?: string[]; // IDs of shopping list items that are claimed for this dish
