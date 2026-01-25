@@ -650,13 +650,13 @@ const PlannedMealCalendar: React.FC = () => {
         left: 0,
         right: 0,
         zIndex: 1000,
-        backgroundColor: '#002B4D',
+        backgroundColor: '#ffffff',
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
       }}>
         <Banner showHomeIcon={true} showLogo={false} onMenuClick={() => setMenuOpen(true)} />
 
         {/* Lists, Items, and Plan Buttons */}
-        <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '1rem', justifyContent: 'center', position: 'relative' }}>
           <button
             onClick={() => navigate('/shop')}
             style={{
@@ -711,6 +711,26 @@ const PlannedMealCalendar: React.FC = () => {
           >
             Plan
           </button>
+          
+          {/* List View Button - Upper Right */}
+          <button
+            onClick={() => navigate(`/print-meal-list?date=${format(currentDate, 'yyyy-MM-dd')}`)}
+            style={{
+              position: 'absolute',
+              right: '1rem',
+              top: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#002B4D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: '500'
+            }}
+          >
+            List View
+          </button>
         </div>
       </div>
       <HamburgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -719,56 +739,75 @@ const PlannedMealCalendar: React.FC = () => {
         <h2 style={{ marginBottom: '1rem' }}>Planned Meal Calendar</h2>
         
         {/* Navigation and View Controls */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button
             onClick={() => navigatePeriod('prev')}
             style={{
-              padding: '0.5rem 1rem',
+              padding: '0.5rem',
               backgroundColor: '#f3f4f6',
               color: '#1f2937',
               border: '1px solid #d1d5db',
               borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: '1rem'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '44px',
+              minHeight: '44px'
             }}
+            aria-label="Previous Month"
           >
-            ← Previous Month
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 18L9 12L15 6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
-              {format(currentDate, 'MMMM yyyy')}
-            </h3>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={() => navigate(`/print-meal-list?date=${format(currentDate, 'yyyy-MM-dd')}`)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#002B4D',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                List View
-              </button>
-            </div>
-          </div>
+          <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
+            {format(currentDate, 'MMMM yyyy')}
+          </h3>
           <button
             onClick={() => navigatePeriod('next')}
             style={{
-              padding: '0.5rem 1rem',
+              padding: '0.5rem',
               backgroundColor: '#f3f4f6',
               color: '#1f2937',
               border: '1px solid #d1d5db',
               borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: '1rem'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '44px',
+              minHeight: '44px'
             }}
+            aria-label="Next Month"
           >
-            Next Month →
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M9 18L15 12L9 6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
 
