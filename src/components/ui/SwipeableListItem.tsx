@@ -479,7 +479,7 @@ const SwipeableListItem: React.FC<SwipeableListItemProps> = React.memo(({ item, 
                 type="button"
               >
                 <img 
-                  src="/icons/Scan.jpg" 
+                  src="/icons/Scan.svg" 
                   alt="Scan" 
                   width="20" 
                   height="20" 

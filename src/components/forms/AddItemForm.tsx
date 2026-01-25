@@ -548,7 +548,7 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, onS
               title="AI"
             >
               <img 
-                src="/icons/Scan.jpg" 
+                src="/icons/Scan.svg" 
                 alt="Scan" 
                 width="20" 
                 height="20" 

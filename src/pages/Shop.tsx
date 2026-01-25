@@ -904,7 +904,7 @@ const Shop: React.FC = () => {
                   title="AI"
                 >
                   <img 
-                    src="/icons/Scan.jpg" 
+                    src="/icons/Scan.svg" 
                     alt="Scan" 
                     width="20" 
                     height="20" 
@@ -1213,7 +1213,7 @@ const Shop: React.FC = () => {
                         title="AI"
                       >
                         <img 
-                          src="/icons/Scan.jpg" 
+                          src="/icons/Scan.svg" 
                           alt="Scan" 
                           width="20" 
                           height="20" 
