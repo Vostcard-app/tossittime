@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
@@ -141,8 +141,132 @@ const Settings: React.FC = () => {
         <Banner showHomeIcon={false} onMenuClick={() => setMenuOpen(true)} maxWidth="1400px" />
       </div>
 
+      {/* Navigation Buttons */}
+      <div style={{ 
+        padding: '1rem', 
+        maxWidth: '1400px', 
+        margin: '0 auto', 
+        marginTop: '80px',
+        display: 'flex', 
+        gap: '0.5rem', 
+        justifyContent: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <Link
+          to="/shop"
+          style={{
+            display: 'flex',
+            padding: '1rem 1.5rem',
+            color: '#1f2937',
+            textDecoration: 'none',
+            fontSize: '22px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s',
+            borderLeft: '3px solid transparent',
+            minHeight: '44px',
+            alignItems: 'center',
+            backgroundColor: 'transparent',
+            borderRadius: '6px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderLeftColor = 'transparent';
+          }}
+          onTouchStart={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onTouchEnd={(e) => {
+            setTimeout(() => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderLeftColor = 'transparent';
+            }, 200);
+          }}
+        >
+          Lists
+        </Link>
+        <Link
+          to="/dashboard"
+          style={{
+            display: 'flex',
+            padding: '1rem 1.5rem',
+            color: '#1f2937',
+            textDecoration: 'none',
+            fontSize: '22px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s',
+            borderLeft: '3px solid transparent',
+            minHeight: '44px',
+            alignItems: 'center',
+            backgroundColor: 'transparent',
+            borderRadius: '6px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderLeftColor = 'transparent';
+          }}
+          onTouchStart={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onTouchEnd={(e) => {
+            setTimeout(() => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderLeftColor = 'transparent';
+            }, 200);
+          }}
+        >
+          Items
+        </Link>
+        <Link
+          to="/planned-meal-calendar"
+          style={{
+            display: 'flex',
+            padding: '1rem 1.5rem',
+            color: '#1f2937',
+            textDecoration: 'none',
+            fontSize: '22px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s',
+            borderLeft: '3px solid transparent',
+            minHeight: '44px',
+            alignItems: 'center',
+            backgroundColor: 'transparent',
+            borderRadius: '6px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderLeftColor = 'transparent';
+          }}
+          onTouchStart={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.borderLeftColor = '#002B4D';
+          }}
+          onTouchEnd={(e) => {
+            setTimeout(() => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderLeftColor = 'transparent';
+            }, 200);
+          }}
+        >
+          Plan
+        </Link>
+      </div>
+
       {/* Main Content */}
-      <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem', marginTop: '80px' }}>
+      <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto', paddingTop: '1.5rem', paddingBottom: '2rem', marginTop: '1rem' }}>
 
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '2rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
         <div style={{ marginBottom: '2rem' }}>
