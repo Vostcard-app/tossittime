@@ -9,6 +9,7 @@ import { freezeGuidelines, freezeCategoryLabels, notRecommendedToFreeze, type Fr
 import { userItemsService, userSettingsService, categoryService } from '../../services';
 import { addMonths, addDays } from 'date-fns';
 import { analyticsService } from '../../services/analyticsService';
+import { suggestExpirationDate } from '../../services/openaiService';
 import LabelScanner from '../features/LabelScanner';
 import type { LabelScanResult } from '../../types/labelScanner';
 import { capitalizeItemName } from '../../utils/formatting';
@@ -78,6 +79,8 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, ini
   const [showLabelScanner, setShowLabelScanner] = useState(false);
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -182,6 +185,43 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, ini
   // Handle label scanner close
   const handleLabelScannerClose = () => {
     setShowLabelScanner(false);
+  };
+
+  // Handle AI best by date
+  const handleAIBestByDate = async () => {
+    if (!isPremium || !user) return;
+    if (!formData.name.trim()) {
+      alert('Please enter an item name first');
+      return;
+    }
+    
+    setIsAILoading(true);
+    setAiError(null);
+    
+    try {
+      const storageType = formData.isDryCanned ? 'pantry' : 'refrigerator';
+      const result = await suggestExpirationDate(
+        formData.name.trim(),
+        storageType,
+        false // isLeftover
+      );
+      
+      const suggestedDate = new Date(result.expirationDate);
+      if (isNaN(suggestedDate.getTime())) {
+        throw new Error('Invalid date returned from AI');
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        bestByDate: suggestedDate
+      }));
+      setHasManuallyChangedDate(true); // Mark as manually changed since user clicked button
+    } catch (error) {
+      console.error('Error getting AI best by date:', error);
+      setAiError(error instanceof Error ? error.message : 'Failed to get AI suggestion');
+    } finally {
+      setIsAILoading(false);
+    }
   };
 
   // Update form data when initialItem or initialName changes
@@ -709,6 +749,53 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, ini
             }}>
               {qualityMessage}
             </p>
+          )}
+          {/* AI best by date button - Premium only */}
+          {isPremium && formData.name.trim() && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={handleAIBestByDate}
+                disabled={isAILoading}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: isAILoading ? '#9ca3af' : '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: isAILoading ? 'not-allowed' : 'pointer',
+                  opacity: isAILoading ? 0.7 : 1,
+                  minHeight: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                {isAILoading ? (
+                  <>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span>
+                    <span>AI best by date</span>
+                  </>
+                )}
+              </button>
+              {aiError && (
+                <p style={{ 
+                  margin: '0.5rem 0 0 0', 
+                  fontSize: '0.875rem', 
+                  color: '#ef4444' 
+                }}>
+                  {aiError}
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
