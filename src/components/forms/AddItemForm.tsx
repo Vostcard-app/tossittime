@@ -544,7 +544,8 @@ const AddItemForm: React.FC<AddItemFormProps> = ({ onSubmit, initialBarcode, ini
                 alignItems: 'center',
                 justifyContent: 'center',
                 width: '52px',
-                height: '52px'
+                height: '52px',
+                overflow: 'hidden'
               }}
               aria-label="AI"
               title="AI"
