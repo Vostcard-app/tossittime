@@ -86,9 +86,6 @@ export const adminService = {
       if (Object.keys(tokenUsage.byModel).length > 0) {
         // Calculate cost per model
         const totalTokens = Object.values(tokenUsage.byModel).reduce((sum, m) => sum + m.totalTokens, 0);
-        const promptRatio = totalTokens > 0 && (tokenUsage.promptTokens + tokenUsage.completionTokens) > 0
-          ? tokenUsage.promptTokens / (tokenUsage.promptTokens + tokenUsage.completionTokens)
-          : 0.7;
         
         for (const [model, modelUsage] of Object.entries(tokenUsage.byModel)) {
           const modelTokenRatio = totalTokens > 0 ? modelUsage.totalTokens / totalTokens : 1;
@@ -154,9 +151,6 @@ export const adminService = {
       if (Object.keys(aiUsage.byModel).length > 0) {
         // Calculate cost per model
         const totalTokens = Object.values(aiUsage.byModel).reduce((sum, m) => sum + m.totalTokens, 0);
-        const promptRatio = totalTokens > 0 && (aiUsage.promptTokens + aiUsage.completionTokens) > 0
-          ? aiUsage.promptTokens / (aiUsage.promptTokens + aiUsage.completionTokens)
-          : 0.7;
         
         for (const [model, modelUsage] of Object.entries(aiUsage.byModel)) {
           const modelTokenRatio = totalTokens > 0 ? modelUsage.totalTokens / totalTokens : 1;

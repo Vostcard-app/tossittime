@@ -3,8 +3,6 @@
  * Calculates the cost of AI usage based on OpenAI pricing
  */
 
-import type { AggregatedTokenUsage } from '../types/aiUsage';
-
 /**
  * OpenAI pricing per million tokens (as of 2025)
  */
@@ -73,13 +71,6 @@ export function calculateTotalCost(usage: {
   if (Object.keys(usage.byModel).length > 0) {
     // Calculate total tokens across all models
     const totalTokens = Object.values(usage.byModel).reduce((sum, m) => sum + m.totalTokens, 0);
-    
-    // Calculate the ratio of prompt/completion tokens (if we have totals)
-    const totalPromptAndCompletion = usage.promptTokens + usage.completionTokens;
-    const promptRatio = totalPromptAndCompletion > 0 
-      ? usage.promptTokens / totalPromptAndCompletion 
-      : 0.7; // Default 70/30 split if no data
-    const completionRatio = 1 - promptRatio;
 
     for (const [model, modelUsage] of Object.entries(usage.byModel)) {
       // Estimate prompt/completion tokens proportionally based on model's share
