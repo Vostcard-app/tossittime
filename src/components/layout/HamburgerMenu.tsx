@@ -182,7 +182,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
               }, 200);
             }}
           >
-            Account
+            Settings
           </Link>
           <Link
             to="/calendar"

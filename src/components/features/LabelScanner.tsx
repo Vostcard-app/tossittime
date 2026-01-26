@@ -204,8 +204,7 @@ const LabelScanner: React.FC<LabelScannerProps> = ({ onScan, onError, onClose })
             style={{
               width: '100%',
               borderRadius: '12px',
-              backgroundColor: '#000',
-              transform: 'scaleX(-1)' // Mirror for better UX
+              backgroundColor: '#000'
             }}
           />
           <div style={{ marginTop: '1rem', textAlign: 'center' }}>
