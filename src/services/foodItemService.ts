@@ -20,7 +20,7 @@ import { analyticsService } from './analyticsService';
 import { transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceError, handleSubscriptionError } from './baseService';
 import { toServiceError } from './errors';
 import { buildUserQueryWithOrder, buildUserQuery } from './firestoreQueryBuilder';
-import { getDateFieldsForCollection } from '../utils/firestoreDateUtils';
+import { getDateFieldsForCollection, timestampToDate } from '../utils/firestoreDateUtils';
 
 /**
  * Food Items Service
@@ -29,12 +29,25 @@ import { getDateFieldsForCollection } from '../utils/firestoreDateUtils';
 export const foodItemService = {
   /**
    * Map Firestore expirationDate field to bestByDate for TypeScript types
+   * Ensures all date fields are converted to Date objects
    */
   mapFirestoreToFoodItem(item: any): FoodItem {
+    // Convert expirationDate to bestByDate, ensuring it's a Date
     if (item.expirationDate && !item.bestByDate) {
-      item.bestByDate = item.expirationDate;
+      item.bestByDate = timestampToDate(item.expirationDate) || item.expirationDate;
       delete item.expirationDate;
     }
+    
+    // Ensure bestByDate is a Date if it exists directly
+    if (item.bestByDate && !(item.bestByDate instanceof Date)) {
+      item.bestByDate = timestampToDate(item.bestByDate) || item.bestByDate;
+    }
+    
+    // Ensure thawDate is a Date if it exists
+    if (item.thawDate && !(item.thawDate instanceof Date)) {
+      item.thawDate = timestampToDate(item.thawDate) || item.thawDate;
+    }
+    
     return item as FoodItem;
   },
 

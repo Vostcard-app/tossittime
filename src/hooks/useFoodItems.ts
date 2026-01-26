@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth';
 import type { FoodItem } from '../types';
 import { foodItemService, userSettingsService } from '../services';
 import { getFoodItemStatus } from '../utils/statusUtils';
+import { timestampToDate } from '../utils/firestoreDateUtils';
 
 interface UseFoodItemsOptions {
   defer?: number; // Delay in milliseconds before subscribing
@@ -62,10 +63,26 @@ export const useFoodItems = (user: User | null, options?: UseFoodItemsOptions) =
                 // Update status for each item based on current date
                 // Frozen items don't have expiration status, use 'fresh' as default
                 const currentReminderDays = settings?.reminderDays || 7;
-                const updatedItems = items.map(item => ({
-                  ...item,
-                  status: item.isFrozen ? 'fresh' : (item.bestByDate ? getFoodItemStatus(item.bestByDate, currentReminderDays) : 'fresh')
-                }));
+                const updatedItems = items.map(item => {
+                  // Ensure bestByDate is a Date before calling getFoodItemStatus
+                  let bestByDate: Date | null = null;
+                  if (item.bestByDate) {
+                    if (item.bestByDate instanceof Date) {
+                      bestByDate = item.bestByDate;
+                    } else {
+                      bestByDate = timestampToDate(item.bestByDate) || null;
+                    }
+                  }
+                  
+                  return {
+                    ...item,
+                    status: item.isFrozen 
+                      ? 'fresh' 
+                      : (bestByDate instanceof Date 
+                          ? getFoodItemStatus(bestByDate, currentReminderDays) 
+                          : 'fresh')
+                  };
+                });
                 setFoodItems(updatedItems);
                 setLoading(false);
               });
@@ -94,10 +111,26 @@ export const useFoodItems = (user: User | null, options?: UseFoodItemsOptions) =
                 }
                 
                 // Frozen items don't have expiration status, use 'fresh' as default
-                const updatedItems = items.map(item => ({
-                  ...item,
-                  status: item.isFrozen ? 'fresh' : (item.bestByDate ? getFoodItemStatus(item.bestByDate, 7) : 'fresh') // Use default
-                }));
+                const updatedItems = items.map(item => {
+                  // Ensure bestByDate is a Date before calling getFoodItemStatus
+                  let bestByDate: Date | null = null;
+                  if (item.bestByDate) {
+                    if (item.bestByDate instanceof Date) {
+                      bestByDate = item.bestByDate;
+                    } else {
+                      bestByDate = timestampToDate(item.bestByDate) || null;
+                    }
+                  }
+                  
+                  return {
+                    ...item,
+                    status: item.isFrozen 
+                      ? 'fresh' 
+                      : (bestByDate instanceof Date 
+                          ? getFoodItemStatus(bestByDate, 7) 
+                          : 'fresh') // Use default
+                  };
+                });
                 setFoodItems(updatedItems);
                 setLoading(false);
               });
