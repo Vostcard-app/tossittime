@@ -11,6 +11,9 @@ export interface UserSettings {
   defaultCategory?: string;
   lastUsedShoppingListId?: string;
   isPremium?: boolean; // Premium subscription status
+  dateFormat?: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD'; // Default: 'MM/DD/YYYY'
+  weightUnit?: 'pounds' | 'kilograms'; // Default: 'pounds'
+  hasSeenScanWarning?: boolean; // Track if user has seen first scan warning
 }
 
 export interface UserItem {

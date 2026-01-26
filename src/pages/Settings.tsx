@@ -16,7 +16,10 @@ const Settings: React.FC = () => {
     userId: user?.uid || '',
     reminderDays: 7,
     notificationsEnabled: false,
-    isPremium: false
+    isPremium: false,
+    dateFormat: 'MM/DD/YYYY',
+    weightUnit: 'pounds',
+    hasSeenScanWarning: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,7 +38,10 @@ const Settings: React.FC = () => {
             userId: user.uid,
             reminderDays: 7,
             notificationsEnabled: false,
-            isPremium: false
+            isPremium: false,
+            dateFormat: 'MM/DD/YYYY',
+            weightUnit: 'pounds',
+            hasSeenScanWarning: false
           });
         }
       } catch (error) {
@@ -265,6 +271,68 @@ const Settings: React.FC = () => {
               Request Notification Permission
             </button>
           )}
+        </div>
+
+        <div style={{ marginBottom: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
+          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: '600', color: '#1f2937' }}>
+            Regional Settings
+          </h2>
+          <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.875rem', color: '#6b7280' }}>
+            Configure these settings to help AI accurately parse dates and weights from labels
+          </p>
+          
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="dateFormat" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+              Date Format
+            </label>
+            <select
+              id="dateFormat"
+              value={settings.dateFormat || 'MM/DD/YYYY'}
+              onChange={(e) => setSettings(prev => ({ ...prev, dateFormat: e.target.value as 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' }))}
+              style={{
+                width: '100%',
+                maxWidth: '300px',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+              <option value="DD/MM/YYYY">DD/MM/YYYY (EU/UK)</option>
+              <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+            </select>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+              This format will be used when AI parses ambiguous dates from labels
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="weightUnit" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+              Weight Unit
+            </label>
+            <select
+              id="weightUnit"
+              value={settings.weightUnit || 'pounds'}
+              onChange={(e) => setSettings(prev => ({ ...prev, weightUnit: e.target.value as 'pounds' | 'kilograms' }))}
+              style={{
+                width: '100%',
+                maxWidth: '300px',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              <option value="pounds">Pounds (lb)</option>
+              <option value="kilograms">Kilograms (kg)</option>
+            </select>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+              Preferred weight unit for AI to consider when parsing labels
+            </p>
+          </div>
         </div>
 
         <div style={{ marginBottom: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>

@@ -4,6 +4,8 @@ import type { LabelScanResult } from '../../types/labelScanner';
 import { analyticsService } from '../../services/analyticsService';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase/firebaseConfig';
+import { showToast } from '../Toast';
+import { userSettingsService } from '../../services/userSettingsService';
 
 interface LabelScannerProps {
   onScan: (result: LabelScanResult) => void;
@@ -115,6 +117,31 @@ const LabelScanner: React.FC<LabelScannerProps> = ({ onScan, onError, onClose })
         hasExpirationDate: result.expirationDate !== null
       });
     } catch (err) {
+      // Handle first scan warning
+      if (err instanceof Error && err.message === 'FIRST_SCAN_WARNING') {
+        showToast('Please adjust your region in settings before you scan', 'info');
+        // Mark warning as seen
+        try {
+          const settings = await userSettingsService.getUserSettings(user.uid);
+          await userSettingsService.updateUserSettings({
+            ...(settings || {
+              userId: user.uid,
+              reminderDays: 7,
+              notificationsEnabled: false,
+              isPremium: false,
+              dateFormat: 'MM/DD/YYYY',
+              weightUnit: 'pounds'
+            }),
+            userId: user.uid,
+            hasSeenScanWarning: true
+          });
+        } catch (settingsError) {
+          console.error('Error updating scan warning flag:', settingsError);
+        }
+        setIsProcessing(false);
+        return; // Don't proceed with scan
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to scan label';
       setError(errorMessage);
       if (onError) onError(err as Error);

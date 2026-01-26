@@ -48,17 +48,42 @@ export const labelScannerService = {
       throw new Error('Label scanning is only available for Premium users');
     }
 
+    // Check if user has seen scan warning
+    let settings = null;
+    try {
+      settings = await userSettingsService.getUserSettings(userId);
+      if (!settings?.hasSeenScanWarning) {
+        throw new Error('FIRST_SCAN_WARNING'); // Special error code
+      }
+    } catch (error) {
+      // Re-throw FIRST_SCAN_WARNING to be handled by component
+      if (error instanceof Error && error.message === 'FIRST_SCAN_WARNING') {
+        throw error;
+      }
+      // If settings fetch fails, continue with defaults
+      console.error('Error loading user settings:', error);
+    }
+
+    // Get regional settings with defaults
+    const dateFormat = settings?.dateFormat || 'MM/DD/YYYY';
+    const weightUnit = settings?.weightUnit || 'pounds';
+
     try {
       // Convert image to base64
       const imageBase64 = await this.convertImageToBase64(imageFile);
 
-      // Call Netlify function
+      // Call Netlify function with regional settings
       const response = await fetch('/.netlify/functions/ai-label-scanner', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ imageBase64, userId })
+        body: JSON.stringify({ 
+          imageBase64, 
+          userId,
+          dateFormat,
+          weightUnit
+        })
       });
 
       if (!response.ok) {

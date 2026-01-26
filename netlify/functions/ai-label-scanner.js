@@ -32,7 +32,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { imageBase64, userId } = body;
+    const { imageBase64, userId, dateFormat = 'MM/DD/YYYY', weightUnit = 'pounds' } = body;
 
     if (!imageBase64 || typeof imageBase64 !== 'string' || !imageBase64.trim()) {
       return {
@@ -62,6 +62,21 @@ exports.handler = async (event) => {
       ? imageBase64.split(',')[1] 
       : imageBase64;
 
+    // Build date format instruction based on user preference
+    let dateFormatInstruction = '';
+    if (dateFormat === 'MM/DD/YYYY') {
+      dateFormatInstruction = 'assume MM/DD/YYYY format (US format: month/day/year)';
+    } else if (dateFormat === 'DD/MM/YYYY') {
+      dateFormatInstruction = 'assume DD/MM/YYYY format (EU/UK format: day/month/year)';
+    } else {
+      dateFormatInstruction = 'assume YYYY-MM-DD format (ISO format: year-month-day)';
+    }
+
+    // Build weight unit context
+    const weightUnitContext = weightUnit === 'pounds' 
+      ? 'When extracting weight/quantity, the user prefers pounds (lb). Consider this when interpreting weight values.'
+      : 'When extracting weight/quantity, the user prefers kilograms (kg). Consider this when interpreting weight values.';
+
     const prompt = `Analyze this food product label image and extract the following information:
 
 1. Item Name: The product name or main food item name (e.g., "Milk", "Chicken Breast", "Organic Tomatoes")
@@ -71,7 +86,8 @@ exports.handler = async (event) => {
 Important:
 - Extract the actual product name, not generic descriptions
 - For quantity, extract only the numeric value (ignore units like oz, lb, etc. in the quantity field)
-- For expiration date, convert to YYYY-MM-DD format. If the date format is ambiguous (e.g., 01/02/2026), assume MM/DD/YYYY format.
+- ${weightUnitContext}
+- For expiration date, convert to YYYY-MM-DD format. If the date format is ambiguous (e.g., 01/02/2026), ${dateFormatInstruction}.
 - If any information is not clearly visible or cannot be determined, return null for that field.
 
 Return a JSON object with this exact structure:
