@@ -19,7 +19,7 @@ import type { FoodItem, FoodItemData } from '../types';
 import { analyticsService } from './analyticsService';
 import { transformSnapshot, cleanFirestoreData, logServiceOperation, logServiceError, handleSubscriptionError } from './baseService';
 import { toServiceError } from './errors';
-import { buildUserQueryWithOrder, buildUserQuery } from './firestoreQueryBuilder';
+import { buildUserQuery } from './firestoreQueryBuilder';
 import { getDateFieldsForCollection, timestampToDate } from '../utils/firestoreDateUtils';
 
 /**
@@ -52,18 +52,32 @@ export const foodItemService = {
   },
 
   /**
-   * Get all food items for a user
+   * Get all food items for a user.
+   * Uses buildUserQuery (no orderBy) so items without expirationDate (e.g. frozen, thawDate-only)
+   * are included. Sorts in memory by bestByDate ?? thawDate ?? addedDate, nulls last.
    */
   async getFoodItems(userId: string): Promise<FoodItem[]> {
     logServiceOperation('getFoodItems', 'foodItems', { userId });
 
     try {
-      const q = buildUserQueryWithOrder('foodItems', userId, 'expirationDate', 'asc');
+      const q = buildUserQuery('foodItems', userId);
       const querySnapshot = await getDocs(q);
       const dateFields = getDateFieldsForCollection('foodItems');
       const items = transformSnapshot<any>(querySnapshot, dateFields);
-      return items.map(item => foodItemService.mapFirestoreToFoodItem(item));
-      return items.map(item => foodItemService.mapFirestoreToFoodItem(item));
+      const mapped = items.map(item => foodItemService.mapFirestoreToFoodItem(item));
+      const sortDate = (item: FoodItem): number | null => {
+        const d = item.bestByDate ?? item.thawDate ?? item.addedDate;
+        return d ? d.getTime() : null;
+      };
+      mapped.sort((a, b) => {
+        const tA = sortDate(a);
+        const tB = sortDate(b);
+        if (tA == null && tB == null) return 0;
+        if (tA == null) return 1;
+        if (tB == null) return -1;
+        return tA - tB;
+      });
+      return mapped;
     } catch (error) {
       logServiceError('getFoodItems', 'foodItems', error, { userId });
       throw toServiceError(error, 'foodItems');
