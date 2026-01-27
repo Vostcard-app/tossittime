@@ -45,19 +45,19 @@ const AddItem: React.FC = () => {
   // Check if coming from Dashboard with item to edit
   const dashboardEditingItem = locationState?.editingItem;
   const forceFreeze = locationState?.forceFreeze;
-  const storageType = locationState?.storageType; // 'pantry' | 'refrigerator'
+  const storageType = locationState?.storageType; // 'pantry' | 'refrigerator' | 'freezer'
   const scannedLabelData = locationState?.scannedLabelData;
   
   // Determine source for button rendering
   const fromShop = fromShoppingList === true;
   const fromStorageTab = storageType === 'refrigerator' ? 'perishable' : (storageType === 'pantry' ? 'dryCanned' : null);
 
-  // Initialize isFrozen from forceFreeze if provided
+  // Initialize isFrozen from forceFreeze or when coming from Dashboard Frozen tab (storageType === 'freezer')
   React.useEffect(() => {
-    if (forceFreeze && !editingItem) {
+    if ((forceFreeze || storageType === 'freezer') && !dashboardEditingItem) {
       setIsFrozen(true);
     }
-  }, [forceFreeze, editingItem]);
+  }, [forceFreeze, storageType, dashboardEditingItem]);
   
   // If coming from shopping list, show form immediately with pre-filled name
   React.useEffect(() => {
@@ -94,15 +94,15 @@ const AddItem: React.FC = () => {
     }
   }, [scannedLabelData]);
 
-  // Sync isFrozen state when editingItem changes
+  // Sync isFrozen state when editingItem changes (do not reset when coming from Frozen tab)
   React.useEffect(() => {
     if (editingItem) {
       setIsFrozen(editingItem.isFrozen || false);
-    } else if (!editingItem && !forceFreeze) {
-      // Reset freeze state when not editing
+    } else if (!editingItem && !forceFreeze && storageType !== 'freezer') {
+      // Reset freeze state when not editing and not adding from Frozen tab
       setIsFrozen(false);
     }
-  }, [editingItem, forceFreeze]);
+  }, [editingItem, forceFreeze, storageType]);
 
   // Sort items by most recent first (by addedDate)
   const sortedItems = useMemo(() => {
@@ -120,8 +120,9 @@ const AddItem: React.FC = () => {
     // Filter by storage type if provided
     if (storageType) {
       items = items.filter(item => {
-        const isDryCanned = isDryCannedItem(item);
-        return storageType === 'pantry' ? isDryCanned : !isDryCanned;
+        if (storageType === 'pantry') return isDryCannedItem(item);
+        if (storageType === 'freezer') return !!item.isFrozen;
+        return !isDryCannedItem(item); // refrigerator
       });
     }
     
@@ -480,7 +481,7 @@ const AddItem: React.FC = () => {
           forceFreeze={forceFreeze}
           externalIsFrozen={isFrozen}
           onIsFrozenChange={setIsFrozen}
-          initialIsDryCanned={storageType === 'pantry' ? true : (storageType === 'refrigerator' ? false : editingItem?.isDryCanned)}
+          initialIsDryCanned={storageType === 'pantry' ? true : (storageType === 'refrigerator' || storageType === 'freezer' ? false : editingItem?.isDryCanned)}
           foodItems={foodItems}
           fromShop={fromShop}
           fromStorageTab={fromStorageTab}

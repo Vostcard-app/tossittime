@@ -20,14 +20,14 @@ import type { PlannedMeal } from '../types';
 import { capitalizeItemName } from '../utils/formatting';
 
 type FilterType = 'all' | 'bestBySoon' | 'pastBestBy';
-type StorageTabType = 'perishable' | 'dryCanned';
+type StorageTabType = 'fridge' | 'frozen' | 'pantry';
 type CategoryFilterType = 'all' | FoodCategory;
 
 const Dashboard: React.FC = () => {
   const [user] = useAuthState(auth);
   const { foodItems, loading } = useFoodItems(user || null, { defer: 100 });
   const [filter, setFilter] = useState<FilterType>('all');
-  const [storageTab, setStorageTab] = useState<StorageTabType>('perishable');
+  const [storageTab, setStorageTab] = useState<StorageTabType>('fridge');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('all');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showIndexWarning, setShowIndexWarning] = useState(false);
@@ -96,20 +96,23 @@ const Dashboard: React.FC = () => {
   }, [user]);
 
 
-  // Filter items by storage type (perishable vs dry/canned)
+  // Filter items by storage type (fridge / frozen / pantry)
   const itemsByStorageType = useMemo(() => {
-    const perishableItems: FoodItem[] = [];
-    const dryCannedItems: FoodItem[] = [];
+    const fridgeItems: FoodItem[] = [];
+    const frozenItems: FoodItem[] = [];
+    const pantryItems: FoodItem[] = [];
     
     foodItems.forEach(item => {
       if (isDryCannedItem(item)) {
-        dryCannedItems.push(item);
+        pantryItems.push(item);
+      } else if (item.isFrozen) {
+        frozenItems.push(item);
       } else {
-        perishableItems.push(item);
+        fridgeItems.push(item);
       }
     });
     
-    return { perishableItems, dryCannedItems };
+    return { fridgeItems, frozenItems, pantryItems };
   }, [foodItems, isDryCannedItem]);
 
   // Helper function to get date for sorting
@@ -157,18 +160,20 @@ const Dashboard: React.FC = () => {
   // Combine storage tab filter with status filter and group by expiration status
   const groupedAndFilteredItems = useMemo(() => {
     // First filter by storage type
-    const storageFiltered = storageTab === 'perishable' 
-      ? itemsByStorageType.perishableItems 
-      : itemsByStorageType.dryCannedItems;
+    const storageFiltered = storageTab === 'fridge'
+      ? itemsByStorageType.fridgeItems
+      : storageTab === 'frozen'
+        ? itemsByStorageType.frozenItems
+        : itemsByStorageType.pantryItems;
     
     // Then filter by status if not 'all'
     const statusFiltered = filter === 'all' 
       ? storageFiltered 
       : storageFiltered.filter(item => item.status === filter);
     
-    // Filter by category if perishable and category filter is set
+    // Filter by category if fridge and category filter is set
     let categoryFiltered = statusFiltered;
-    if (storageTab === 'perishable' && categoryFilter !== 'all') {
+    if (storageTab === 'fridge' && categoryFilter !== 'all') {
       categoryFiltered = statusFiltered.filter(item => {
         // Use stored category if available, otherwise auto-detect
         const itemCategory = (item.category as FoodCategory) || detectCategory(item.name);
@@ -546,49 +551,72 @@ const Dashboard: React.FC = () => {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
             onClick={() => {
-              setStorageTab('perishable');
+              setStorageTab('fridge');
               setCategoryFilter('all'); // Reset category filter when switching tabs
             }}
           style={{
             padding: '0.75rem 1.5rem',
-            backgroundColor: storageTab === 'perishable' ? '#002B4D' : '#f9fafb',
-            color: storageTab === 'perishable' ? 'white' : '#1f2937',
-            border: storageTab === 'perishable' ? '3px solid #002B4D' : '2px solid #d1d5db',
-            borderBottom: storageTab === 'perishable' ? '4px solid #002B4D' : '2px solid #d1d5db',
+            backgroundColor: storageTab === 'fridge' ? '#002B4D' : '#f9fafb',
+            color: storageTab === 'fridge' ? 'white' : '#1f2937',
+            border: storageTab === 'fridge' ? '3px solid #002B4D' : '2px solid #d1d5db',
+            borderBottom: storageTab === 'fridge' ? '4px solid #002B4D' : '2px solid #d1d5db',
             borderRadius: '6px',
             fontSize: '1rem',
-            fontWeight: storageTab === 'perishable' ? '600' : '500',
+            fontWeight: storageTab === 'fridge' ? '600' : '500',
             cursor: 'pointer',
             flex: 1,
             minWidth: '150px',
-            boxShadow: storageTab === 'perishable' ? '0 3px 6px rgba(0, 43, 77, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
+            boxShadow: storageTab === 'fridge' ? '0 3px 6px rgba(0, 43, 77, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
             transition: 'all 0.2s ease'
           }}
         >
-          Perishable ({itemsByStorageType.perishableItems.length})
+          Fridge ({itemsByStorageType.fridgeItems.length})
         </button>
         <button
             onClick={() => {
-              setStorageTab('dryCanned');
+              setStorageTab('frozen');
               setCategoryFilter('all'); // Reset category filter when switching tabs
             }}
           style={{
             padding: '0.75rem 1.5rem',
-            backgroundColor: storageTab === 'dryCanned' ? '#002B4D' : '#f9fafb',
-            color: storageTab === 'dryCanned' ? 'white' : '#1f2937',
-            border: storageTab === 'dryCanned' ? '3px solid #002B4D' : '2px solid #d1d5db',
-            borderBottom: storageTab === 'dryCanned' ? '4px solid #002B4D' : '2px solid #d1d5db',
+            backgroundColor: storageTab === 'frozen' ? '#002B4D' : '#f9fafb',
+            color: storageTab === 'frozen' ? 'white' : '#1f2937',
+            border: storageTab === 'frozen' ? '3px solid #002B4D' : '2px solid #d1d5db',
+            borderBottom: storageTab === 'frozen' ? '4px solid #002B4D' : '2px solid #d1d5db',
             borderRadius: '6px',
             fontSize: '1rem',
-            fontWeight: storageTab === 'dryCanned' ? '600' : '500',
+            fontWeight: storageTab === 'frozen' ? '600' : '500',
             cursor: 'pointer',
             flex: 1,
             minWidth: '150px',
-            boxShadow: storageTab === 'dryCanned' ? '0 3px 6px rgba(0, 43, 77, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
+            boxShadow: storageTab === 'frozen' ? '0 3px 6px rgba(0, 43, 77, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
             transition: 'all 0.2s ease'
           }}
         >
-          Pantry ({itemsByStorageType.dryCannedItems.length})
+          Frozen ({itemsByStorageType.frozenItems.length})
+        </button>
+        <button
+            onClick={() => {
+              setStorageTab('pantry');
+              setCategoryFilter('all'); // Reset category filter when switching tabs
+            }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: storageTab === 'pantry' ? '#002B4D' : '#f9fafb',
+            color: storageTab === 'pantry' ? 'white' : '#1f2937',
+            border: storageTab === 'pantry' ? '3px solid #002B4D' : '2px solid #d1d5db',
+            borderBottom: storageTab === 'pantry' ? '4px solid #002B4D' : '2px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '1rem',
+            fontWeight: storageTab === 'pantry' ? '600' : '500',
+            cursor: 'pointer',
+            flex: 1,
+            minWidth: '150px',
+            boxShadow: storageTab === 'pantry' ? '0 3px 6px rgba(0, 43, 77, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Pantry ({itemsByStorageType.pantryItems.length})
         </button>
         <span style={{ 
           fontSize: '1.25rem', 
@@ -603,7 +631,7 @@ const Dashboard: React.FC = () => {
         <button
           onClick={() => navigate('/add', { 
             state: { 
-              storageType: storageTab === 'perishable' ? 'refrigerator' : 'pantry' 
+              storageType: storageTab === 'fridge' ? 'refrigerator' : storageTab === 'frozen' ? 'freezer' : 'pantry'
             } 
           })}
           style={{
@@ -622,8 +650,8 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* Category Filter - Only show for perishable items, positioned under Perishable tab */}
-      {storageTab === 'perishable' && (
+      {/* Category Filter - Only show for fridge items, positioned under Fridge tab */}
+      {storageTab === 'fridge' && (
         <div style={{ marginBottom: '1rem', marginTop: '0.5rem' }}>
           <select
             value={categoryFilter}
@@ -655,19 +683,19 @@ const Dashboard: React.FC = () => {
         <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
             {filter === 'all' 
-              ? `No ${storageTab === 'perishable' ? 'perishable' : 'pantry'} items yet.`
-              : `No ${filter.replace('_', ' ')} ${storageTab === 'perishable' ? 'perishable' : 'pantry'} items.`}
+              ? `No ${storageTab} items yet.`
+              : `No ${filter.replace('_', ' ')} ${storageTab} items.`}
           </p>
           <p style={{ marginBottom: '1.5rem' }}>
             {filter === 'all' 
-              ? `Add your first ${storageTab === 'perishable' ? 'perishable' : 'pantry'} item to start tracking expiration dates!`
+              ? `Add your first ${storageTab} item to start tracking expiration dates!`
               : 'Try a different filter.'}
           </p>
           {filter === 'all' && (
             <button
               onClick={() => navigate('/add', { 
                 state: { 
-                  storageType: storageTab === 'perishable' ? 'refrigerator' : 'pantry' 
+                  storageType: storageTab === 'fridge' ? 'refrigerator' : storageTab === 'frozen' ? 'freezer' : 'pantry'
                 } 
               })}
               style={{
