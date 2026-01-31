@@ -39,11 +39,6 @@ const Dashboard: React.FC = () => {
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  // Debug: Track state changes
-  useEffect(() => {
-    console.log('🔍 Modal state changed - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
-  }, [showFreezeWarning, pendingFreezeItem]);
-
   // Check for Firestore index warning
   useEffect(() => {
     const checkIndexWarning = () => {
@@ -290,9 +285,9 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const handleFreezeItem = useCallback((item: typeof foodItems[0]) => {
-    console.log('🔍 ===== FREEZE BUTTON CLICKED =====');
-    console.log('🔍 handleFreezeItem called with item:', item);
-    console.log('🔍 Item name:', item.name);
+    if (import.meta.env.DEV) {
+      console.log('🔍 FREEZE BUTTON CLICKED', item?.name);
+    }
     // Track engagement: core_action_used (freeze)
     if (user) {
       analyticsService.trackEngagement(user.uid, 'core_action_used', {
@@ -302,70 +297,35 @@ const Dashboard: React.FC = () => {
       });
     }
     const normalizedName = item.name.trim().toLowerCase();
-    console.log('🔍 Normalized name:', normalizedName);
-    console.log('🔍 notRecommendedToFreeze list length:', notRecommendedToFreeze.length);
-    console.log('🔍 First few items in list:', notRecommendedToFreeze.slice(0, 5));
-    
+
     // Check for exact match OR if any list item is contained in the name
-    let matchFound = false;
-    let matchedItem = '';
     const isNotRecommended = notRecommendedToFreeze.some(listItem => {
       const normalizedItem = listItem.toLowerCase();
       const exactMatch = normalizedItem === normalizedName;
       const containsMatch = normalizedName.includes(normalizedItem);
-      const match = exactMatch || containsMatch;
-      if (match) {
-        matchFound = true;
-        matchedItem = listItem;
-        console.log('✅ MATCH FOUND!', listItem, 'exactMatch:', exactMatch, 'containsMatch:', containsMatch);
-      }
-      return match;
+      return exactMatch || containsMatch;
     });
-    
-    console.log('⚠️ Final result - isNotRecommended:', isNotRecommended);
-    if (matchFound) {
-      console.log('⚠️ Matched item:', matchedItem);
-    } else {
-      console.log('❌ No match found for:', normalizedName);
-    }
-    
+
     if (isNotRecommended) {
-      // Show warning modal
-      console.log('📋 Showing freeze warning modal - NOT navigating');
-      // Use functional updates to ensure both states are set together
       setPendingFreezeItem(item);
       setShowFreezeWarning(true);
-      // Verify state was set
-      setTimeout(() => {
-        console.log('📋 State verification - showFreezeWarning should be true, pendingFreezeItem should exist');
-      }, 0);
-      // Explicitly prevent navigation
       return;
-    } else {
-      // Navigate directly
-      console.log('✅ Item is safe to freeze, navigating directly');
-      navigate('/add', { state: { editingItem: item, forceFreeze: true } });
     }
-  }, [navigate, user]);
+    navigate('/add', { state: { editingItem: item, forceFreeze: true } });
+  }, [navigate, user, notRecommendedToFreeze]);
 
   const handleDismissFreezeWarning = () => {
-    console.log('❌ Freeze warning dismissed - staying on dashboard');
-    console.log('🔍 State before dismiss - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
     setShowFreezeWarning(false);
     setPendingFreezeItem(null);
-    console.log('🔍 State after dismiss - should be cleared');
   };
 
   const handleProceedWithFreeze = () => {
     if (pendingFreezeItem) {
-      console.log('✅ Proceeding with freeze - navigating to add page');
-      console.log('🔍 State before proceed - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
       setShowFreezeWarning(false);
       navigate('/add', { state: { editingItem: pendingFreezeItem, forceFreeze: true } });
       setPendingFreezeItem(null);
-      console.log('🔍 State after proceed - should be cleared');
     } else {
-      console.warn('⚠️ handleProceedWithFreeze called but pendingFreezeItem is null!');
+      console.warn('handleProceedWithFreeze called but pendingFreezeItem is null');
     }
   };
 
@@ -863,16 +823,13 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Freeze Warning Modal */}
-      {showFreezeWarning && pendingFreezeItem && (() => {
-        console.log('🎨 Rendering FreezeWarningModal - showFreezeWarning:', showFreezeWarning, 'pendingFreezeItem:', pendingFreezeItem);
-        return (
-          <FreezeWarningModal
-            itemName={pendingFreezeItem.name}
-            onDismiss={handleDismissFreezeWarning}
-            onProceed={handleProceedWithFreeze}
-          />
-        );
-      })()}
+      {showFreezeWarning && pendingFreezeItem && (
+        <FreezeWarningModal
+          itemName={pendingFreezeItem.name}
+          onDismiss={handleDismissFreezeWarning}
+          onProceed={handleProceedWithFreeze}
+        />
+      )}
     </>
   );
 };
@@ -885,7 +842,6 @@ interface FreezeWarningModalProps {
 }
 
 const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDismiss, onProceed }) => {
-  console.log('🎨 FreezeWarningModal rendering with itemName:', itemName);
   const [modalJustOpened, setModalJustOpened] = useState(true);
   
   // Prevent backdrop clicks immediately after modal opens
@@ -912,16 +868,12 @@ const FreezeWarningModal: React.FC<FreezeWarningModalProps> = ({ itemName, onDis
         zIndex: 99999
       }}
       onClick={(e) => {
-        // Prevent dismissal if modal just opened
         if (modalJustOpened) {
-          console.log('🔒 Backdrop click blocked - modal just opened');
           e.preventDefault();
           e.stopPropagation();
           return;
         }
-        // Only dismiss if clicking directly on backdrop (not child elements)
         if (e.target === e.currentTarget) {
-          console.log('✅ Backdrop clicked - dismissing modal');
           onDismiss();
         }
       }}

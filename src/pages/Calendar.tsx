@@ -39,7 +39,7 @@ interface CalendarEvent extends Event {
 
 const Calendar: React.FC = () => {
   const [user] = useAuthState(auth);
-  const { foodItems, loading } = useFoodItems(user || null);
+  const { foodItems, loading } = useFoodItems(user || null, { defer: 100 });
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -216,39 +216,7 @@ const Calendar: React.FC = () => {
         rowIndex++;
     });
 
-    // Debug: Log all events by status
     const bestBySoonEvents = allEvents.filter(e => e.resource.status === 'bestBySoon');
-    const pastBestByEvents = allEvents.filter(e => e.resource.status === 'pastBestBy');
-    
-    // Get current week range for visibility check
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-    const weekEnd = addDays(weekStart, 6);
-    
-    // Check which yellow events intersect with current week
-    const visibleYellowEvents = bestBySoonEvents.filter(e => {
-      if (!e.start || !e.end) return false;
-      const eventStart = new Date(e.start);
-      const eventEnd = new Date(e.end);
-      // Event is visible if it intersects with the week
-      return eventEnd >= weekStart && eventStart <= weekEnd;
-    });
-    
-    console.log('📅 Calendar events summary:', {
-      total: allEvents.length,
-      bestBySoon: bestBySoonEvents.length,
-      pastBestBy: pastBestByEvents.length,
-      visible_yellow: visibleYellowEvents.length,
-      currentView: currentView,
-      currentDate: currentDate.toISOString().split('T')[0],
-      weekRange: `${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`,
-      bestBySoon_details: bestBySoonEvents.map(e => ({
-        title: e.title,
-        start: e.start?.toISOString().split('T')[0],
-        end: e.end ? new Date(e.end).toISOString().split('T')[0] : 'undefined',
-        endTime: e.end ? new Date(e.end).toISOString() : 'undefined',
-        intersectsWeek: e.start && e.end && new Date(e.end) >= weekStart && new Date(e.start) <= weekEnd
-      }))
-    });
     
     // Verify: Ensure we have yellow events for all bestBySoon items
     const bestBySoonItems = sortedItems.filter(item => {
@@ -271,16 +239,6 @@ const Calendar: React.FC = () => {
 
   // Custom event style function
   const eventStyleGetter = (event: CalendarEvent) => {
-    // Debug: Log when eventStyleGetter is called for yellow events
-    if (event.resource.status === 'bestBySoon') {
-      console.log('🎨 eventStyleGetter called for yellow event:', {
-        title: event.title,
-        start: event.start?.toISOString(),
-        end: event.end?.toISOString(),
-        status: event.resource.status
-      });
-    }
-    
     // Use orange color for thaw dates, blue for freeze dates, otherwise use status color
     let color: string;
     if (event.resource.isThawDate) {
@@ -407,32 +365,8 @@ const Calendar: React.FC = () => {
       const bestByDay = startOfDay(bestByDate);
       // Only show items that haven't passed their best by/thaw date yet (date is today or in the future)
       const isNotPastBestBy = bestByDay >= today;
-      if (!isNotPastBestBy) {
-        const dateType = item.isFrozen ? 'thaw' : 'best by';
-        console.log(`🔴 Filtered out past best by item: ${item.name}, ${dateType}: ${bestByDay.toISOString().split('T')[0]}, today: ${today.toISOString().split('T')[0]}`);
-      }
       return isNotPastBestBy;
     });
-
-    // Debug: Log all items and their statuses
-    console.log('📋 All food items:', foodItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
-      return {
-        name: item.name,
-        isFrozen: item.isFrozen,
-        date: dateField,
-        status: item.isFrozen ? 'fresh' : getFoodItemStatus(new Date(dateField), 7)
-      };
-    }));
-    console.log('✅ Non-past best by items:', nonPastBestByItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
-      return {
-        name: item.name,
-        isFrozen: item.isFrozen,
-        date: dateField,
-        status: item.isFrozen ? 'fresh' : getFoodItemStatus(new Date(dateField), 7)
-      };
-    }));
 
     // Sort items by best by/thaw proximity (soonest first)
     const sortedItems = [...nonPastBestByItems].sort((a, b) => {
@@ -442,18 +376,6 @@ const Calendar: React.FC = () => {
       const daysUntilB = Math.ceil((dateB.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntilA - daysUntilB;
     });
-    
-    console.log('📊 Sorted items for rendering:', sortedItems.map(item => {
-      const dateField = item.isFrozen && item.thawDate ? item.thawDate : (item.bestByDate || new Date());
-      const date = new Date(dateField);
-      return {
-        name: item.name,
-        isFrozen: item.isFrozen,
-        date: dateField,
-        status: item.isFrozen ? 'fresh' : getFoodItemStatus(date, 7),
-        daysUntil: Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      };
-    }));
 
     // Calculate which columns a date falls into
     const getColumnIndex = (date: Date): number | null => {

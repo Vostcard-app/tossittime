@@ -24,7 +24,7 @@ const AddItem: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { foodItems } = useFoodItems(user || null);
+  const { foodItems } = useFoodItems(user || null, { defer: 100 });
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);

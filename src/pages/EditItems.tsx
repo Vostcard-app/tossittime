@@ -40,17 +40,14 @@ const EditItems: React.FC = () => {
       return;
     }
 
-    console.log('🔍 EditItems: Subscribing to user items for user:', user.uid);
     const unsubscribe = userItemsService.subscribeToUserItems(
       user.uid,
       (items) => {
-        console.log('📦 EditItems: Received user items:', items.length, items);
         setUserItems(items);
       }
     );
 
     return () => {
-      console.log('🔍 EditItems: Unsubscribing from user items');
       unsubscribe();
     };
   }, [user]);

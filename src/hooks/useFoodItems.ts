@@ -17,6 +17,7 @@ export const useFoodItems = (user: User | null, options?: UseFoodItemsOptions) =
   const [reminderDays, setReminderDays] = useState(7);
   const subscriptionFiredRef = useRef(false);
   const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reminderDaysRef = useRef(7);
 
   useEffect(() => {
     if (!user) {
@@ -26,8 +27,9 @@ export const useFoodItems = (user: User | null, options?: UseFoodItemsOptions) =
       return;
     }
 
-    // Reset subscription fired flag
+    // Reset subscription fired flag and reminder days ref
     subscriptionFiredRef.current = false;
+    reminderDaysRef.current = 7;
     let unsubscribe: (() => void) | null = null;
     const deferMs = options?.defer || 0;
 
@@ -41,115 +43,54 @@ export const useFoodItems = (user: User | null, options?: UseFoodItemsOptions) =
     }, MAX_LOADING_TIMEOUT);
     timeoutIdRef.current = forceLoadingTimeout;
 
+    const applyStatus = (items: FoodItem[]) => {
+      const currentReminderDays = reminderDaysRef.current;
+      return items.map(item => {
+        let bestByDate: Date | null = null;
+        if (item.bestByDate) {
+          if (item.bestByDate instanceof Date) {
+            bestByDate = item.bestByDate;
+          } else {
+            bestByDate = timestampToDate(item.bestByDate) || null;
+          }
+        }
+        return {
+          ...item,
+          status: item.isFrozen
+            ? 'fresh'
+            : (bestByDate instanceof Date
+                ? getFoodItemStatus(bestByDate, currentReminderDays)
+                : 'fresh')
+        };
+      });
+    };
+
     const setupSubscription = () => {
       try {
-        // Load user settings for reminder days
+        // Start settings and subscription in parallel (don't block subscription on settings)
         userSettingsService.getUserSettings(user.uid)
           .then(settings => {
             if (settings) {
+              reminderDaysRef.current = settings.reminderDays;
               setReminderDays(settings.reminderDays);
-            }
-            
-            // Subscribe to food items after settings are loaded
-            try {
-              unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
-                subscriptionFiredRef.current = true;
-                // Clear the timeout since subscription fired
-                if (timeoutIdRef.current) {
-                  clearTimeout(timeoutIdRef.current);
-                  timeoutIdRef.current = null;
-                }
-                
-                // Update status for each item based on current date
-                // Frozen items don't have expiration status, use 'fresh' as default
-                const currentReminderDays = settings?.reminderDays || 7;
-                const updatedItems = items.map(item => {
-                  // Ensure bestByDate is a Date before calling getFoodItemStatus
-                  let bestByDate: Date | null = null;
-                  if (item.bestByDate) {
-                    if (item.bestByDate instanceof Date) {
-                      bestByDate = item.bestByDate;
-                    } else {
-                      bestByDate = timestampToDate(item.bestByDate) || null;
-                    }
-                  }
-                  
-                  return {
-                    ...item,
-                    status: item.isFrozen 
-                      ? 'fresh' 
-                      : (bestByDate instanceof Date 
-                          ? getFoodItemStatus(bestByDate, currentReminderDays) 
-                          : 'fresh')
-                  };
-                });
-                setFoodItems(updatedItems);
-                setLoading(false);
-              });
-            } catch (subscriptionError) {
-              console.error('Error setting up food items subscription:', subscriptionError);
-              subscriptionFiredRef.current = true;
-              // Clear the timeout since we're handling the error
-              if (timeoutIdRef.current) {
-                clearTimeout(timeoutIdRef.current);
-                timeoutIdRef.current = null;
-              }
-              setFoodItems([]);
-              setLoading(false);
             }
           })
           .catch(error => {
             console.error('Error loading user settings:', error);
-            // Still try to subscribe to food items even if settings fail
-            try {
-              unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
-                subscriptionFiredRef.current = true;
-                // Clear the timeout since subscription fired
-                if (timeoutIdRef.current) {
-                  clearTimeout(timeoutIdRef.current);
-                  timeoutIdRef.current = null;
-                }
-                
-                // Frozen items don't have expiration status, use 'fresh' as default
-                const updatedItems = items.map(item => {
-                  // Ensure bestByDate is a Date before calling getFoodItemStatus
-                  let bestByDate: Date | null = null;
-                  if (item.bestByDate) {
-                    if (item.bestByDate instanceof Date) {
-                      bestByDate = item.bestByDate;
-                    } else {
-                      bestByDate = timestampToDate(item.bestByDate) || null;
-                    }
-                  }
-                  
-                  return {
-                    ...item,
-                    status: item.isFrozen 
-                      ? 'fresh' 
-                      : (bestByDate instanceof Date 
-                          ? getFoodItemStatus(bestByDate, 7) 
-                          : 'fresh') // Use default
-                  };
-                });
-                setFoodItems(updatedItems);
-                setLoading(false);
-              });
-            } catch (subscriptionError) {
-              console.error('Error setting up food items subscription (fallback):', subscriptionError);
-              subscriptionFiredRef.current = true;
-              // Clear the timeout since we're handling the error
-              if (timeoutIdRef.current) {
-                clearTimeout(timeoutIdRef.current);
-                timeoutIdRef.current = null;
-              }
-              setFoodItems([]);
-              setLoading(false);
-            }
           });
+
+        unsubscribe = foodItemService.subscribeToFoodItems(user.uid, (items) => {
+          subscriptionFiredRef.current = true;
+          if (timeoutIdRef.current) {
+            clearTimeout(timeoutIdRef.current);
+            timeoutIdRef.current = null;
+          }
+          setFoodItems(applyStatus(items));
+          setLoading(false);
+        });
       } catch (setupError) {
         console.error('Error in setupSubscription:', setupError);
         subscriptionFiredRef.current = true;
-        // Clear the timeout since we're handling the error
         if (timeoutIdRef.current) {
           clearTimeout(timeoutIdRef.current);
           timeoutIdRef.current = null;

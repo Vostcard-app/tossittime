@@ -10,7 +10,6 @@ import Banner from '../components/layout/Banner';
 import LabelScanner from '../components/features/LabelScanner';
 import { ShopListHeader } from '../components/shop/ShopListHeader';
 import { ShopListItem } from '../components/shop/ShopListItem';
-import { useFoodItems } from '../hooks/useFoodItems';
 import { analyticsService } from '../services/analyticsService';
 
 import { STORAGE_KEYS } from '../constants';
@@ -21,7 +20,6 @@ import { getFoodItemStatus } from '../utils/statusUtils';
 const Shop: React.FC = () => {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
-  const { foodItems } = useFoodItems(user || null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -63,7 +61,9 @@ const Shop: React.FC = () => {
         const settings = await userSettingsService.getUserSettings(user.uid);
         const loadedLastUsedId = settings?.lastUsedShoppingListId || null;
         const premiumStatus = settings?.isPremium === true;
-        console.log('⚙️ Settings loaded:', { lastUsedShoppingListId: loadedLastUsedId, settings });
+        if (import.meta.env.DEV) {
+          console.log('⚙️ Settings loaded:', { lastUsedShoppingListId: loadedLastUsedId, settings });
+        }
         lastUsedListIdRef.current = loadedLastUsedId;
         setIsPremium(premiumStatus);
       } catch (error) {
@@ -73,7 +73,9 @@ const Shop: React.FC = () => {
       } finally {
         setSettingsLoaded(true);
         settingsLoadedRef.current = true;
-        console.log('✅ Settings loading complete, settingsLoaded = true');
+        if (import.meta.env.DEV) {
+          console.log('✅ Settings loading complete, settingsLoaded = true');
+        }
       }
     };
 
@@ -112,7 +114,9 @@ const Shop: React.FC = () => {
     // Defer subscription to allow initial page render
     const timeoutId = setTimeout(() => {
       unsubscribeLists = shoppingListsService.subscribeToShoppingLists(user.uid, (lists: ShoppingList[]) => {
-        console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
+        if (import.meta.env.DEV) {
+          console.log('📦 Shopping lists updated:', lists.map(l => ({ id: l.id, name: l.name, isDefault: l.isDefault })));
+        }
         setShoppingLists(lists);
       });
     }, 150);
@@ -189,18 +193,6 @@ const Shop: React.FC = () => {
       if (unsubscribe) unsubscribe();
     };
   }, [user, selectedListId]);
-
-
-  // Debug: Log foodItems and shopping list items changes
-  useEffect(() => {
-    if (user) {
-      console.log('🍔 FoodItems in Shop:', {
-        count: foodItems.length,
-        items: foodItems.map(fi => fi.name),
-        shoppingListItems: shoppingListItems.map(sli => sli.name)
-      });
-    }
-  }, [foodItems, user, shoppingListItems]);
 
   // Separate items into active and crossed off based on crossedOff field
   const regularItems = useMemo(() => {
@@ -439,28 +431,28 @@ const Shop: React.FC = () => {
     try {
       const capitalizedName = capitalizeItemName(newItemName);
       await shoppingListService.addShoppingListItem(user.uid, listIdToUse, capitalizedName, false, undefined, undefined, 1);
-      
-      // Create/update UserItem to ensure item is in master list
-      try {
-        // Detect category using AI for Premium users, keyword matching for others
-        const category = await categoryService.detectCategoryWithAI(capitalizedName, user.uid);
-        
-        await userItemsService.createOrUpdateUserItem(user.uid, {
-          name: capitalizedName,
-          expirationLength: 7, // Default, can be edited later
-          category: category
-        });
-      } catch (userItemError) {
-        console.error('Error creating UserItem:', userItemError);
-        // Don't block the add if UserItem creation fails
-      }
-      
-      // Track engagement: shopping_list_item_added
-      await analyticsService.trackEngagement(user.uid, 'shopping_list_item_added', {
-        itemName: capitalizedName,
-      });
+
+      // Clear add field and dropdown immediately so user can add another item
       setNewItemName('');
       setShowDropdown(false);
+
+      // Run UserItem creation and analytics in background (do not block UI)
+      const uid = user.uid;
+      void (async () => {
+        try {
+          const category = await categoryService.detectCategoryWithAI(capitalizedName, uid);
+          await userItemsService.createOrUpdateUserItem(uid, {
+            name: capitalizedName,
+            expirationLength: 7,
+            category: category
+          });
+          await analyticsService.trackEngagement(uid, 'shopping_list_item_added', {
+            itemName: capitalizedName,
+          });
+        } catch (err) {
+          console.error('Background: UserItem/analytics after add item:', err);
+        }
+      })();
     } catch (error) {
       console.error('Error adding item to shopping list:', error);
       alert('Failed to add item. Please try again.');
